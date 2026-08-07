@@ -12,6 +12,8 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     private readonly List<(string Name, double Value, string Units)> _sets = new();
 
     public bool IsConnected { get; private set; }
+    /// <summary>Always false — events are not sent to MSFS.</summary>
+    public bool IsLive => false;
     public string StatusMessage { get; private set; } = "Not connected";
     public SimVarSnapshot Snapshot { get; } = new();
     public IReadOnlyList<(string Name, uint Data)> TransmittedEvents => _events;
@@ -21,7 +23,10 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     {
         // Offline mode: we "connect" to the recorder so the host pipeline can run.
         IsConnected = true;
-        StatusMessage = $"Offline/recording mode (app_name={appName}, config_index={configIndex}). No live SimConnect DLL.";
+        StatusMessage =
+            $"OFFLINE/recording mode (app_name={appName}, config_index={configIndex}). " +
+            "Events are NOT sent to MSFS — only logged.";
+        Console.WriteLine("[SimConnect] *** OFFLINE — sim will NOT receive gear/lights/etc. ***");
         return true;
     }
 
@@ -34,6 +39,7 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     public void TransmitEvent(string eventName, uint data = 0)
     {
         _events.Add((eventName, data));
+        Console.WriteLine($"[Event] {eventName} data={data} (OFFLINE — not sent to sim)");
     }
 
     public void SetSimVar(string name, double value, string units)

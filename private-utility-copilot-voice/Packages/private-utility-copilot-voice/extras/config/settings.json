@@ -9,7 +9,8 @@
     "wake_word": "Co Pilot",
     "ptt_key": "F12",
     "continuous_listen": false,
-    "confidence_threshold": 0.75
+    "confidence_threshold": 0.75,
+    "ptt_grace_ms": 3000
   },
   "tts": {
     "voice": "Microsoft David",

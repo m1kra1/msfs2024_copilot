@@ -59,5 +59,10 @@ reflect private character. Do not redistribute without your own review.
 TROUBLESHOOTING
 ---------------
 - Host console logs SimConnect connect/fail and recognized phrases.
-- Ensure MSFS is running before starting the host for live control.
+- Ensure MSFS is running (Free Flight) before starting the host for live control.
 - Unique SimConnect app name: PrivateCoPilotVoice
+- LIVE control requires SimConnect.dll next to CoPilotVoiceHost.exe (shipped in extras
+  when available). Console must show IsLive=True. If IsLive=False, voice works but
+  switches in the aircraft will NOT move.
+- PTT (default F12): hold while speaking; bare phrases are accepted for ptt_grace_ms
+  (default 3000) after you release the key. Wake word "Co Pilot" always works.

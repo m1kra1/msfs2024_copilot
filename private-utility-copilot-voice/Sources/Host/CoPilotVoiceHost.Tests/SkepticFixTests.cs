@@ -224,6 +224,36 @@ public class SkepticFixTests
     }
 
     [Fact]
+    public void PttArmService_ForceArm_Allows_Bare_Phrase_Via_Gate()
+    {
+        var arm = new PttArmService("F12", graceMs: 2000);
+        var gate = new SpeechInputGate(new SpeechSettings
+        {
+            ContinuousListen = false,
+            WakeWord = "Co Pilot",
+            PttKey = "F12",
+            PttGraceMs = 2000
+        });
+
+        Assert.False(gate.TryAccept("landing lights on", out _, out _));
+        arm.ForceArm();
+        gate.SetPtt(arm.IsArmed);
+        Assert.True(arm.IsArmed);
+        Assert.True(gate.TryAccept("landing lights on", out _, out _));
+    }
+
+    [Fact]
+    public void NativeSimConnect_SearchDirs_Include_AppBase()
+    {
+        var dirs = NativeSimConnectClient.EnumerateSearchDirs().ToList();
+        Assert.NotEmpty(dirs);
+        Assert.Contains(dirs, d => d.Equals(AppContext.BaseDirectory.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
+                                   || AppContext.BaseDirectory.StartsWith(d, StringComparison.OrdinalIgnoreCase)
+                                   || d.StartsWith(AppContext.BaseDirectory.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)
+                                   || Directory.Exists(d));
+    }
+
+    [Fact]
     public void Host_Inject_Bare_Phrase_Rejected_By_Gate()
     {
         var root = FindConfigRoot();
@@ -280,6 +310,7 @@ public class SkepticFixTests
         public TimelineRecordingClient(List<(string Step, long Ticks)> timeline) => _timeline = timeline;
 
         public bool IsConnected { get; private set; }
+        public bool IsLive => IsConnected;
         public string StatusMessage { get; private set; } = "";
         public SimVarSnapshot Snapshot { get; } = new();
 

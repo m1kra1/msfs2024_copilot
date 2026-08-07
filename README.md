@@ -53,7 +53,10 @@ run_copilot.bat   →  CoPilotVoiceHost.exe (voice + SimConnect)
 
    or start `CoPilotVoiceHost.exe` directly.
 
-Host console logs config load, SimConnect status, recognized phrases, and transmitted events.
+5. Check the host console: **`IsLive=True`**. If `IsLive=False`, speech still works but **nothing in the aircraft will move**.  
+   Ensure Free Flight is running and `SimConnect.dll` sits next to `CoPilotVoiceHost.exe` (included under `extras` when packaged).
+
+Host console logs config load, SimConnect status, recognized phrases, and transmitted events (`[SimConnect] LIVE event sent: …`).
 
 ---
 
@@ -65,10 +68,12 @@ Default settings (`config/settings.json`):
 |---------|---------|
 | Wake word | `Co Pilot` |
 | PTT key | `F12` |
-| Continuous listen | `false` (wake word **or** hold PTT required) |
+| Continuous listen | `false` (wake word **or** PTT required) |
+| PTT grace | `ptt_grace_ms` = 3000 (bare phrases OK for 3s after releasing PTT) |
 | Confidence threshold | `0.75` |
 | TTS voice | Microsoft David (if installed) |
 | Gear-up gate | Positive climb required (`require_positive_climb_for_gear_up`) |
+| Live SimConnect | Requires `SimConnect.dll` next to the EXE; console must show **`IsLive=True`** |
 
 **Examples**
 

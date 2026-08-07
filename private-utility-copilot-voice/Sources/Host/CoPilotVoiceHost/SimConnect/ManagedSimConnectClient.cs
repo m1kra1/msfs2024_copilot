@@ -20,6 +20,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     private bool _disposed;
 
     public bool IsConnected { get; private set; }
+    public bool IsLive => IsConnected && _simConnect is not null;
     public string StatusMessage { get; private set; } = "Not connected";
     public SimVarSnapshot Snapshot { get; } = new();
 
@@ -522,15 +523,88 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
 
 public static class SimConnectClientFactory
 {
+    /// <summary>
+    /// Prefer managed wrapper, then native P/Invoke SimConnect.dll, then offline recording.
+    /// Interactive runs should call Connect and treat !IsLive as a real problem.
+    /// </summary>
     public static ISimConnectClient Create(bool preferOffline = false)
     {
-        if (!preferOffline && ManagedSimConnectClient.TryCreate(out var managed, out var reason))
+        if (preferOffline)
         {
-            Console.WriteLine($"[SimConnect] {reason}");
+            Console.WriteLine("[SimConnect] Forced offline (--offline).");
+            return new RecordingSimConnectClient();
+        }
+
+        if (ManagedSimConnectClient.TryCreate(out var managed, out var reason))
+        {
+            Console.WriteLine($"[SimConnect] Managed path available: {reason}");
             return managed!;
         }
 
-        Console.WriteLine("[SimConnect] Using recording/offline client (Managed SimConnect unavailable or forced offline).");
-        return new RecordingSimConnectClient();
+        Console.WriteLine($"[SimConnect] Managed wrapper unavailable: {reason}");
+        Console.WriteLine("[SimConnect] Trying native SimConnect.dll (P/Invoke)...");
+        return new NativeSimConnectClient();
+    }
+
+    /// <summary>
+    /// Create and connect. Falls back to offline recording only when open fails and allowOfflineFallback is true.
+    /// </summary>
+    public static ISimConnectClient CreateAndConnect(
+        string appName,
+        int configIndex,
+        bool preferOffline,
+        bool allowOfflineFallback,
+        out bool live)
+    {
+        if (preferOffline)
+        {
+            var offline = new RecordingSimConnectClient();
+            offline.Connect(appName, configIndex);
+            live = false;
+            return offline;
+        }
+
+        // 1) Managed
+        if (ManagedSimConnectClient.TryCreate(out var managed, out var mReason))
+        {
+            Console.WriteLine($"[SimConnect] {mReason}");
+            if (managed!.Connect(appName, configIndex))
+            {
+                live = true;
+                return managed;
+            }
+
+            Console.WriteLine($"[SimConnect] Managed connect failed: {managed.StatusMessage}");
+            managed.Dispose();
+        }
+        else
+        {
+            Console.WriteLine($"[SimConnect] Managed not available: {mReason}");
+        }
+
+        // 2) Native P/Invoke
+        var native = new NativeSimConnectClient();
+        if (native.Connect(appName, configIndex))
+        {
+            live = true;
+            return native;
+        }
+
+        Console.WriteLine($"[SimConnect] Native connect failed: {native.StatusMessage}");
+        native.Dispose();
+
+        if (!allowOfflineFallback)
+        {
+            // Return a disconnected native client so host can retry / show status
+            live = false;
+            var stub = new NativeSimConnectClient();
+            return stub;
+        }
+
+        Console.WriteLine("[SimConnect] *** FALLBACK OFFLINE — voice works, sim events will NOT fire ***");
+        var rec = new RecordingSimConnectClient();
+        rec.Connect(appName, configIndex);
+        live = false;
+        return rec;
     }
 }

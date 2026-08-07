@@ -19,6 +19,7 @@
   <!-- Copy default config next to the EXE for local runs from source tree -->
   <ItemGroup>
     <None Include="..\..\..\PackageSources\extras\config\**\*.json" Link="config\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\PackageSources\extras\SimConnect.dll" Link="SimConnect.dll" CopyToOutputDirectory="PreserveNewest" Condition="Exists('..\..\..\PackageSources\extras\SimConnect.dll')" />
   </ItemGroup>
 
 </Project>

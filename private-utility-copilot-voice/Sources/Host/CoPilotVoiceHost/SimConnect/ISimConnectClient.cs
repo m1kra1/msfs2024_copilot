@@ -5,6 +5,10 @@ namespace CoPilotVoiceHost.SimConnect;
 public interface ISimConnectClient : IDisposable
 {
     bool IsConnected { get; }
+
+    /// <summary>True when events actually go to MSFS (not offline recording).</summary>
+    bool IsLive { get; }
+
     string StatusMessage { get; }
 
     /// <summary>Open SimConnect with unique app name. Returns false if sim not available.</summary>

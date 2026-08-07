@@ -48,6 +48,13 @@ public sealed class SpeechSettings
 
     [JsonPropertyName("confidence_threshold")]
     public double ConfidenceThreshold { get; set; } = 0.75;
+
+    /// <summary>
+    /// After PTT key release, keep accepting bare phrases for this many ms
+    /// so recognition can complete after the key is up.
+    /// </summary>
+    [JsonPropertyName("ptt_grace_ms")]
+    public int PttGraceMs { get; set; } = 3000;
 }
 
 public sealed class TtsSettings
