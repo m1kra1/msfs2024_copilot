@@ -1,0 +1,1 @@
+The SimConnect binaries in this folder are distributed as part of the Microsoft Flight Simulator 2020 SDK version 0.24.3.0 release.

@@ -78,17 +78,38 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
                 return false;
             }
 
+            // Ensure client cfg is next to the process (managed wrapper reads SimConnect.cfg like native).
+            NativeSimConnectClient.EnsureClientConfigFiles();
+            try { Directory.SetCurrentDirectory(AppContext.BaseDirectory); } catch { /* ignore */ }
+
             var parameters = ctor.GetParameters();
             var args = new object?[parameters.Length];
             args[0] = appName;
             args[1] = IntPtr.Zero;
-            args[2] = (uint)0x0402;
+            // WM_USER_SIMCONNECT — must match parameter type exactly (uint vs int)
+            if (parameters.Length > 2)
+            {
+                if (parameters[2].ParameterType == typeof(uint))
+                    args[2] = 0x0402u;
+                else if (parameters[2].ParameterType == typeof(int))
+                    args[2] = 0x0402;
+                else
+                    args[2] = Convert.ChangeType(0x0402, parameters[2].ParameterType);
+            }
+
             for (var i = 3; i < parameters.Length; i++)
             {
-                if (parameters[i].ParameterType == typeof(uint) || parameters[i].ParameterType == typeof(int))
+                var pt = parameters[i].ParameterType;
+                if (pt == typeof(uint))
+                    args[i] = unchecked((uint)configIndex);
+                else if (pt == typeof(int))
                     args[i] = configIndex;
+                else if (pt == typeof(uint?))
+                    args[i] = unchecked((uint)configIndex);
+                else if (!pt.IsValueType || Nullable.GetUnderlyingType(pt) != null)
+                    args[i] = null;
                 else
-                    args[i] = null!;
+                    args[i] = Activator.CreateInstance(pt);
             }
 
             _simConnect = ctor.Invoke(args);
@@ -495,7 +516,11 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             // continue path search
         }
 
-        var candidates = new List<string>();
+        var candidates = new List<string>
+        {
+            Path.Combine(AppContext.BaseDirectory, "Microsoft.FlightSimulator.SimConnect.dll")
+        };
+
         var env = Environment.GetEnvironmentVariable("MSFS_SDK");
         if (!string.IsNullOrEmpty(env))
         {
@@ -504,6 +529,8 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
 
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         candidates.Add(Path.Combine(programFiles, "Microsoft Flight Simulator 2024 SDK", "SimConnect SDK", "lib", "managed", "Microsoft.FlightSimulator.SimConnect.dll"));
+        candidates.Add(@"C:\MSFS 2024 SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll");
+        candidates.Add(@"C:\MSFS SDK\SimConnect SDK\lib\managed\Microsoft.FlightSimulator.SimConnect.dll");
 
         foreach (var path in candidates.Where(File.Exists))
         {

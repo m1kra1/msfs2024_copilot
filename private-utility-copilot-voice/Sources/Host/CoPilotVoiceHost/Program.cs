@@ -40,6 +40,16 @@ public static class Program
             return 1;
         }
 
+        // SimConnect.cfg is resolved from the process directory — always run from the EXE folder.
+        try
+        {
+            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+        }
+        catch
+        {
+            // ignore
+        }
+
         Console.WriteLine($"[Config] Root: {configRoot}");
         var (settings, catalog) = ConfigLoader.LoadAll(configRoot, options.Profile);
         Console.WriteLine($"[Config] Commands loaded: {catalog.Commands.Count}");

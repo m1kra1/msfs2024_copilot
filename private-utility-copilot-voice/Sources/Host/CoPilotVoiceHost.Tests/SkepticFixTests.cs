@@ -254,6 +254,39 @@ public class SkepticFixTests
     }
 
     [Fact]
+    public void IsCompatibleMsfsClientDll_Rejects_FlightSimWorld_Markers()
+    {
+        // Synthetic: write a tiny fake that contains FSW marker
+        var path = Path.Combine(Path.GetTempPath(), "fake-fsw-simconnect-" + Guid.NewGuid().ToString("N") + ".dll");
+        try
+        {
+            File.WriteAllText(path, "Dovetail Games Flight Sim World SimConnect");
+            Assert.False(NativeSimConnectClient.IsCompatibleMsfsClientDll(path, out var reason));
+            Assert.Contains("Dovetail", reason, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { File.Delete(path); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void Packaged_SimConnect_Dll_Is_Msfs_Compatible_When_Present()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 10 && dir != null; i++, dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "PackageSources", "extras", "SimConnect.dll");
+            if (!File.Exists(candidate)) continue;
+            Assert.True(NativeSimConnectClient.IsCompatibleMsfsClientDll(candidate, out var reason),
+                $"Packaged SimConnect.dll must be MSFS client, not FSW. Reason: {reason}");
+            return;
+        }
+        // If not present in tree, skip without failing CI-less clones
+        Assert.True(true);
+    }
+
+    [Fact]
     public void Host_Inject_Bare_Phrase_Rejected_By_Gate()
     {
         var root = FindConfigRoot();

@@ -1,12 +1,13 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using CoPilotVoiceHost.Models;
 
 namespace CoPilotVoiceHost.SimConnect;
 
 /// <summary>
-/// Native P/Invoke SimConnect client (no managed Microsoft.FlightSimulator.SimConnect.dll required).
-/// Loads SimConnect.dll from app dir or known MSFS/Addon paths, maps events, transmits to user aircraft.
-/// Pattern proven in FRFE NativeSimConnect for this machine.
+/// Native P/Invoke SimConnect client for MSFS 2020/2024.
+/// Requires a real Microsoft SimConnect.dll (not FSX/FSW third-party copies) next to the EXE
+/// plus SimConnect.cfg matching the sim's local server (typically IPv4 127.0.0.1:500).
 /// </summary>
 public sealed class NativeSimConnectClient : ISimConnectClient
 {
@@ -15,7 +16,7 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private volatile bool _run;
     private bool _disposed;
     private readonly Dictionary<string, uint> _eventMap = new(StringComparer.OrdinalIgnoreCase);
-    private uint _nextEventId = 0xC0030001; // PRIVATE_COPILOT event base
+    private uint _nextEventId = 0xC0030001;
     private bool _defsRegistered;
 
     private const uint DEFINITION_STATUS = 0xC0010001;
@@ -29,6 +30,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private const uint RECV_SIMOBJECT_DATA = 8;
     private const uint GROUP_PRIORITY_HIGHEST = 1;
     private const uint EVENT_FLAG_DEFAULT = 0;
+    /// <summary>SIMCONNECT_OPEN_CONFIGINDEX_LOCAL — use local sim without remote cfg.</summary>
+    private const uint CONFIGINDEX_LOCAL = 0xFFFFFFFFu;
 
     public bool IsConnected => _h != IntPtr.Zero;
     public bool IsLive => IsConnected;
@@ -40,36 +43,72 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         if (IsConnected) return true;
         try
         {
-            if (!TryLoadNativeDll(out var loadedFrom))
+            EnsureClientConfigFiles();
+            // SimConnect resolves SimConnect.cfg relative to CWD and EXE dir — pin CWD to EXE.
+            try
             {
-                StatusMessage =
-                    "SimConnect.dll not found. Place it next to CoPilotVoiceHost.exe " +
-                    "(from MSFS SDK redistributable or a known client folder).";
+                Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+                Console.WriteLine($"[SimConnect] CWD={Directory.GetCurrentDirectory()}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SimConnect] Could not set CWD: {ex.Message}");
+            }
+
+            if (!TryLoadNativeDll(out var loadedFrom, out var loadDetail))
+            {
+                StatusMessage = loadDetail;
                 return false;
             }
 
-            var hr = SimConnect_Open(out _h, appName, IntPtr.Zero, 0, IntPtr.Zero, (uint)configIndex);
-            if (hr < 0 || _h == IntPtr.Zero)
-            {
-                StatusMessage = $"SimConnect_Open failed HRESULT=0x{hr:X8} (is MSFS Free Flight running?)";
-                _h = IntPtr.Zero;
-                return false;
-            }
+            Console.WriteLine($"[SimConnect] Loaded native DLL: {loadedFrom}");
 
-            MapAllStandardEvents();
-            RegisterStatusDefinitions();
-            RequestStatusData();
-
-            _run = true;
-            _dispatchThread = new Thread(DispatchLoop)
+            // Try several config indices — wrong index or wrong/missing cfg causes E_FAIL (0x80004005).
+            var attempts = new (string Label, uint Index)[]
             {
-                IsBackground = true,
-                Name = "PrivateCoPilot-SimConnect"
+                ("settings.config_index", unchecked((uint)configIndex)),
+                ("cfg section [SimConnect] (IPv4:500)", 0u),
+                ("SIMCONNECT_OPEN_CONFIGINDEX_LOCAL", CONFIGINDEX_LOCAL),
+                ("cfg [SimConnect.1] Pipe", 1u),
+                ("cfg [SimConnect.2] IPv6:501", 2u),
+                ("cfg [SimConnect.3] Auto", 3u)
             };
-            _dispatchThread.Start();
 
-            StatusMessage = $"Native SimConnect LIVE (dll={loadedFrom}, app={appName}). Events will reach the sim.";
-            return true;
+            var errors = new List<string>();
+            foreach (var (label, index) in attempts.DistinctBy(a => a.Index))
+            {
+                var hr = SimConnect_Open(out _h, appName, IntPtr.Zero, 0, IntPtr.Zero, index);
+                if (hr >= 0 && _h != IntPtr.Zero)
+                {
+                    Console.WriteLine($"[SimConnect] Open OK via {label} (index=0x{index:X8})");
+                    MapAllStandardEvents();
+                    RegisterStatusDefinitions();
+                    RequestStatusData();
+
+                    _run = true;
+                    _dispatchThread = new Thread(DispatchLoop)
+                    {
+                        IsBackground = true,
+                        Name = "PrivateCoPilot-SimConnect"
+                    };
+                    _dispatchThread.Start();
+
+                    StatusMessage =
+                        $"Native SimConnect LIVE (dll={Path.GetFileName(loadedFrom)}, open={label}, app={appName}).";
+                    return true;
+                }
+
+                var msg = $"{label} → HRESULT=0x{unchecked((uint)hr):X8}";
+                errors.Add(msg);
+                Console.WriteLine($"[SimConnect] Open failed: {msg}");
+                _h = IntPtr.Zero;
+            }
+
+            StatusMessage =
+                "SimConnect_Open failed all strategies. " +
+                "Need MSFS Free Flight running + Microsoft SimConnect.dll (not FSW/FSX) + SimConnect.cfg. " +
+                "Details: " + string.Join("; ", errors);
+            return false;
         }
         catch (DllNotFoundException)
         {
@@ -129,7 +168,7 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
     public void ReceiveMessage()
     {
-        // Dispatch thread owns GetNextDispatch; nothing to do on UI timer.
+        // Dispatch thread owns GetNextDispatch.
     }
 
     public void Dispose()
@@ -164,7 +203,7 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             }
             catch
             {
-                // optional vars
+                // optional
             }
         }
         _defsRegistered = true;
@@ -215,7 +254,6 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
         if (dwId == RECV_EXCEPTION)
         {
-            // dwException at offset 12 typically
             var ex = Marshal.ReadInt32(pData, 12);
             Console.WriteLine($"[SimConnect] RECV_EXCEPTION code={ex}");
             return;
@@ -238,37 +276,148 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         StatusSnapshotMapper.Apply(Snapshot, values);
     }
 
-    /// <summary>Locate and load native SimConnect.dll. Returns path used.</summary>
+    /// <summary>
+    /// Write SimConnect.cfg next to the EXE if missing (IPv4 127.0.0.1:500 matches default MSFS 2024 SimConnect.xml).
+    /// </summary>
+    public static void EnsureClientConfigFiles()
+    {
+        var dir = AppContext.BaseDirectory;
+        var cfgPath = Path.Combine(dir, "SimConnect.cfg");
+        if (!File.Exists(cfgPath))
+        {
+            File.WriteAllText(cfgPath, DefaultSimConnectCfg, Encoding.ASCII);
+            Console.WriteLine($"[SimConnect] Wrote default {cfgPath}");
+        }
+    }
+
     public static bool TryLoadNativeDll(out string loadedFrom)
+        => TryLoadNativeDll(out loadedFrom, out _);
+
+    public static bool TryLoadNativeDll(out string loadedFrom, out string detail)
     {
         loadedFrom = "";
+        detail = "";
+        var rejected = new List<string>();
+
         foreach (var dir in EnumerateSearchDirs())
         {
             var candidate = Path.Combine(dir, "SimConnect.dll");
             if (!File.Exists(candidate))
                 continue;
+
+            if (!IsCompatibleMsfsClientDll(candidate, out var whyNot))
+            {
+                rejected.Add($"{candidate}: {whyNot}");
+                Console.WriteLine($"[SimConnect] Skipping incompatible DLL: {candidate} ({whyNot})");
+                continue;
+            }
+
             try
             {
                 SetDllDirectory(dir);
+                // Also put cfg next to the DLL directory if host runs from elsewhere
+                var cfgBesideDll = Path.Combine(dir, "SimConnect.cfg");
+                if (!File.Exists(cfgBesideDll) && File.Exists(Path.Combine(AppContext.BaseDirectory, "SimConnect.cfg")))
+                {
+                    try { File.Copy(Path.Combine(AppContext.BaseDirectory, "SimConnect.cfg"), cfgBesideDll, overwrite: false); }
+                    catch { /* ignore */ }
+                }
+
                 NativeLibrary.Load(candidate);
                 loadedFrom = candidate;
+                detail = "OK";
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // try next
+                rejected.Add($"{candidate}: load error {ex.Message}");
             }
         }
 
-        // Also try default search (PATH / already loaded)
+        // Default loader path last (only if not already rejected as FSW in app dir)
         try
         {
-            NativeLibrary.Load("SimConnect.dll");
-            loadedFrom = "SimConnect.dll (system path)";
+            var appDll = Path.Combine(AppContext.BaseDirectory, "SimConnect.dll");
+            if (File.Exists(appDll) && IsCompatibleMsfsClientDll(appDll, out _))
+            {
+                NativeLibrary.Load("SimConnect.dll");
+                loadedFrom = "SimConnect.dll (system/app path)";
+                detail = "OK";
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            rejected.Add($"default load: {ex.Message}");
+        }
+
+        detail =
+            "No compatible Microsoft SimConnect.dll found. " +
+            "Rejected/missing: " + (rejected.Count > 0 ? string.Join(" | ", rejected) : "none") +
+            ". Place the MSFS SDK redistributable SimConnect.dll next to CoPilotVoiceHost.exe " +
+            "(must NOT be Flight Sim World / Dovetail).";
+        return false;
+    }
+
+    /// <summary>
+    /// Reject known-wrong third-party clients (e.g. Dovetail Flight Sim World) that return E_FAIL on Open.
+    /// </summary>
+    public static bool IsCompatibleMsfsClientDll(string path, out string reason)
+    {
+        reason = "";
+        try
+        {
+            var fi = new FileInfo(path);
+            if (!fi.Exists)
+            {
+                reason = "missing";
+                return false;
+            }
+
+            // Version resource
+            try
+            {
+                var vi = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+                var blob = $"{vi.ProductName}|{vi.CompanyName}|{vi.FileDescription}|{vi.InternalName}";
+                if (blob.Contains("Dovetail", StringComparison.OrdinalIgnoreCase)
+                    || blob.Contains("Flight Sim World", StringComparison.OrdinalIgnoreCase)
+                    || blob.Contains("RailSimulator", StringComparison.OrdinalIgnoreCase))
+                {
+                    reason = $"third-party client ({vi.ProductName} / {vi.CompanyName}) — not MSFS";
+                    return false;
+                }
+            }
+            catch
+            {
+                // continue with content scan
+            }
+
+            // Content markers
+            var bytes = File.ReadAllBytes(path);
+            var ascii = Encoding.ASCII.GetString(bytes);
+            if (ascii.Contains("Dovetail", StringComparison.Ordinal)
+                || ascii.Contains("Flight Sim World", StringComparison.Ordinal))
+            {
+                reason = "binary contains Flight Sim World / Dovetail markers";
+                return false;
+            }
+
+            // Prefer MSFS markers when present
+            if (ascii.Contains("KittyHawk", StringComparison.Ordinal)
+                || ascii.Contains("Microsoft Flight Simulator", StringComparison.Ordinal)
+                || ascii.Contains("SimConnect_Port_IPv4", StringComparison.Ordinal))
+            {
+                reason = "ok";
+                return true;
+            }
+
+            // Unknown but not FSW — allow attempt
+            reason = "ok (unmarked)";
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            reason = ex.Message;
             return false;
         }
     }
@@ -278,7 +427,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         var list = new List<string>();
         void Add(string? p)
         {
-            if (!string.IsNullOrWhiteSpace(p) && Directory.Exists(p) && !list.Contains(p, StringComparer.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(p) && Directory.Exists(p)
+                && !list.Contains(p, StringComparer.OrdinalIgnoreCase))
                 list.Add(p);
         }
 
@@ -288,23 +438,19 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         var env = Environment.GetEnvironmentVariable("MSFS_SDK");
         if (!string.IsNullOrEmpty(env))
         {
-            Add(Path.Combine(env, "SimConnect SDK", "lib", "static"));
             Add(Path.Combine(env, "SimConnect SDK", "lib"));
+            Add(Path.Combine(env, "SimConnect SDK", "lib", "static"));
             Add(Path.Combine(env, "SimConnect SDK", "lib", "x64"));
         }
 
-        Add(@"F:\Addon Manager\couatl");
-        Add(@"C:\Addon Manager\couatl");
-        Add(@"F:\SteamLibrary\steamapps\common\MSFS2024");
-        Add(@"C:\Program Files (x86)\Steam\steamapps\common\MSFS2024");
-        Add(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "Microsoft Flight Simulator 2024 SDK", "SimConnect SDK", "lib", "static"));
+        Add(@"C:\MSFS 2024 SDK\SimConnect SDK\lib");
+        Add(@"C:\MSFS SDK\SimConnect SDK\lib");
         Add(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             "Microsoft Flight Simulator 2024 SDK", "SimConnect SDK", "lib"));
 
-        // Steam libraryfolders — common extra roots
+        // Do NOT prefer Addon Manager\couatl (often FSW-era DLL).
+
         foreach (var steamRoot in new[]
                  {
                      @"F:\SteamLibrary\steamapps\common",
@@ -323,6 +469,35 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
         return list;
     }
+
+    private const string DefaultSimConnectCfg =
+        """
+        [SimConnect]
+        Protocol=IPv4
+        Address=127.0.0.1
+        Port=500
+        MaxReceiveSize=41088
+        DisableNagle=0
+
+        [SimConnect.1]
+        Protocol=Pipe
+        Address=localhost
+        Port=Custom\SimConnect
+        MaxReceiveSize=41088
+        DisableNagle=0
+
+        [SimConnect.2]
+        Protocol=IPv6
+        Address=::1
+        Port=501
+        MaxReceiveSize=41088
+        DisableNagle=0
+
+        [SimConnect.3]
+        Protocol=Auto
+        MaxReceiveSize=41088
+        DisableNagle=0
+        """;
 
     #region P/Invoke
 

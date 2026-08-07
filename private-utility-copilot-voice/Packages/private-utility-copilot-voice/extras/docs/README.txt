@@ -61,8 +61,10 @@ TROUBLESHOOTING
 - Host console logs SimConnect connect/fail and recognized phrases.
 - Ensure MSFS is running (Free Flight) before starting the host for live control.
 - Unique SimConnect app name: PrivateCoPilotVoice
-- LIVE control requires SimConnect.dll next to CoPilotVoiceHost.exe (shipped in extras
-  when available). Console must show IsLive=True. If IsLive=False, voice works but
-  switches in the aircraft will NOT move.
+- LIVE control requires a Microsoft MSFS SimConnect.dll (NOT Flight Sim World / Dovetail)
+  and SimConnect.cfg next to CoPilotVoiceHost.exe. Console must show IsLive=True.
+  If IsLive=False, voice works but switches will NOT move.
+  SimConnect.cfg must match the sim server (default IPv4 127.0.0.1 Port 500 —
+  see %APPDATA%\Microsoft Flight Simulator 2024\SimConnect.xml).
 - PTT (default F12): hold while speaking; bare phrases are accepted for ptt_grace_ms
   (default 3000) after you release the key. Wake word "Co Pilot" always works.
