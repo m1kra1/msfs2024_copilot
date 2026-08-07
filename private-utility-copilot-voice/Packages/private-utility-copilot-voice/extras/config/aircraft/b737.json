@@ -1,0 +1,17 @@
+{
+  "profile_id": "b737",
+  "title": "Boeing 737 family (profile stubs)",
+  "extends": "generic",
+  "commands": [
+    {
+      "id": "b737_n1_mode",
+      "phrases": ["n one mode", "n 1 mode", "engage n one"],
+      "response": "N1 mode.",
+      "actions": [
+        { "type": "event", "name": "AUTO_THROTTLE_TO_GA" }
+      ]
+    }
+  ],
+  "simvar_aliases": {},
+  "event_aliases": {}
+}

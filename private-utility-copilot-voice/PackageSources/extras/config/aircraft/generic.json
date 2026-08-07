@@ -1,0 +1,8 @@
+{
+  "profile_id": "generic",
+  "title": "Generic aircraft",
+  "extends": null,
+  "commands": [],
+  "simvar_aliases": {},
+  "event_aliases": {}
+}

@@ -1,0 +1,25 @@
+{
+  "simconnect": {
+    "app_name": "PrivateCoPilotVoice",
+    "config_index": 0
+  },
+  "speech": {
+    "engine": "Windows",
+    "culture": "en-US",
+    "wake_word": "Co Pilot",
+    "ptt_key": "F12",
+    "continuous_listen": false,
+    "confidence_threshold": 0.75
+  },
+  "tts": {
+    "voice": "Microsoft David",
+    "rate": 0,
+    "volume": 100
+  },
+  "behavior": {
+    "confirm_before_action": true,
+    "require_positive_climb_for_gear_up": true,
+    "callout_delay_ms": 400
+  },
+  "aircraft_profile": "generic"
+}

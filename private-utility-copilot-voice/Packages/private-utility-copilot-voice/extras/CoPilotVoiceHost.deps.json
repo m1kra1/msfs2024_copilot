@@ -1,0 +1,42 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0/win-x64",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {},
+    ".NETCoreApp,Version=v8.0/win-x64": {
+      "CoPilotVoiceHost/1.0.0": {
+        "dependencies": {
+          "System.Speech": "10.0.10"
+        },
+        "runtime": {
+          "CoPilotVoiceHost.dll": {}
+        }
+      },
+      "System.Speech/10.0.10": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/System.Speech.dll": {
+            "assemblyVersion": "10.0.0.10",
+            "fileVersion": "10.0.1026.32716"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "CoPilotVoiceHost/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.Speech/10.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-a6xJl9sq7UHVx2hfrrg1h1800d0dI1o8ETEQ5YxOiND/DG57B0cC+SRQKmVE/bKA7U0YwWXKdOfz5wG2x+UDCA==",
+      "path": "system.speech/10.0.10",
+      "hashPath": "system.speech.10.0.10.nupkg.sha512"
+    }
+  }
+}

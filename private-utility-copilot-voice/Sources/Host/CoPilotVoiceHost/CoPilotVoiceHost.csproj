@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CoPilotVoiceHost</RootNamespace>
+    <AssemblyName>CoPilotVoiceHost</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon />
+    <StartupObject>CoPilotVoiceHost.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Speech" Version="10.0.10" />
+  </ItemGroup>
+
+  <!-- Copy default config next to the EXE for local runs from source tree -->
+  <ItemGroup>
+    <None Include="..\..\..\PackageSources\extras\config\**\*.json" Link="config\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

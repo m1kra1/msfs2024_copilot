@@ -1,0 +1,84 @@
+﻿{
+    "content":  [
+                    {
+                        "path":  "manifest.json",
+                        "size":  331,
+                        "date":  "2026-08-07T00:13:01Z"
+                    },
+                    {
+                        "path":  "extras/CoPilotVoiceHost.deps.json",
+                        "size":  1115,
+                        "date":  "2026-08-07T00:21:00Z"
+                    },
+                    {
+                        "path":  "extras/CoPilotVoiceHost.dll",
+                        "size":  68096,
+                        "date":  "2026-08-07T00:21:00Z"
+                    },
+                    {
+                        "path":  "extras/CoPilotVoiceHost.exe",
+                        "size":  151552,
+                        "date":  "2026-08-07T00:21:00Z"
+                    },
+                    {
+                        "path":  "extras/CoPilotVoiceHost.pdb",
+                        "size":  27520,
+                        "date":  "2026-08-07T00:21:00Z"
+                    },
+                    {
+                        "path":  "extras/CoPilotVoiceHost.runtimeconfig.json",
+                        "size":  340,
+                        "date":  "2026-08-07T00:21:00Z"
+                    },
+                    {
+                        "path":  "extras/run_copilot.bat",
+                        "size":  313,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/System.Speech.dll",
+                        "size":  686416,
+                        "date":  "2026-06-26T19:50:58Z"
+                    },
+                    {
+                        "path":  "extras/config/base_commands.json",
+                        "size":  13273,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/config/settings.json",
+                        "size":  517,
+                        "date":  "2026-08-07T00:13:31Z"
+                    },
+                    {
+                        "path":  "extras/config/aircraft/a320.json",
+                        "size":  395,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/config/aircraft/b737.json",
+                        "size":  384,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/config/aircraft/generic.json",
+                        "size":  145,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/docs/README.txt",
+                        "size":  2487,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "extras/voices/copilot_en_us/PLACEHOLDER.txt",
+                        "size":  126,
+                        "date":  "2026-08-07T00:07:48Z"
+                    },
+                    {
+                        "path":  "modules/README_WASM.txt",
+                        "size":  417,
+                        "date":  "2026-08-07T00:06:41Z"
+                    }
+                ]
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Version="2" Name="private-utility-copilot-voice" FolderName="Packages" MetadataFolderName="PackageDefinitions">
+  <OutputDirectory>.</OutputDirectory>
+  <TemporaryOutputDirectory>_PackageInt</TemporaryOutputDirectory>
+  <Packages>
+    <Package>PackageDefinitions\private-utility-copilot-voice.xml</Package>
+  </Packages>
+</Project>

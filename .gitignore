@@ -1,0 +1,25 @@
+# Build outputs
+**/bin/
+**/obj/
+**/_PackageInt/
+**/.vs/
+**/*.user
+**/*.suo
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Local secrets / scratch
+*.log
+.env
+.env.*
+
+# Optional large local publish noise (keep PackageSources/extras host build intentional)
+# Uncomment if you do not want published host binaries in git:
+# private-utility-copilot-voice/PackageSources/extras/*.exe
+# private-utility-copilot-voice/PackageSources/extras/*.dll
+# private-utility-copilot-voice/PackageSources/extras/*.pdb

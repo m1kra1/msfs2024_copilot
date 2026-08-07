@@ -1,0 +1,2 @@
+Optional pre-recorded callout WAVs may be placed here.
+Default operation uses Windows TTS (see config/settings.json → tts).

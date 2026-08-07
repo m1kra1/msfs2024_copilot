@@ -1,0 +1,468 @@
+{
+  "commands": [
+    {
+      "id": "gear_up",
+      "phrases": [
+        "gear up",
+        "positive climb gear up",
+        "positive climb rate gear up",
+        "gear up please"
+      ],
+      "response": "Checked. Gear up.",
+      "reject_response": "Unable. Conditions not met for gear up.",
+      "conditions": [
+        { "simvar": "VERTICAL SPEED", "op": ">", "value": 100, "units": "feet per minute" },
+        { "simvar": "GEAR POSITION", "op": "==", "value": 1, "units": "percent over 100" }
+      ],
+      "actions": [
+        { "type": "event", "name": "GEAR_UP" }
+      ],
+      "require_positive_climb_flag": true
+    },
+    {
+      "id": "gear_down",
+      "phrases": ["gear down", "gear down please", "landing gear down"],
+      "response": "Checked. Gear down.",
+      "actions": [
+        { "type": "event", "name": "GEAR_DOWN" }
+      ]
+    },
+    {
+      "id": "landing_lights_on",
+      "phrases": ["landing lights on", "landing light on", "landing lights on please"],
+      "response": "Landing lights on.",
+      "actions": [
+        { "type": "event", "name": "LANDING_LIGHTS_ON" }
+      ]
+    },
+    {
+      "id": "landing_lights_off",
+      "phrases": ["landing lights off", "landing light off"],
+      "response": "Landing lights off.",
+      "actions": [
+        { "type": "event", "name": "LANDING_LIGHTS_OFF" }
+      ]
+    },
+    {
+      "id": "taxi_lights_on",
+      "phrases": ["taxi lights on", "taxi light on"],
+      "response": "Taxi lights on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_TAXI_LIGHTS" }
+      ]
+    },
+    {
+      "id": "taxi_lights_off",
+      "phrases": ["taxi lights off", "taxi light off"],
+      "response": "Taxi lights off.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_TAXI_LIGHTS" }
+      ]
+    },
+    {
+      "id": "strobe_lights_on",
+      "phrases": ["strobe lights on", "strobes on"],
+      "response": "Strobe lights on.",
+      "actions": [
+        { "type": "event", "name": "STROBES_ON" }
+      ]
+    },
+    {
+      "id": "strobe_lights_off",
+      "phrases": ["strobe lights off", "strobes off"],
+      "response": "Strobe lights off.",
+      "actions": [
+        { "type": "event", "name": "STROBES_OFF" }
+      ]
+    },
+    {
+      "id": "beacon_lights_on",
+      "phrases": ["beacon on", "beacon lights on"],
+      "response": "Beacon on.",
+      "actions": [
+        { "type": "event", "name": "BEACON_LIGHTS_ON" }
+      ]
+    },
+    {
+      "id": "beacon_lights_off",
+      "phrases": ["beacon off", "beacon lights off"],
+      "response": "Beacon off.",
+      "actions": [
+        { "type": "event", "name": "BEACON_LIGHTS_OFF" }
+      ]
+    },
+    {
+      "id": "nav_lights_on",
+      "phrases": ["nav lights on", "navigation lights on"],
+      "response": "Nav lights on.",
+      "actions": [
+        { "type": "event", "name": "NAV_LIGHTS_ON" }
+      ]
+    },
+    {
+      "id": "nav_lights_off",
+      "phrases": ["nav lights off", "navigation lights off"],
+      "response": "Nav lights off.",
+      "actions": [
+        { "type": "event", "name": "NAV_LIGHTS_OFF" }
+      ]
+    },
+    {
+      "id": "flaps_up",
+      "phrases": ["flaps up", "flaps zero", "flaps retract"],
+      "response": "Flaps up.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_UP" }
+      ]
+    },
+    {
+      "id": "flaps_down",
+      "phrases": ["flaps down", "flaps full"],
+      "response": "Flaps down.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_DOWN" }
+      ]
+    },
+    {
+      "id": "flaps_1",
+      "phrases": ["flaps one", "flaps one please", "set flaps one"],
+      "response": "Flaps one.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_1" }
+      ]
+    },
+    {
+      "id": "flaps_2",
+      "phrases": ["flaps two", "set flaps two"],
+      "response": "Flaps two.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_2" }
+      ]
+    },
+    {
+      "id": "flaps_3",
+      "phrases": ["flaps three", "set flaps three"],
+      "response": "Flaps three.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_3" }
+      ]
+    },
+    {
+      "id": "flaps_incr",
+      "phrases": ["flaps down one", "flaps increment"],
+      "response": "Flaps increment.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_INCR" }
+      ]
+    },
+    {
+      "id": "flaps_decr",
+      "phrases": ["flaps up one", "flaps decrement"],
+      "response": "Flaps decrement.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_DECR" }
+      ]
+    },
+    {
+      "id": "autopilot_on",
+      "phrases": ["autopilot on", "engage autopilot", "a p on", "auto pilot on"],
+      "response": "Autopilot on.",
+      "actions": [
+        { "type": "event", "name": "AUTOPILOT_ON" }
+      ]
+    },
+    {
+      "id": "autopilot_off",
+      "phrases": ["autopilot off", "disengage autopilot", "a p off", "auto pilot off"],
+      "response": "Autopilot off.",
+      "actions": [
+        { "type": "event", "name": "AUTOPILOT_OFF" }
+      ]
+    },
+    {
+      "id": "flight_director_on",
+      "phrases": ["flight director on", "f d on"],
+      "response": "Flight director on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" }
+      ]
+    },
+    {
+      "id": "flight_director_off",
+      "phrases": ["flight director off", "f d off"],
+      "response": "Flight director off.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" }
+      ]
+    },
+    {
+      "id": "ap_heading_hold",
+      "phrases": ["heading select", "heading hold", "h d g hold"],
+      "response": "Heading select.",
+      "actions": [
+        { "type": "event", "name": "AP_HDG_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "ap_altitude_hold",
+      "phrases": ["altitude hold", "a l t hold"],
+      "response": "Altitude hold.",
+      "actions": [
+        { "type": "event", "name": "AP_ALT_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "ap_speed_hold",
+      "phrases": ["speed hold", "speed select", "s p d hold"],
+      "response": "Speed hold.",
+      "actions": [
+        { "type": "event", "name": "AP_AIRSPEED_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "ap_vs_hold",
+      "phrases": ["vertical speed hold", "v s hold"],
+      "response": "Vertical speed hold.",
+      "actions": [
+        { "type": "event", "name": "AP_VS_HOLD" }
+      ]
+    },
+    {
+      "id": "ap_nav_mode",
+      "phrases": ["nav mode", "l nav", "lateral navigation"],
+      "response": "Nav mode.",
+      "actions": [
+        { "type": "event", "name": "AP_NAV1_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "ap_approach",
+      "phrases": ["approach mode", "approach arm", "loc approach"],
+      "response": "Approach mode.",
+      "actions": [
+        { "type": "event", "name": "AP_APR_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "ap_loc_hold",
+      "phrases": ["localizer", "loc mode"],
+      "response": "Localizer.",
+      "actions": [
+        { "type": "event", "name": "AP_LOC_HOLD_ON" }
+      ]
+    },
+    {
+      "id": "heading_bug_inc",
+      "phrases": ["heading up", "heading increase", "heading bug right"],
+      "response": "Heading increase.",
+      "actions": [
+        { "type": "event", "name": "HEADING_BUG_INC" }
+      ]
+    },
+    {
+      "id": "heading_bug_dec",
+      "phrases": ["heading down", "heading decrease", "heading bug left"],
+      "response": "Heading decrease.",
+      "actions": [
+        { "type": "event", "name": "HEADING_BUG_DEC" }
+      ]
+    },
+    {
+      "id": "ap_alt_var_inc",
+      "phrases": ["altitude up", "altitude increase"],
+      "response": "Altitude increase.",
+      "actions": [
+        { "type": "event", "name": "AP_ALT_VAR_INC" }
+      ]
+    },
+    {
+      "id": "ap_alt_var_dec",
+      "phrases": ["altitude down", "altitude decrease"],
+      "response": "Altitude decrease.",
+      "actions": [
+        { "type": "event", "name": "AP_ALT_VAR_DEC" }
+      ]
+    },
+    {
+      "id": "ap_spd_var_inc",
+      "phrases": ["speed up", "speed increase", "airspeed increase"],
+      "response": "Speed increase.",
+      "actions": [
+        { "type": "event", "name": "AP_SPD_VAR_INC" }
+      ]
+    },
+    {
+      "id": "ap_spd_var_dec",
+      "phrases": ["speed down", "speed decrease", "airspeed decrease"],
+      "response": "Speed decrease.",
+      "actions": [
+        { "type": "event", "name": "AP_SPD_VAR_DEC" }
+      ]
+    },
+    {
+      "id": "ap_vs_var_inc",
+      "phrases": ["vertical speed up", "v s increase"],
+      "response": "Vertical speed increase.",
+      "actions": [
+        { "type": "event", "name": "AP_VS_VAR_INC" }
+      ]
+    },
+    {
+      "id": "ap_vs_var_dec",
+      "phrases": ["vertical speed down", "v s decrease"],
+      "response": "Vertical speed decrease.",
+      "actions": [
+        { "type": "event", "name": "AP_VS_VAR_DEC" }
+      ]
+    },
+    {
+      "id": "anti_ice_on",
+      "phrases": ["anti ice on", "anti-ice on", "engine anti ice on", "wing anti ice on"],
+      "response": "Anti-ice on.",
+      "actions": [
+        { "type": "event", "name": "ANTI_ICE_ON" }
+      ]
+    },
+    {
+      "id": "anti_ice_off",
+      "phrases": ["anti ice off", "anti-ice off", "engine anti ice off", "wing anti ice off"],
+      "response": "Anti-ice off.",
+      "actions": [
+        { "type": "event", "name": "ANTI_ICE_OFF" }
+      ]
+    },
+    {
+      "id": "pitot_heat_on",
+      "phrases": ["pitot heat on", "pitot on"],
+      "response": "Pitot heat on.",
+      "actions": [
+        { "type": "event", "name": "PITOT_HEAT_ON" }
+      ]
+    },
+    {
+      "id": "pitot_heat_off",
+      "phrases": ["pitot heat off", "pitot off"],
+      "response": "Pitot heat off.",
+      "actions": [
+        { "type": "event", "name": "PITOT_HEAT_OFF" }
+      ]
+    },
+    {
+      "id": "parking_brake_on",
+      "phrases": ["parking brake set", "parking brake on", "set parking brake"],
+      "response": "Parking brake set.",
+      "actions": [
+        { "type": "event", "name": "PARKING_BRAKES" }
+      ]
+    },
+    {
+      "id": "parking_brake_off",
+      "phrases": ["parking brake release", "parking brake off", "release parking brake"],
+      "response": "Parking brake released.",
+      "actions": [
+        { "type": "event", "name": "PARKING_BRAKES" }
+      ]
+    },
+    {
+      "id": "spoilers_arm",
+      "phrases": ["speedbrake arm", "spoilers arm", "arm spoilers"],
+      "response": "Spoilers armed.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ARM_ON" }
+      ]
+    },
+    {
+      "id": "spoilers_disarm",
+      "phrases": ["speedbrake disarm", "spoilers disarm", "disarm spoilers"],
+      "response": "Spoilers disarmed.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ARM_OFF" }
+      ]
+    },
+    {
+      "id": "spoilers_on",
+      "phrases": ["speedbrake full", "spoilers full", "speed brakes out"],
+      "response": "Speedbrake full.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ON" }
+      ]
+    },
+    {
+      "id": "spoilers_off",
+      "phrases": ["speedbrake retract", "spoilers retract", "speed brakes in"],
+      "response": "Speedbrake retract.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_OFF" }
+      ]
+    },
+    {
+      "id": "apu_start",
+      "phrases": ["a p u start", "start a p u", "apu start"],
+      "response": "APU start.",
+      "actions": [
+        { "type": "event", "name": "APU_STARTER" }
+      ]
+    },
+    {
+      "id": "apu_off",
+      "phrases": ["a p u off", "apu off", "shut down a p u"],
+      "response": "APU off.",
+      "actions": [
+        { "type": "event", "name": "APU_OFF_SWITCH" }
+      ]
+    },
+    {
+      "id": "cabin_lights_on",
+      "phrases": ["cabin lights on", "panel lights on"],
+      "response": "Cabin lights on.",
+      "actions": [
+        { "type": "event", "name": "CABIN_LIGHTS_ON" }
+      ]
+    },
+    {
+      "id": "cabin_lights_off",
+      "phrases": ["cabin lights off", "panel lights off"],
+      "response": "Cabin lights off.",
+      "actions": [
+        { "type": "event", "name": "CABIN_LIGHTS_OFF" }
+      ]
+    },
+    {
+      "id": "wing_lights_on",
+      "phrases": ["wing lights on"],
+      "response": "Wing lights on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_WING_LIGHTS" }
+      ]
+    },
+    {
+      "id": "logo_lights_on",
+      "phrases": ["logo lights on", "logo light on"],
+      "response": "Logo lights on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_LOGO_LIGHTS" }
+      ]
+    },
+    {
+      "id": "checklist_before_start",
+      "phrases": ["before start checklist", "run before start"],
+      "response": "Before start checklist. Parking brake set. Fuel quantity checked. Beacon on.",
+      "actions": [],
+      "checklist": true
+    },
+    {
+      "id": "checklist_before_takeoff",
+      "phrases": ["before takeoff checklist", "run before takeoff"],
+      "response": "Before takeoff checklist. Flaps set. Trim set. Lights as required. Transponder on.",
+      "actions": [],
+      "checklist": true
+    },
+    {
+      "id": "checklist_after_landing",
+      "phrases": ["after landing checklist", "run after landing"],
+      "response": "After landing checklist. Flaps up. Spoilers retract. Landing lights off. Taxi lights on.",
+      "actions": [],
+      "checklist": true
+    }
+  ]
+}

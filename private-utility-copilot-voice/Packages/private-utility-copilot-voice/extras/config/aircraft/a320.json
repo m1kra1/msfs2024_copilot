@@ -1,0 +1,17 @@
+{
+  "profile_id": "a320",
+  "title": "Airbus A320 family (profile stubs)",
+  "extends": "generic",
+  "commands": [
+    {
+      "id": "a320_managed_speed",
+      "phrases": ["managed speed", "push speed"],
+      "response": "Managed speed.",
+      "actions": [
+        { "type": "event", "name": "AP_MANAGED_SPEED_IN_MACH_OFF" }
+      ]
+    }
+  ],
+  "simvar_aliases": {},
+  "event_aliases": {}
+}

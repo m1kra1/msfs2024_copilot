@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AssetPackage Name="private-utility-copilot-voice" Version="1.0.0">
+  <ItemSettings>
+    <ContentType>MISC</ContentType>
+    <Title>Private Voice Co-Pilot</Title>
+    <Manufacturer>Private</Manufacturer>
+    <Creator>Private</Creator>
+  </ItemSettings>
+  <Flags>
+    <VisibleInStore>false</VisibleInStore>
+    <CanBeReferenced>false</CanBeReferenced>
+  </Flags>
+  <PackageOrderHint>MISC_GENERAL</PackageOrderHint>
+  <AssetGroups>
+    <AssetGroup Name="modules">
+      <Type>Copy</Type>
+      <Flags>
+        <FSXCompatibility>false</FSXCompatibility>
+      </Flags>
+      <AssetDir>PackageSources\modules\</AssetDir>
+      <OutputDir>modules\</OutputDir>
+    </AssetGroup>
+    <AssetGroup Name="extras">
+      <Type>Copy</Type>
+      <Flags>
+        <FSXCompatibility>false</FSXCompatibility>
+      </Flags>
+      <AssetDir>PackageSources\extras\</AssetDir>
+      <OutputDir>extras\</OutputDir>
+    </AssetGroup>
+  </AssetGroups>
+</AssetPackage>
