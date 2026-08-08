@@ -11,7 +11,12 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
-- (nothing yet)
+### Added
+
+- **`FUTURE.md`** – Planung für kommende Anpassungen:
+  1. Fenix A320-Anpassung (aircraft-spezifische Events/LVars)
+  2. Anweisungsliste ausgeben (Sprachbefehl + Konsole/TTS)
+
 
 ---
 
