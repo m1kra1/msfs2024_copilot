@@ -31,6 +31,11 @@ Versioning follows package `package_version` where applicable.
 - **ComboBox readability:** FontSize 14, MinHeight 36, padding, high-contrast popup (dark panel + light text), clear hover/selected states, wrap/ellipsis for long items; editable text stays high-contrast.
 - App.xaml merges the theme dictionary; MainWindow spacing/hierarchy tightened for a calmer sim-side look.
 
+### Fixed
+
+- **Debug log scrollbars:** TextBox template binds `PART_ContentHost` scroll visibility via TemplateBinding (LogTextBox Auto works again).
+- **Horizontal ScrollBar height:** orientation-aware ScrollBar style (vertical width / horizontal height) so long NoWrap log lines keep usable bars.
+
 ---
 
 ## [1.2.0] - 2026-08-09

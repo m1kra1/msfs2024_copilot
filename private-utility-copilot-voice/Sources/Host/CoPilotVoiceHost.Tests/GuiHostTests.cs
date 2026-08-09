@@ -252,6 +252,65 @@ public class GuiHostTests
     }
 
     [Fact]
+    public void DarkCockpit_TextBox_Template_Honors_ScrollBarVisibility_Bindings()
+    {
+        // Regression: hardcoded Hidden on PART_ContentHost ignored LogTextBox Auto setters.
+        var path = FindHostFile("Themes", "DarkCockpit.xaml");
+        var xaml = File.ReadAllText(path);
+
+        // PART_ContentHost must TemplateBind scroll visibility (not hardcode Hidden)
+        Assert.Contains("PART_ContentHost", xaml);
+        var compact = System.Text.RegularExpressions.Regex.Replace(xaml, @"\s+", " ");
+        var partIdx = compact.IndexOf("x:Name=\"PART_ContentHost\"", StringComparison.Ordinal);
+        Assert.True(partIdx >= 0);
+        var snippet = compact.Substring(partIdx, Math.Min(350, compact.Length - partIdx));
+
+        Assert.Contains(
+            "HorizontalScrollBarVisibility=\"{TemplateBinding HorizontalScrollBarVisibility}\"",
+            snippet);
+        Assert.Contains(
+            "VerticalScrollBarVisibility=\"{TemplateBinding VerticalScrollBarVisibility}\"",
+            snippet);
+        // Must not hardcode Hidden on the content host itself
+        Assert.DoesNotContain("HorizontalScrollBarVisibility=\"Hidden\"", snippet);
+        Assert.DoesNotContain("VerticalScrollBarVisibility=\"Hidden\"", snippet);
+
+        // LogTextBox must still request Auto bars
+        var logIdx = xaml.IndexOf("x:Key=\"LogTextBox\"", StringComparison.Ordinal);
+        Assert.True(logIdx >= 0);
+        var logSection = xaml.Substring(logIdx, Math.Min(700, xaml.Length - logIdx));
+        Assert.Contains("HorizontalScrollBarVisibility", logSection);
+        Assert.Contains("VerticalScrollBarVisibility", logSection);
+        Assert.Contains("Auto", logSection);
+    }
+
+    [Fact]
+    public void DarkCockpit_ScrollBar_Style_Is_Orientation_Aware()
+    {
+        // Regression: Width=10 on all ScrollBars collapsed horizontal bars to ~10px.
+        var path = FindHostFile("Themes", "DarkCockpit.xaml");
+        var xaml = File.ReadAllText(path);
+
+        var sbIdx = xaml.IndexOf("TargetType=\"ScrollBar\"", StringComparison.Ordinal);
+        Assert.True(sbIdx >= 0, "ScrollBar style must exist");
+        var section = xaml.Substring(sbIdx, Math.Min(900, xaml.Length - sbIdx));
+        // End section at next major style after ScrollBar block
+        var nextStyle = section.IndexOf("TargetType=\"GroupBox\"", StringComparison.Ordinal);
+        if (nextStyle > 0) section = section.Substring(0, nextStyle);
+
+        Assert.Contains("Orientation", section);
+        Assert.Contains("Vertical", section);
+        Assert.Contains("Horizontal", section);
+        Assert.Contains("Height", section);
+
+        // Must not only set Width without orientation trigger context for all bars
+        var compact = System.Text.RegularExpressions.Regex.Replace(section, @"\s+", " ");
+        // Forbidden pattern: bare Setter Width before any Orientation trigger when no Height for horizontal
+        Assert.Contains("Property=\"Orientation\" Value=\"Vertical\"", compact);
+        Assert.Contains("Property=\"Orientation\" Value=\"Horizontal\"", compact);
+    }
+
+    [Fact]
     public void DarkCockpit_Theme_Dictionary_Has_Readable_ComboBox_Styles()
     {
         var path = FindHostFile("Themes", "DarkCockpit.xaml");
