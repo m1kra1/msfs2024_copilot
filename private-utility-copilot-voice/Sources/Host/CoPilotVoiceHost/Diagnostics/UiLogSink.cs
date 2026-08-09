@@ -14,16 +14,26 @@ public readonly record struct LogEntry(DateTime Utc, LogLevel Level, string Mess
 
 /// <summary>
 /// Thread-safe log fan-out for console + UI. No WPF types.
+/// Bounded ring-style buffer: oldest entries drop when over capacity.
 /// </summary>
 public sealed class UiLogSink
 {
+    public const int DefaultMaxBuffered = 2000;
+
     private readonly ConcurrentQueue<LogEntry> _buffer = new();
     private readonly int _maxBuffered;
+    private int _approxCount;
 
-    public UiLogSink(int maxBuffered = 2000)
+    public UiLogSink(int maxBuffered = DefaultMaxBuffered)
     {
         _maxBuffered = Math.Max(100, maxBuffered);
     }
+
+    /// <summary>Maximum entries retained in the in-memory buffer (and recommended UI cap).</summary>
+    public int MaxBuffered => _maxBuffered;
+
+    /// <summary>Approximate buffered count (may briefly exceed MaxBuffered under concurrent writers).</summary>
+    public int Count => _approxCount;
 
     public event Action<LogEntry>? LineAppended;
 
@@ -31,7 +41,9 @@ public sealed class UiLogSink
     {
         var entry = new LogEntry(DateTime.UtcNow, level, message ?? string.Empty);
         _buffer.Enqueue(entry);
-        while (_buffer.Count > _maxBuffered && _buffer.TryDequeue(out _)) { }
+        var count = Interlocked.Increment(ref _approxCount);
+        while (count > _maxBuffered && _buffer.TryDequeue(out _))
+            count = Interlocked.Decrement(ref _approxCount);
 
         try
         {
@@ -62,5 +74,6 @@ public sealed class UiLogSink
     public void Clear()
     {
         while (_buffer.TryDequeue(out _)) { }
+        Interlocked.Exchange(ref _approxCount, 0);
     }
 }

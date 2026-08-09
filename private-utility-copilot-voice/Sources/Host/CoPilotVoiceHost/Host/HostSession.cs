@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using CoPilotVoiceHost.Config;
 using CoPilotVoiceHost.Core;
 using CoPilotVoiceHost.Diagnostics;
@@ -13,6 +14,12 @@ namespace CoPilotVoiceHost.Host;
 /// </summary>
 public sealed class HostSession : IDisposable
 {
+    /// <summary>Message-pump interval; keeps SimConnect ReceiveMessage responsive without busy SimVar polling.</summary>
+    private const int PollIntervalMs = 50;
+
+    /// <summary>Identity checks run every N poll ticks (~500 ms) — TITLE/ATC MODEL already update on SECOND period.</summary>
+    private const int IdentityPollEveryNTicks = 10;
+
     private readonly HostOptions _options;
     private readonly object _gateLock = new();
     private ISimConnectClient? _sim;
@@ -28,6 +35,7 @@ public sealed class HostSession : IDisposable
     private bool _disposed;
     private bool _micActive;
     private bool _speechListening;
+    private int _identityPollTick;
     /// <summary>Identity key last handled for auto profile switch (stamped only when auto can switch).</summary>
     private string _lastDetectedIdentityKey = "";
 
@@ -40,6 +48,15 @@ public sealed class HostSession : IDisposable
 
     private AircraftDetectionConfig _detectionConfig = new();
     private readonly object _detectLock = new();
+
+    /// <summary>Profile id last merged into <see cref="Catalog"/> (skips redundant disk re-merge on Apply).</summary>
+    private string _mergedCatalogProfile = "";
+
+    /// <summary>Last speech-grammar fingerprint that was loaded into the recognizer (or would be).</summary>
+    private string _activeSpeechGrammarKey = "";
+
+    /// <summary>Last pipeline services fingerprint (matcher/PTT/TTS/behavior).</summary>
+    private string _activePipelineServicesKey = "";
 
     /// <summary>
     /// When CLI --profile is set, auto profile switching is locked for the session.
@@ -116,7 +133,7 @@ public sealed class HostSession : IDisposable
         ReloadConfigInternal(reconnectSim: true, restartSpeech: false);
 
         Log.Info("Private Voice Co-Pilot Host session started");
-        Log.Info($"Package: private-utility-copilot-voice | App {ApplicationVersion} | Package {PackageVersion}");
+        Log.Info($"Package: {HostConstants.PackageName} | App {ApplicationVersion} | Package {PackageVersion}");
         Log.Info($"Config root: {ConfigRoot}");
     }
 
@@ -182,16 +199,10 @@ public sealed class HostSession : IDisposable
         try
         {
             _sim.Disconnect();
-            if (_sim.Connect(Settings.SimConnect.AppName, Settings.SimConnect.ConfigIndex))
-            {
-                LastSimError = null;
+            if (TryOpenSimConnection())
                 Log.Info($"[SimConnect] Reconnected: {_sim.StatusMessage}");
-            }
             else
-            {
-                LastSimError = _sim.StatusMessage;
                 Log.Warn($"[SimConnect] Reconnect failed: {_sim.StatusMessage}");
-            }
         }
         catch (Exception ex)
         {
@@ -220,7 +231,7 @@ public sealed class HostSession : IDisposable
     /// Apply UI edits into the live <see cref="Settings"/> object.
     /// When <paramref name="saveToDisk"/> is false, values stay in memory only (disk is not re-read).
     /// When <paramref name="rebuildCatalog"/> is true, base_commands + selected aircraft profile are re-merged
-    /// and the speech grammar is rebuilt if listening is active.
+    /// if the profile differs from the last merge; speech grammar restarts only when grammar inputs change.
     /// </summary>
     public void ApplySettingsFromUi(AppSettings edited, bool saveToDisk, bool rebuildCatalog = true)
     {
@@ -234,7 +245,7 @@ public sealed class HostSession : IDisposable
 
         if (saveToDisk)
         {
-            var path = Path.Combine(ConfigRoot, "settings.json");
+            var path = ConfigLoader.SettingsPath(ConfigRoot);
             ConfigLoader.SaveSettings(path, Settings);
             Log.Info($"[Settings] Saved to {path}");
         }
@@ -244,15 +255,17 @@ public sealed class HostSession : IDisposable
         }
 
         // Never call LoadAll() here — that would wipe in-memory Apply edits.
+        // Re-merge catalog only when profile changed (or never merged yet).
         if (rebuildCatalog)
-            RebuildCatalogFromCurrentSettings();
+        {
+            var profile = ActiveProfileName();
+            if (!string.Equals(profile, _mergedCatalogProfile, StringComparison.OrdinalIgnoreCase))
+                RebuildCatalogFromCurrentSettings();
+            else
+                Log.Info($"[Settings] Catalog unchanged (profile '{profile}').");
+        }
 
-        RebuildPipelineServices();
-
-        if (_speechListening)
-            StartSpeechListening();
-        else
-            Log.Info("[Settings] Pipeline rebuilt (speech not listening yet).");
+        RefreshPipelineAndSpeechIfNeeded(reason: "Settings");
 
         // false→true: identity may already be known while auto was off (key was not stamped).
         // Re-run detection so the matching profile applies without waiting for a new aircraft.
@@ -343,7 +356,7 @@ public sealed class HostSession : IDisposable
             var previous = Settings.AircraftProfile;
             Settings.AircraftProfile = matched;
             RebuildCatalogFromCurrentSettings();
-            RebuildPipelineServices();
+            RebuildPipelineServices(force: true);
             if (_speechListening)
                 StartSpeechListening();
 
@@ -379,17 +392,15 @@ public sealed class HostSession : IDisposable
     /// <summary>Loads base_commands.json from the active config root (working copy for the Commands UI).</summary>
     public CommandCatalog LoadBaseCommandsFromDisk()
     {
-        var path = Path.Combine(ConfigRoot, "base_commands.json");
+        var path = ConfigLoader.BaseCommandsPath(ConfigRoot);
         return ConfigLoader.CloneCatalog(ConfigLoader.LoadBaseCommands(path));
     }
 
     /// <summary>Loads the active aircraft profile from disk (working copy for the Commands UI).</summary>
     public AircraftProfile LoadActiveProfileFromDisk()
     {
-        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
-            ? "generic"
-            : Settings.AircraftProfile.Trim();
-        var path = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+        var profileName = ActiveProfileName();
+        var path = ConfigLoader.AircraftProfilePath(ConfigRoot, profileName);
         if (File.Exists(path))
             return ConfigLoader.CloneProfile(ConfigLoader.LoadAircraftProfile(path));
 
@@ -407,19 +418,17 @@ public sealed class HostSession : IDisposable
         if (profile is null)
             throw new ArgumentNullException(nameof(profile));
 
-        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
-            ? "generic"
-            : Settings.AircraftProfile.Trim();
+        var profileName = ActiveProfileName();
         if (string.IsNullOrWhiteSpace(profile.ProfileId))
             profile.ProfileId = profileName;
 
         if (saveToDisk)
         {
-            var basePath = Path.Combine(ConfigRoot, "base_commands.json");
+            var basePath = ConfigLoader.BaseCommandsPath(ConfigRoot);
             ConfigLoader.SaveBaseCommands(basePath, baseCatalog);
             Log.Info($"[Commands] Saved {basePath} ({baseCatalog.Commands.Count} commands)");
 
-            var profilePath = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+            var profilePath = ConfigLoader.AircraftProfilePath(ConfigRoot, profileName);
             Directory.CreateDirectory(Path.GetDirectoryName(profilePath)!);
             // Keep profile id aligned with active settings profile name for file mapping.
             profile.ProfileId = profileName;
@@ -434,9 +443,11 @@ public sealed class HostSession : IDisposable
 
         Catalog = ConfigLoader.Merge(baseCatalog, profile);
         CatalogRebuildCount++;
+        _mergedCatalogProfile = profileName;
         Log.Info($"[Config] Catalog rebuilt from UI sources: {Catalog.Commands.Count} commands (profile '{profileName}')");
 
-        RebuildPipelineServices();
+        // Command edits always change the phrase set — force pipeline + speech refresh.
+        RebuildPipelineServices(force: true);
         if (_speechListening)
             StartSpeechListening();
         else
@@ -450,10 +461,11 @@ public sealed class HostSession : IDisposable
         StopSpeechListening();
         _speechListening = true;
         SpeechStartCount++;
+        _identityPollTick = 0;
 
         // Ensure matcher/gate reflect current Settings before loading grammar
         if (_matcher is null || _gate is null)
-            RebuildPipelineServices();
+            RebuildPipelineServices(force: true);
 
         try
         {
@@ -492,6 +504,8 @@ public sealed class HostSession : IDisposable
             Log.Error($"[Speech] Start failed: {ex.Message}");
         }
 
+        StampActiveFingerprints();
+
         _pollTimer = new System.Threading.Timer(_ =>
         {
             try
@@ -501,12 +515,18 @@ public sealed class HostSession : IDisposable
                 var armed = _pttArm?.IsArmed == true || _pttArm?.IsKeyCurrentlyDown == true;
                 MicActive = armed;
 
-                // Low-rate aircraft identity: SimConnect already requests TITLE/ATC MODEL on SECOND period.
+                // TITLE/ATC MODEL already arrive on SECOND period — evaluate identity ~2 Hz, not every 50 ms.
                 if (_sim is not null && _sim.IsLive)
-                    ProcessAircraftIdentity(_sim.AircraftTitle, _sim.AtcModel);
+                {
+                    if (++_identityPollTick >= IdentityPollEveryNTicks)
+                    {
+                        _identityPollTick = 0;
+                        ProcessAircraftIdentity(_sim.AircraftTitle, _sim.AtcModel);
+                    }
+                }
             }
             catch { /* ignore */ }
-        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
+        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(PollIntervalMs));
 
         if (!_options.ForceOffline)
         {
@@ -530,10 +550,25 @@ public sealed class HostSession : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        StopSpeechListeningForShutdown();
-        _pttArm?.Dispose();
-        _tts?.Dispose();
-        _sim?.Dispose();
+        try
+        {
+            StopSpeechListeningForShutdown();
+        }
+        catch
+        {
+            // best-effort shutdown
+        }
+
+        try { _pttArm?.Dispose(); } catch { /* ignore */ }
+        _pttArm = null;
+        try { _tts?.Dispose(); } catch { /* ignore */ }
+        _tts = null;
+        try { _sim?.Dispose(); } catch { /* ignore */ }
+        _sim = null;
+        _executor = null;
+        _processor = null;
+        _matcher = null;
+        _gate = null;
     }
 
     private void StopSpeechListening()
@@ -625,16 +660,10 @@ public sealed class HostSession : IDisposable
         Log.Info("[SimConnect] Not connected — attempting open before action...");
         try
         {
-            if (_sim.Connect(Settings.SimConnect.AppName, Settings.SimConnect.ConfigIndex))
-            {
-                LastSimError = null;
+            if (TryOpenSimConnection())
                 Log.Info($"[SimConnect] {_sim.StatusMessage}");
-            }
             else
-            {
-                LastSimError = _sim.StatusMessage;
                 Log.Warn($"[SimConnect] Still not connected: {_sim.StatusMessage}");
-            }
         }
         catch (Exception ex)
         {
@@ -644,6 +673,27 @@ public sealed class HostSession : IDisposable
 
         StatusChanged?.Invoke();
     }
+
+    /// <summary>
+    /// Shared SimConnect open used by reconnect and pre-action connect.
+    /// Updates <see cref="LastSimError"/>; caller logs and raises StatusChanged as needed.
+    /// </summary>
+    private bool TryOpenSimConnection()
+    {
+        if (_sim is null)
+            return false;
+
+        if (_sim.Connect(Settings.SimConnect.AppName, Settings.SimConnect.ConfigIndex))
+        {
+            LastSimError = null;
+            return true;
+        }
+
+        LastSimError = _sim.StatusMessage;
+        return false;
+    }
+
+    private string ActiveProfileName() => HostConstants.NormalizeProfileId(Settings.AircraftProfile);
 
     private void LogResult(CommandResult result)
     {
@@ -699,7 +749,8 @@ public sealed class HostSession : IDisposable
         if (reconnectSim || _sim is null)
             ConnectSimClient();
 
-        RebuildPipelineServices();
+        _mergedCatalogProfile = ActiveProfileName();
+        RebuildPipelineServices(force: true);
 
         if (restartSpeech && _speechListening)
         {
@@ -708,6 +759,11 @@ public sealed class HostSession : IDisposable
         else if (restartSpeech)
         {
             Log.Info("[Config] Speech restart requested but listening was not active.");
+            StampActiveFingerprints();
+        }
+        else
+        {
+            StampActiveFingerprints();
         }
 
         StatusChanged?.Invoke();
@@ -719,12 +775,10 @@ public sealed class HostSession : IDisposable
     /// </summary>
     public void RebuildCatalogFromCurrentSettings()
     {
-        var basePath = Path.Combine(ConfigRoot, "base_commands.json");
+        var basePath = ConfigLoader.BaseCommandsPath(ConfigRoot);
         var baseCatalog = ConfigLoader.LoadBaseCommands(basePath);
-        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
-            ? "generic"
-            : Settings.AircraftProfile;
-        var profilePath = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+        var profileName = ActiveProfileName();
+        var profilePath = ConfigLoader.AircraftProfilePath(ConfigRoot, profileName);
         AircraftProfile profile;
         if (File.Exists(profilePath))
             profile = ConfigLoader.LoadAircraftProfile(profilePath);
@@ -733,27 +787,72 @@ public sealed class HostSession : IDisposable
 
         Catalog = ConfigLoader.Merge(baseCatalog, profile);
         CatalogRebuildCount++;
+        _mergedCatalogProfile = profileName;
         Log.Info($"[Config] Catalog rebuilt for profile '{profileName}': {Catalog.Commands.Count} commands");
     }
 
     private string EnsureProfileExists(string profileName)
     {
-        var name = string.IsNullOrWhiteSpace(profileName) ? "generic" : profileName.Trim();
-        var path = Path.Combine(ConfigRoot, "aircraft", $"{name}.json");
+        var name = HostConstants.NormalizeProfileId(profileName);
+        var path = ConfigLoader.AircraftProfilePath(ConfigRoot, name);
         if (File.Exists(path))
             return name;
 
-        var fallback = string.IsNullOrWhiteSpace(_detectionConfig.FallbackProfile)
-            ? "generic"
-            : _detectionConfig.FallbackProfile.Trim();
+        var fallback = HostConstants.NormalizeProfileId(_detectionConfig.FallbackProfile);
         Log.Warn($"[AircraftDetect] Profile '{name}' not found — using fallback '{fallback}'");
         return fallback;
     }
 
-    private void RebuildPipelineServices()
+    /// <summary>
+    /// Rebuild pipeline and/or restart speech only when fingerprints change.
+    /// Grammar restart is required for wake word, culture/engine, profile/phrase-set changes —
+    /// not for pure TTS/behavior/PTT-grace tweaks (pipeline-only).
+    /// </summary>
+    private void RefreshPipelineAndSpeechIfNeeded(string reason)
+    {
+        var speechKey = ComputeSpeechGrammarKey();
+        var pipelineKey = ComputePipelineServicesKey(speechKey);
+        var pipelineChanged = !string.Equals(pipelineKey, _activePipelineServicesKey, StringComparison.Ordinal);
+        var speechChanged = !string.Equals(speechKey, _activeSpeechGrammarKey, StringComparison.Ordinal);
+
+        if (pipelineChanged)
+            RebuildPipelineServices(force: true);
+        else
+            Log.Info($"[{reason}] Pipeline services unchanged — skip rebuild.");
+
+        if (_speechListening && speechChanged)
+        {
+            StartSpeechListening();
+        }
+        else if (_speechListening)
+        {
+            Log.Info($"[{reason}] Speech grammar unchanged — skip restart (#{SpeechStartCount}).");
+            if (pipelineChanged)
+                StampActiveFingerprints();
+        }
+        else
+        {
+            if (pipelineChanged)
+                Log.Info($"[{reason}] Pipeline rebuilt (speech not listening yet).");
+            StampActiveFingerprints();
+        }
+    }
+
+    private void RebuildPipelineServices(bool force = false)
     {
         if (_sim is null)
             throw new InvalidOperationException("SimConnect client not initialized");
+
+        if (!force)
+        {
+            var speechKey = ComputeSpeechGrammarKey();
+            var pipelineKey = ComputePipelineServicesKey(speechKey);
+            if (string.Equals(pipelineKey, _activePipelineServicesKey, StringComparison.Ordinal)
+                && _matcher is not null && _gate is not null && _pttArm is not null && _tts is not null)
+            {
+                return;
+            }
+        }
 
         _matcher = new PhraseMatcher(Catalog.Commands);
         _executor = new ActionExecutor(_sim);
@@ -766,8 +865,9 @@ public sealed class HostSession : IDisposable
 
         _gate = new SpeechInputGate(Settings.Speech);
         _pttArm?.Dispose();
+        // No private PttArm timer: HostSession poll (when listening) and HandlePhrase call Poll().
+        // Avoids a second 50 ms timer on inject/--once/offline paths.
         _pttArm = new PttArmService(Settings.Speech.PttKey, Settings.Speech.PttGraceMs);
-        _pttArm.StartPolling(50);
         if (_options.SimulatePtt)
             _pttArm.ForceArm(60_000);
 
@@ -776,6 +876,65 @@ public sealed class HostSession : IDisposable
             ? new ConsoleTtsService()
             : CreateTts(Settings.Tts);
         _tts.ApplySettings(Settings.Tts);
+
+        StampActiveFingerprints();
+    }
+
+    private void StampActiveFingerprints()
+    {
+        _mergedCatalogProfile = ActiveProfileName();
+        var speechKey = ComputeSpeechGrammarKey();
+        _activeSpeechGrammarKey = speechKey;
+        _activePipelineServicesKey = ComputePipelineServicesKey(speechKey);
+    }
+
+    /// <summary>
+    /// Inputs that require reloading System.Speech grammar (wake prefixes + phrase set + culture).
+    /// </summary>
+    private string ComputeSpeechGrammarKey()
+    {
+        var sb = new StringBuilder(256);
+        sb.Append(Settings.Speech.WakeWord ?? "").Append('\u001f');
+        sb.Append(Settings.Speech.Culture ?? "").Append('\u001f');
+        sb.Append(Settings.Speech.Engine ?? "").Append('\u001f');
+        sb.Append(ActiveProfileName()).Append('\u001f');
+        sb.Append(CatalogFingerprint());
+        return sb.ToString();
+    }
+
+    /// <summary>Pipeline services fingerprint (includes speech key + PTT/TTS/behavior).</summary>
+    private string ComputePipelineServicesKey(string? speechKey = null)
+    {
+        speechKey ??= ComputeSpeechGrammarKey();
+        var sb = new StringBuilder(speechKey.Length + 128);
+        sb.Append(speechKey).Append('\u001f');
+        sb.Append(Settings.Speech.PttKey ?? "").Append('\u001f');
+        sb.Append(Settings.Speech.PttGraceMs).Append('\u001f');
+        sb.Append(Settings.Speech.ContinuousListen).Append('\u001f');
+        sb.Append(Settings.Speech.ConfidenceThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append('\u001f');
+        sb.Append(Settings.Tts.Voice ?? "").Append('\u001f');
+        sb.Append(Settings.Tts.Rate).Append('\u001f');
+        sb.Append(Settings.Tts.Volume).Append('\u001f');
+        sb.Append(Settings.Behavior.RequirePositiveClimbForGearUp).Append('\u001f');
+        sb.Append(Settings.Behavior.ConfirmBeforeAction).Append('\u001f');
+        sb.Append(Settings.Behavior.CalloutDelayMs);
+        return sb.ToString();
+    }
+
+    private string CatalogFingerprint()
+    {
+        var cmds = Catalog.Commands;
+        var sb = new StringBuilder(cmds.Count * 24);
+        sb.Append(cmds.Count);
+        foreach (var c in cmds.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            sb.Append('|').Append(c.Id).Append(':').Append(c.Phrases.Count);
+            if (c.Phrases.Count > 0)
+                sb.Append(':').Append(c.Phrases[0]);
+        }
+
+        return sb.ToString();
     }
 
     private void ConnectSimClient()
@@ -801,16 +960,20 @@ public sealed class HostSession : IDisposable
         }
 
         if (!live && _sim is RecordingSimConnectClient recording)
-        {
-            recording.Snapshot.Set("GEAR POSITION", 1);
-            recording.Snapshot.Set("VERTICAL SPEED", _options.FixtureVerticalSpeed ?? 500);
-            recording.Snapshot.Set("FLAPS HANDLE INDEX", 0);
-            recording.Snapshot.Set("AUTOPILOT MASTER", 0);
-            recording.Snapshot.Set("LIGHT LANDING", 0);
-            recording.Snapshot.Set("BRAKE PARKING POSITION", 0);
-            recording.Snapshot.Set("ENG ANTI ICE", 0);
-            Log.Info($"[SimConnect] Offline snapshot seeded (VS={_options.FixtureVerticalSpeed ?? 500} fpm).");
-        }
+            SeedOfflineSnapshot(recording);
+    }
+
+    private void SeedOfflineSnapshot(RecordingSimConnectClient recording)
+    {
+        var vs = _options.FixtureVerticalSpeed ?? HostConstants.DefaultOfflineVerticalSpeedFpm;
+        recording.Snapshot.Set("GEAR POSITION", 1);
+        recording.Snapshot.Set(HostConstants.VerticalSpeedSimVar, vs);
+        recording.Snapshot.Set("FLAPS HANDLE INDEX", 0);
+        recording.Snapshot.Set("AUTOPILOT MASTER", 0);
+        recording.Snapshot.Set("LIGHT LANDING", 0);
+        recording.Snapshot.Set("BRAKE PARKING POSITION", 0);
+        recording.Snapshot.Set("ENG ANTI ICE", 0);
+        Log.Info($"[SimConnect] Offline snapshot seeded (VS={vs} fpm).");
     }
 
     private static void CopyEditableSettings(AppSettings from, AppSettings to)
@@ -838,9 +1001,10 @@ public sealed class HostSession : IDisposable
             var dir = new DirectoryInfo(ConfigRoot);
             for (var i = 0; i < 6 && dir != null; i++, dir = dir.Parent)
             {
-                var manifest = Path.Combine(dir.FullName, "manifest.json");
+                var manifest = Path.Combine(dir.FullName, HostConstants.ManifestFileName);
                 if (!File.Exists(manifest))
-                    manifest = Path.Combine(dir.FullName, "Packages", "private-utility-copilot-voice", "manifest.json");
+                    manifest = Path.Combine(
+                        dir.FullName, "Packages", HostConstants.PackageName, HostConstants.ManifestFileName);
                 if (!File.Exists(manifest)) continue;
                 var text = File.ReadAllText(manifest);
                 var marker = "\"package_version\"";

@@ -18,17 +18,17 @@ public sealed class ConditionEngine
 
         if (behavior.RequirePositiveClimbForGearUp
             && (command.RequirePositiveClimbFlag
-                || command.Id.Equals("gear_up", StringComparison.OrdinalIgnoreCase)))
+                || command.Id.Equals(HostConstants.GearUpCommandId, StringComparison.OrdinalIgnoreCase)))
         {
             var hasVs = conditions.Any(c =>
-                c.SimVar.Equals("VERTICAL SPEED", StringComparison.OrdinalIgnoreCase));
+                c.SimVar.Equals(HostConstants.VerticalSpeedSimVar, StringComparison.OrdinalIgnoreCase));
             if (!hasVs)
             {
                 conditions.Insert(0, new ConditionDefinition
                 {
-                    SimVar = "VERTICAL SPEED",
+                    SimVar = HostConstants.VerticalSpeedSimVar,
                     Op = ">",
-                    Value = 100,
+                    Value = HostConstants.GearUpMinVerticalSpeedFpm,
                     Units = "feet per minute"
                 });
             }
@@ -38,7 +38,7 @@ public sealed class ConditionEngine
         {
             // Setting disabled: drop VS gate from gear_up evaluation
             conditions = conditions
-                .Where(c => !c.SimVar.Equals("VERTICAL SPEED", StringComparison.OrdinalIgnoreCase))
+                .Where(c => !c.SimVar.Equals(HostConstants.VerticalSpeedSimVar, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
 

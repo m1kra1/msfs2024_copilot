@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using CoPilotVoiceHost.Host;
+using CoPilotVoiceHost.Models;
 using CoPilotVoiceHost.Ui;
 
 namespace CoPilotVoiceHost;
@@ -19,7 +20,7 @@ public static class Program
         if (forceHeadless)
         {
             EnsureConsole();
-            var logPath = Path.Combine(AppContext.BaseDirectory, "copilot-host-headless.log");
+            var logPath = Path.Combine(AppContext.BaseDirectory, HostConstants.HeadlessLogFileName);
             try
             {
                 using var file = new StreamWriter(logPath, append: false) { AutoFlush = true };
@@ -39,17 +40,16 @@ public static class Program
             }
         }
 
-        // GUI mode
+        // GUI mode — HostSession owns SimConnect/speech lifetime; MainWindow also disposes on tray Exit.
         try
         {
             var app = new App();
             app.InitializeComponent();
-            var session = new HostSession(options);
+            using var session = new HostSession(options);
             session.Start();
             session.StartSpeechListening();
             var window = new MainWindow(session, options);
             app.Run(window);
-            session.Dispose();
             return 0;
         }
         catch (Exception ex)
@@ -72,7 +72,7 @@ public static class Program
         {
             Console.WriteLine("Private Voice Co-Pilot Host (CoPilotVoiceHost)");
             Console.WriteLine("==============================================");
-            Console.WriteLine("Package: private-utility-copilot-voice | Creator: Private");
+            Console.WriteLine($"Package: {HostConstants.PackageName} | Creator: Private");
             Console.WriteLine();
             return session.RunHeadlessToCompletion();
         }

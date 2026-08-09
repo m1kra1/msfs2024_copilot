@@ -20,9 +20,7 @@ public static class AircraftProfileMatcher
         string? atcModel)
     {
         config ??= new AircraftDetectionConfig();
-        var fallback = string.IsNullOrWhiteSpace(config.FallbackProfile)
-            ? "generic"
-            : config.FallbackProfile.Trim();
+        var fallback = HostConstants.NormalizeProfileId(config.FallbackProfile);
 
         var t = (title ?? string.Empty).Trim();
         var m = (atcModel ?? string.Empty).Trim();

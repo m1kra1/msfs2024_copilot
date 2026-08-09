@@ -17,11 +17,15 @@ namespace CoPilotVoiceHost.Ui;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Matches <see cref="UiLogSink.DefaultMaxBuffered"/> so the Debug TextBox cannot grow without bound.</summary>
+    private const int MaxUiLogLines = UiLogSink.DefaultMaxBuffered;
+
     private readonly HostSession _session;
-    private readonly HostOptions _options;
     private readonly Forms.NotifyIcon _tray;
     private bool _exitFromTray;
     private bool _suppressContinuousEvent;
+    private int _uiLogLineCount;
+    private bool _logTrimScheduled;
 
     // Commands tab working copies (base + active profile); not WPF-bound to Core.
     private CommandCatalog _editBase = new();
@@ -32,10 +36,9 @@ public partial class MainWindow : Window
     private bool _suppressCmdSelection;
     private bool _cmdDirty;
 
-    public MainWindow(HostSession session, HostOptions options)
+    public MainWindow(HostSession session, HostOptions _)
     {
         _session = session;
-        _options = options;
         InitializeComponent();
 
         CmdList.ItemsSource = _commandRows;
@@ -49,7 +52,8 @@ public partial class MainWindow : Window
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Show", null, (_, _) => ShowFromTray());
         menu.Items.Add("Hide", null, (_, _) => Hide());
-        menu.Items.Add("Reconnect", null, (_, _) => Dispatcher.Invoke(() => _session.ForceReconnect()));
+        // BeginInvoke: reconnect must not block the tray UI thread.
+        menu.Items.Add("Reconnect", null, (_, _) => Dispatcher.BeginInvoke(() => _session.ForceReconnect()));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _tray.ContextMenuStrip = menu;
@@ -60,7 +64,7 @@ public partial class MainWindow : Window
 
         LoadSettingsToUi();
         foreach (var line in _session.Log.Snapshot())
-            AppendLog(line);
+            AppendLogCore(line);
 
         RefreshStatus();
         StatusBarVersion.Text = $"App {_session.ApplicationVersion} · pkg {_session.PackageVersion}";
@@ -79,6 +83,21 @@ public partial class MainWindow : Window
 
     private void AppendLog(LogEntry entry)
     {
+        AppendLogCore(entry);
+        if (_uiLogLineCount > MaxUiLogLines && !_logTrimScheduled)
+        {
+            _logTrimScheduled = true;
+            // Coalesce trims on the dispatcher so a log flood does not rebuild the TextBox every line.
+            Dispatcher.BeginInvoke(TrimLogViewToSink, System.Windows.Threading.DispatcherPriority.Background);
+        }
+        else
+        {
+            LogView.ScrollToEnd();
+        }
+    }
+
+    private void AppendLogCore(LogEntry entry)
+    {
         var local = entry.Utc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
         var level = entry.Level switch
         {
@@ -88,6 +107,18 @@ public partial class MainWindow : Window
             _ => "INF"
         };
         LogView.AppendText($"[{local} {level}] {entry.Message}{Environment.NewLine}");
+        _uiLogLineCount++;
+    }
+
+    /// <summary>Rebuild Debug log from the bounded sink snapshot (drops UI-only excess).</summary>
+    private void TrimLogViewToSink()
+    {
+        _logTrimScheduled = false;
+        var snap = _session.Log.Snapshot();
+        LogView.Clear();
+        _uiLogLineCount = 0;
+        foreach (var e in snap)
+            AppendLogCore(e);
         LogView.ScrollToEnd();
     }
 
@@ -205,7 +236,7 @@ public partial class MainWindow : Window
                 RequirePositiveClimbForGearUp = SetPositiveClimb.IsChecked == true,
                 CalloutDelayMs = cur.Behavior.CalloutDelayMs
             },
-            AircraftProfile = string.IsNullOrWhiteSpace(SetProfile.Text) ? "generic" : SetProfile.Text.Trim(),
+            AircraftProfile = HostConstants.NormalizeProfileId(SetProfile.Text),
             AutoDetectAircraft = SetAutoDetect.IsChecked == true,
             AnnounceProfileSwitch = SetAnnounceProfile.IsChecked == true
         };
@@ -259,6 +290,7 @@ public partial class MainWindow : Window
     {
         _session.Log.Clear();
         LogView.Clear();
+        _uiLogLineCount = 0;
     }
 
     private void BtnTestTts_Click(object sender, RoutedEventArgs e) => _session.TestTts();
@@ -365,9 +397,6 @@ public partial class MainWindow : Window
         var baseIds = _editBase.Commands
             .Select(c => c.Id)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var profileIds = _editProfile.Commands
-            .Select(c => c.Id)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Merged view: profile wins on id collision (same as ConfigLoader.Merge).
         var byId = new Dictionary<string, (CommandDefinition Cmd, string Source)>(StringComparer.OrdinalIgnoreCase);
@@ -405,8 +434,6 @@ public partial class MainWindow : Window
             ClearCommandEditor();
         else
             LoadCommandIntoEditor(pick);
-
-        _ = profileIds; // reserved for future source filtering UI
     }
 
     private void UpdateCmdStatusBar()
@@ -620,7 +647,8 @@ public partial class MainWindow : Window
         foreach (var a in actions)
         {
             if (string.IsNullOrWhiteSpace(a.Name)) continue;
-            if (string.IsNullOrWhiteSpace(a.Type) || a.Type.Equals("event", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(a.Type)
+                || a.Type.Equals(HostConstants.ActionTypeEvent, StringComparison.OrdinalIgnoreCase))
                 sb.AppendLine(a.Name);
             else
                 sb.AppendLine($"{a.Type}|{a.Name}");
@@ -641,7 +669,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                list.Add(new ActionDefinition { Type = "event", Name = parts[0] });
+                list.Add(new ActionDefinition { Type = HostConstants.ActionTypeEvent, Name = parts[0] });
             }
         }
 

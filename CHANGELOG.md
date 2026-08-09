@@ -13,6 +13,8 @@ Versioning follows package `package_version` where applicable.
 
 ### Changed
 
+- **Performance / resource pass (CoPilotVoiceHost):** Settings **Apply** rebuilds the speech grammar only when wake word, culture/engine, profile, or phrase catalog actually change (no-op / behavior-only / TTS-only Apply skips speech restart while listening). Catalog re-merge on Apply only when the aircraft profile changes. Aircraft-identity evaluation on the 50 ms message pump throttled to ~2 Hz (SimConnect TITLE/ATC MODEL remain SECOND-period). Removed duplicate PttArm 50 ms timer (poll + HandlePhrase call `Poll`). Debug log: `UiLogSink` bounded buffer + Debug TextBox trim to the same cap (~2000 lines). Deterministic dispose paths unchanged in outcome. No JSON schema or visual redesign.
+- **Maintainability pass (CoPilotVoiceHost):** centralized stable host identifiers in `Models/HostConstants.cs` (default profile `generic`, SimConnect app name, config file names, action types, gear-up VS gate keys); ConfigLoader path helpers; HostSession shared SimConnect open + offline snapshot seed helpers; tighter dispose cleanup; removed dead Commands-tab leftovers. No intentional behavior, JSON schema, or GUI visual changes.
 - **README.md** fully refreshed for 1.2.0: GUI Settings Apply/Save/Reload semantics, speech restart, SimConnect files, CLI flags, quick-test checklist; docs workflow note (README + CHANGELOG stay current on `dev`).
 
 ### Added

@@ -17,7 +17,7 @@ public sealed class AppSettings
     public BehaviorSettings Behavior { get; set; } = new();
 
     [JsonPropertyName("aircraft_profile")]
-    public string AircraftProfile { get; set; } = "generic";
+    public string AircraftProfile { get; set; } = HostConstants.DefaultProfileId;
 
     /// <summary>
     /// When true and SimConnect is live (and CLI --profile is not set), switch
@@ -35,7 +35,7 @@ public sealed class AppSettings
 public sealed class AircraftDetectionConfig
 {
     [JsonPropertyName("fallback_profile")]
-    public string FallbackProfile { get; set; } = "generic";
+    public string FallbackProfile { get; set; } = HostConstants.DefaultProfileId;
 
     [JsonPropertyName("rules")]
     public List<AircraftDetectionRule> Rules { get; set; } = new();
@@ -52,7 +52,7 @@ public sealed class AircraftDetectionRule
     public string Match { get; set; } = "any";
 
     [JsonPropertyName("profile")]
-    public string Profile { get; set; } = "generic";
+    public string Profile { get; set; } = HostConstants.DefaultProfileId;
 
     [JsonPropertyName("comment")]
     public string? Comment { get; set; }
@@ -61,7 +61,7 @@ public sealed class AircraftDetectionRule
 public sealed class SimConnectSettings
 {
     [JsonPropertyName("app_name")]
-    public string AppName { get; set; } = "PrivateCoPilotVoice";
+    public string AppName { get; set; } = HostConstants.SimConnectAppName;
 
     [JsonPropertyName("config_index")]
     public int ConfigIndex { get; set; }
@@ -170,7 +170,7 @@ public sealed class ConditionDefinition
 public sealed class ActionDefinition
 {
     [JsonPropertyName("type")]
-    public string Type { get; set; } = "event";
+    public string Type { get; set; } = HostConstants.ActionTypeEvent;
 
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
@@ -185,7 +185,7 @@ public sealed class ActionDefinition
 public sealed class AircraftProfile
 {
     [JsonPropertyName("profile_id")]
-    public string ProfileId { get; set; } = "generic";
+    public string ProfileId { get; set; } = HostConstants.DefaultProfileId;
 
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;

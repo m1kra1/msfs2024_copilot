@@ -50,12 +50,12 @@ Theme styles live in `Sources/Host/CoPilotVoiceHost/Themes/DarkCockpit.xaml` (me
 
 | Button | Effect |
 |--------|--------|
-| **Apply** | Applies edits **in memory only** (does not rewrite `settings.json`). Rebuilds command catalog for the selected aircraft profile and **restarts speech/grammar** if listening is active. |
+| **Apply** | Applies edits **in memory only** (does not rewrite `settings.json`). Re-merges the command catalog when the **aircraft profile** changes; rebuilds pipeline services when speech/TTS/behavior inputs change; **restarts speech/grammar only** when grammar inputs change (wake word, culture/engine, profile/phrase set). No-op Apply while listening does not force a speech restart. |
 | **Save** | Same as Apply, then **writes** `config/settings.json`. |
 | **Reload** | Re-reads `settings.json` + profiles from disk (discards unsaved Apply edits), rebuilds pipeline, restarts speech if it was listening. |
 | **Open Config Folder** | Opens the resolved `config` directory in Explorer. |
 
-After Apply/Save, wake word, PTT, continuous listen, and profile phrases take effect on the live mic path without restarting the whole app.
+After Apply/Save, wake word, PTT, continuous listen, and profile phrases take effect on the live mic path without restarting the whole app. The **Debug** log is bounded (~2000 lines in the sink and TextBox) so long sessions do not grow UI memory without limit.
 
 ### Headless / CLI mode
 

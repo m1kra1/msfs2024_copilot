@@ -69,10 +69,19 @@ Each command in `base_commands.json` / aircraft profiles:
 - Never hardcode the command list in C# or a fixed TTS string for that feature — always derive from live catalog after profile merge.
 
 ## Settings Apply / Save / Reload (regression-critical)
-- **Apply (in-memory):** copy UI fields into live `Settings`; optionally rebuild catalog from **current** `AircraftProfile`; rebuild pipeline; restart speech if listening. Must **not** re-read `settings.json` and wipe edits.
+- **Apply (in-memory):** copy UI fields into live `Settings`. Must **not** re-read `settings.json` and wipe edits.
+  - Catalog re-merge only when the active **aircraft profile** differs from the last merge (fingerprint thrift).
+  - Pipeline services (matcher / PTT / TTS / processor) rebuild only when speech/TTS/behavior fingerprints change.
+  - **Speech grammar restart only** when grammar inputs change (wake word, culture/engine, profile/phrase catalog) **and** listening is active. No-op / behavior-only / TTS-only Apply must **not** increment `SpeechStartCount`.
+  - Wake-word / profile changes must still restart speech so inject and live mic see the new grammar.
 - **Save:** same as Apply + write `settings.json`.
-- **Reload:** `LoadAll` from disk (overwrites memory), rebuild pipeline, restart speech if active.
+- **Reload:** `LoadAll` from disk (overwrites memory), force rebuild pipeline, restart speech if active.
 - After profile change, subsequent commands (including `list_commands`) must see the new merged catalog.
+
+## Performance / resource notes (do not regress)
+- No busy SimVar polling; SimConnect status/aircraft data remain event/SECOND-period style. Host message pump (~50 ms) may call `ReceiveMessage`; aircraft-identity evaluation is throttled (~2 Hz) and identity-deduped.
+- `UiLogSink` + Debug TextBox: bounded (~2000 lines); trim oldest under pressure.
+- Avoid duplicate background timers for PTT (session poll + HandlePhrase call `PttArmService.Poll`; do not add a second PttArm `StartPolling` on inject/--once paths).
 
 ## Speech gate notes
 - Default: bare phrases rejected unless wake word present or PTT armed (`ptt_grace_ms` after key release).

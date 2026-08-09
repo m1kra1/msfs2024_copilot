@@ -140,7 +140,7 @@ public sealed class WindowsSpeechRecognitionService : ISpeechRecognitionService
 
         var gb = new GrammarBuilder { Culture = culture };
         gb.Append(choices);
-        var grammar = new Grammar(gb) { Name = "PrivateCoPilotVoiceGrammar" };
+        var grammar = new Grammar(gb) { Name = HostConstants.SpeechGrammarName };
         _engine.LoadGrammar(grammar);
         _engine.SpeechRecognized += OnRecognized;
         try

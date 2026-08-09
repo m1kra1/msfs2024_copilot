@@ -29,7 +29,7 @@ public sealed class ActionExecutor
             {
                 switch (type)
                 {
-                    case "event":
+                    case HostConstants.ActionTypeEvent:
                         if (!_client.IsConnected)
                         {
                             _errors.Add($"Not connected — cannot send event {action.Name}");
@@ -38,15 +38,15 @@ public sealed class ActionExecutor
                         }
 
                         _client.TransmitEvent(action.Name, (uint)(action.Value ?? 0));
-                        _history.Add(new ExecutedAction("event", action.Name, action.Value));
+                        _history.Add(new ExecutedAction(HostConstants.ActionTypeEvent, action.Name, action.Value));
                         done.Add(action);
                         if (!_client.IsLive)
                             Console.WriteLine($"[Action] event:{action.Name} recorded but NOT live");
                         break;
-                    case "simvar":
-                    case "set_simvar":
+                    case HostConstants.ActionTypeSimVar:
+                    case HostConstants.ActionTypeSetSimVar:
                         _client.SetSimVar(action.Name, action.Value ?? 0, action.Units ?? "number");
-                        _history.Add(new ExecutedAction("simvar", action.Name, action.Value));
+                        _history.Add(new ExecutedAction(HostConstants.ActionTypeSimVar, action.Name, action.Value));
                         done.Add(action);
                         break;
                     default:

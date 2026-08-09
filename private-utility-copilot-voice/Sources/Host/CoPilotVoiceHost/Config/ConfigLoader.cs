@@ -12,16 +12,6 @@ public static class ConfigLoader
         AllowTrailingCommas = true
     };
 
-    public static AppSettings LoadSettings(string settingsPath)
-    {
-        if (!File.Exists(settingsPath))
-            throw new FileNotFoundException("settings.json not found", settingsPath);
-
-        var json = File.ReadAllText(settingsPath);
-        return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions)
-               ?? throw new InvalidOperationException("Failed to deserialize settings.json");
-    }
-
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
         WriteIndented = true,
@@ -34,6 +24,31 @@ public static class ConfigLoader
         PropertyNamingPolicy = null,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
     };
+
+    public static string SettingsPath(string configRoot) =>
+        Path.Combine(configRoot, HostConstants.SettingsFileName);
+
+    public static string BaseCommandsPath(string configRoot) =>
+        Path.Combine(configRoot, HostConstants.BaseCommandsFileName);
+
+    public static string AircraftDetectionPath(string configRoot) =>
+        Path.Combine(configRoot, HostConstants.AircraftDetectionFileName);
+
+    public static string AircraftProfilePath(string configRoot, string? profileName) =>
+        Path.Combine(
+            configRoot,
+            HostConstants.AircraftProfilesDirectoryName,
+            $"{HostConstants.NormalizeProfileId(profileName)}.json");
+
+    public static AppSettings LoadSettings(string settingsPath)
+    {
+        if (!File.Exists(settingsPath))
+            throw new FileNotFoundException($"{HostConstants.SettingsFileName} not found", settingsPath);
+
+        var json = File.ReadAllText(settingsPath);
+        return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions)
+               ?? throw new InvalidOperationException($"Failed to deserialize {HostConstants.SettingsFileName}");
+    }
 
     /// <summary>Persists settings.json using the same property names as the schema (JsonPropertyName).</summary>
     public static void SaveSettings(string settingsPath, AppSettings settings)
@@ -97,7 +112,7 @@ public static class ConfigLoader
 
     public static IReadOnlyList<string> ListAircraftProfiles(string configRoot)
     {
-        var aircraftDir = Path.Combine(configRoot, "aircraft");
+        var aircraftDir = Path.Combine(configRoot, HostConstants.AircraftProfilesDirectoryName);
         if (!Directory.Exists(aircraftDir))
             return Array.Empty<string>();
 
@@ -110,25 +125,25 @@ public static class ConfigLoader
     public static CommandCatalog LoadBaseCommands(string baseCommandsPath)
     {
         if (!File.Exists(baseCommandsPath))
-            throw new FileNotFoundException("base_commands.json not found", baseCommandsPath);
+            throw new FileNotFoundException($"{HostConstants.BaseCommandsFileName} not found", baseCommandsPath);
 
         var json = File.ReadAllText(baseCommandsPath);
         return JsonSerializer.Deserialize<CommandCatalog>(json, JsonOptions)
-               ?? throw new InvalidOperationException("Failed to deserialize base_commands.json");
+               ?? throw new InvalidOperationException($"Failed to deserialize {HostConstants.BaseCommandsFileName}");
     }
 
     /// <summary>
-    /// Loads aircraft_detection.json. Missing file yields empty rules + fallback "generic".
+    /// Loads aircraft_detection.json. Missing file yields empty rules + default fallback profile.
     /// </summary>
     public static AircraftDetectionConfig LoadAircraftDetection(string configRoot)
     {
-        var path = Path.Combine(configRoot, "aircraft_detection.json");
+        var path = AircraftDetectionPath(configRoot);
         if (!File.Exists(path))
-            return new AircraftDetectionConfig { FallbackProfile = "generic" };
+            return new AircraftDetectionConfig { FallbackProfile = HostConstants.DefaultProfileId };
 
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<AircraftDetectionConfig>(json, JsonOptions)
-               ?? new AircraftDetectionConfig { FallbackProfile = "generic" };
+               ?? new AircraftDetectionConfig { FallbackProfile = HostConstants.DefaultProfileId };
     }
 
     public static AircraftProfile LoadAircraftProfile(string profilePath)
@@ -183,12 +198,12 @@ public static class ConfigLoader
                 return candidate;
 
             candidate = Path.Combine(dir.FullName, "config");
-            if (File.Exists(Path.Combine(candidate, "settings.json")))
+            if (File.Exists(Path.Combine(candidate, HostConstants.SettingsFileName)))
                 return candidate;
         }
 
         throw new DirectoryNotFoundException(
-            "Could not locate config directory (expected settings.json + base_commands.json).");
+            $"Could not locate config directory (expected {HostConstants.SettingsFileName} + {HostConstants.BaseCommandsFileName}).");
     }
 
     public static (AppSettings Settings, CommandCatalog Commands) LoadAll(
@@ -196,14 +211,13 @@ public static class ConfigLoader
         string? profileOverride = null)
     {
         var root = ResolveConfigRoot(configRoot);
-        var settings = LoadSettings(Path.Combine(root, "settings.json"));
-        var baseCommands = LoadBaseCommands(Path.Combine(root, "base_commands.json"));
+        var settings = LoadSettings(SettingsPath(root));
+        var baseCommands = LoadBaseCommands(BaseCommandsPath(root));
 
-        var profileName = string.IsNullOrWhiteSpace(profileOverride)
-            ? settings.AircraftProfile
-            : profileOverride!;
+        var profileName = HostConstants.NormalizeProfileId(
+            string.IsNullOrWhiteSpace(profileOverride) ? settings.AircraftProfile : profileOverride);
 
-        var profilePath = Path.Combine(root, "aircraft", $"{profileName}.json");
+        var profilePath = AircraftProfilePath(root, profileName);
         AircraftProfile profile;
         if (File.Exists(profilePath))
             profile = LoadAircraftProfile(profilePath);
@@ -247,7 +261,7 @@ public static class ConfigLoader
 
         foreach (var action in cmd.Actions)
         {
-            if (action.Type.Equals("event", StringComparison.OrdinalIgnoreCase)
+            if (action.Type.Equals(HostConstants.ActionTypeEvent, StringComparison.OrdinalIgnoreCase)
                 && aliases.TryGetValue(action.Name, out var mapped))
             {
                 action.Name = mapped;
