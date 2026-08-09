@@ -244,11 +244,15 @@ public class GuiHostTests
         Assert.NotNull(xaml);
         Assert.Contains("Header=\"Status\"", xaml);
         Assert.Contains("Header=\"Settings\"", xaml);
+        Assert.Contains("Header=\"Commands\"", xaml);
         Assert.Contains("Header=\"Debug\"", xaml);
         Assert.Contains("Always on Top", xaml);
         Assert.Contains("BottomBar", xaml);
         Assert.Contains("Inject", xaml);
         Assert.Contains("Force Reconnect", xaml);
+        Assert.Contains("CmdList", xaml);
+        Assert.Contains("BtnCmdSave_Click", xaml);
+        Assert.Contains("BtnCmdApply_Click", xaml);
     }
 
     [Fact]

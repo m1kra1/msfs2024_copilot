@@ -16,6 +16,8 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     public bool IsLive => false;
     public string StatusMessage { get; private set; } = "Not connected";
     public SimVarSnapshot Snapshot { get; } = new();
+    public string AircraftTitle { get; set; } = "";
+    public string AtcModel { get; set; } = "";
     public IReadOnlyList<(string Name, uint Data)> TransmittedEvents => _events;
     public IReadOnlyList<(string Name, double Value, string Units)> SetSimVars => _sets;
 

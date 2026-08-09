@@ -3,69 +3,65 @@
 Ideen und geplante Erweiterungen für den Private Voice Co-Pilot  
 (`private-utility-copilot-voice` / MSFS 2024).
 
-Stand: 2026-08-07 · Branch: `dev`
+Stand: 2026-08-09 · Branch: `dev`
 
 ---
 
-## 1. Fenix A320 Anpassung
+## 1. Fenix A320 Anpassung — **DONE (profile)** / partial (LVar bridge)
 
-**Ziel:** Zuverlässige Co-Pilot-Steuerung speziell für die **Fenix A320**-Serie  
-(nicht nur generische Standard-Events).
+**Status:** Profile `config/aircraft/fenix_a320.json` implemented and selectable (`aircraft_profile: fenix_a320`).  
+Core groups map via standard SimConnect **events** (gear, external lights, flaps, parking brake, AP master, flight director toggle). Unmapped Airbus FCU mode holds return **Unable – not available on this aircraft**. FCU bug/var knobs kept best-effort.
 
-### Hintergrund
+**Tested Fenix version:** *unverified in this development/CI environment* (no Free Flight + Fenix available for agent verification). Live Free Flight with a current Fenix A320 MSFS 2024 build is still recommended once.
+
+### Known limitations
+
+- Host action pipeline = SimConnect `TransmitEvent` / local SetSimVar only — **no LVar / H-Event / B-Event write bridge**.
+- True Fenix-only overhead/FCU systems that require custom variables remain Unable or base best-effort until a future bridge exists.
+- Automatic aircraft detection: **done** (`auto_detect_aircraft` + `aircraft_detection.json`; live TITLE/ATC MODEL).
+
+### Original goal (reference)
 
 - Fenix nutzt oft **eigene LVars / H-Events** statt (oder zusätzlich zu) reinen Standard-SimConnect-Events.
-- Befehle wie Landing Lights, FCU, Anti-Ice, ECAM-relevante Schalter können am Standard-Airliner  
-  „gesprochen und geloggt“ werden, im Fenix-Cockpit aber **keine sichtbare Wirkung** haben.
+- Fallback Unable TTS: implemented for unmapped FCU modes.
 
-### Geplante Umsetzung
+### Abnahmekriterien
 
-- Aircraft-Profil erweitern/neu: `config/aircraft/fenix_a320.json` (oder `a320_fenix.json`).
-- Mapping von Phrase → **Fenix-spezifische Events / LVars** (soweit über SimConnect erreichbar).
-- Optional: Auto-Erkennung des Flugzeugs (Title / ICAO / aircraft.cfg) und automatische Profilwahl.
-- Fallback: bei unbekannten Variablen klare TTS-Antwort („Unable – not available on this aircraft“).
-- Dokumentation der getesteten Fenix-Version und bekannter Limitierungen.
+- [x] Profil wählbar über `settings.json` → `aircraft_profile` (`fenix_a320`) und GUI.
+- [x] Mindestens: Gear, Lights (Landing/Taxi/Strobe/Beacon/Nav), Flaps, AP Master, Parking Brake (+ FD) mapped as events.
+- [x] FCU mode holds: Unable; bug/var inc/dec best-effort.
+- [ ] Live-Test in Free Flight mit Fenix A320 und Host-Log `LIVE event sent` + sichtbare Cockpit-Reaktion (human / sim environment).
 
-### Abnahmekriterien (Vorschlag)
+### Optional backlog
 
-- [ ] Profil wählbar über `settings.json` → `aircraft_profile` (z. B. `fenix_a320`).
-- [ ] Mindestens: Gear, Lights (Landing/Taxi/Strobe/Beacon/Nav), Flaps, AP Master, Parking Brake.
-- [ ] FCU-relevante Befehle soweit mit Fenix kompatibel (SPD/HDG/ALT/VS oder Äquivalente).
-- [ ] Live-Test in Free Flight mit Fenix A320 und Host-Log `LIVE event sent` + sichtbare Cockpit-Reaktion.
+- LVar/H-Event bridge (architecture extension — out of current non-goals).
+- Auto profile switch by aircraft title.
 
 ---
 
-## 2. Anweisungsliste ausgeben
+## 2. Anweisungsliste ausgeben — **DONE** (Unreleased / `list_commands`)
 
-**Ziel:** Der Co-Pilot soll auf Anfrage die **verfügbaren Sprachbefehle** ausgeben  
-(und optional in der Konsole / als Datei auflisten).
+**Status:** Implemented. Voice command `list_commands` builds the list from the live merged catalog; TTS short summary + full `[CommandList]` lines in console/Debug log. File export / clipboard remain optional backlog.
 
 ### Use Cases
 
 - Pilot fragt: *„Co Pilot, what can you do?“* / *„list commands“* / *„command list“*.
 - Debugging: vollständige Phrasenliste aus geladenem Base- + Aircraft-Profil.
-- Dokumentation: Export der aktuellen Grammar für README oder Training.
+- Dokumentation: Export der aktuellen Grammar für README oder Training (optional, not yet).
 
-### Geplante Umsetzung
+### Implemented
 
-- Neuer Befehl in `base_commands.json`, z. B. `id: list_commands` mit Phrasen:
-  - `list commands`
-  - `what can you do`
-  - `command list`
-  - `available commands`
-- Host baut die Antwort aus dem **aktuell geladenen** Command-Katalog (nach Merge Base + Aircraft).
-- Ausgabe-Kanäle:
-  1. **TTS** – kurze Zusammenfassung oder gestaffelte Callouts (Chunks, wegen Länge).
-  2. **Konsole** – vollständige Liste (id + Phrasen).
-  3. Optional später: Schreiben nach `docs/commands_export.txt` oder Clipboard.
-- Verhalten ohne SimConnect-Action (reine Info, `actions: []`).
+- `base_commands.json` → `id: list_commands` with required phrases; `actions: []`.
+- `CommandListBuilder` + `CommandProcessor` dynamic response from current catalog.
+- Profile Apply/Reload updates subsequent list output.
+- Optional later: `docs/commands_export.txt` or Clipboard.
 
-### Abnahmekriterien (Vorschlag)
+### Abnahmekriterien
 
-- [ ] Sprachtrigger lädt die Liste aus dem echten geladenen Katalog (kein Hardcode).
-- [ ] Konsole zeigt alle Command-IDs und mindestens eine Phrase pro Command.
-- [ ] TTS liefert eine nutzbare Kurzfassung (z. B. Kategorien: Gear, Lights, Flaps, AP, …).
-- [ ] Aircraft-Profile-Zusatzbefehle (z. B. Fenix) erscheinen in der Liste, wenn das Profil aktiv ist.
+- [x] Sprachtrigger lädt die Liste aus dem echten geladenen Katalog (kein Hardcode).
+- [x] Konsole zeigt alle Command-IDs und mindestens eine Phrase pro Command.
+- [x] TTS liefert eine nutzbare Kurzfassung (count + example phrases).
+- [x] Aircraft-Profile-Zusatzbefehle erscheinen in der Liste, wenn das Profil aktiv ist.
 
 ---
 
@@ -76,6 +72,7 @@ Stand: 2026-08-07 · Branch: `dev`
 - Deutschsprachige Phraseology (`culture` / zusätzliche JSON-Packs).
 - Optionaler Auto-Start des Hosts (externer Launcher / EXE.xml – nur wenn gewünscht).
 - WAV-Callouts statt/zusätzlich zu Windows-TTS.
+- Fenix LVar/H-Event bridge for systems that ignore standard events.
 
 ---
 
@@ -83,8 +80,9 @@ Stand: 2026-08-07 · Branch: `dev`
 
 | Prio | Thema              | Abhängigkeit        |
 |------|--------------------|---------------------|
-| 1    | Anweisungsliste    | Host + base_commands |
-| 2    | Fenix A320 Profil  | Live-Fenix + Mapping |
+| —    | ~~Fenix A320 Profil~~ | Done (`fenix_a320`; live cockpit check still human) |
+| —    | ~~Anweisungsliste~~ | Done (`list_commands`) |
+| next | Fenix LVar bridge (optional) | Architecture extension |
 
 ---
 

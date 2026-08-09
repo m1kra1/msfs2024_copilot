@@ -17,9 +17,13 @@ Versioning follows package `package_version` where applicable.
 
 ### Added
 
+- **Automatic aircraft profile detection:** when Live, host reads SimConnect `TITLE` / `ATC MODEL`, matches case-insensitive contains rules from `config/aircraft_detection.json` (first match wins; else `fallback_profile`), and switches profile only when the detected identity changes (catalog + speech grammar rebuild). Enable via `settings.json` `auto_detect_aircraft` or GUI Settings checkbox; optional `announce_profile_switch` TTS. CLI `--profile` locks auto switching for the session. Offline/unknown title stays on configured/fallback profile without crashing. Status tab shows detected aircraft (or Unknown) + active profile. Clear `[AircraftDetect] title=… → profile '…'` log lines. GUI Apply uses a detached settings snapshot so false→true auto-detect re-evaluates an already-observed aircraft; Status/Settings profile combo syncs after auto-switch so Apply cannot clobber with a stale selection.
+- **Fenix A320 aircraft profile (`fenix_a320`):** selectable via `settings.json` `aircraft_profile` or GUI profile list. Maps core gear / external lights / flaps / parking brake / AP / FD commands to standard SimConnect events Fenix typically honors for hardware; Airbus FCU mode holds (HDG/ALT/SPD/VS/NAV/APP/LOC) return clear **"Unable - not available on this aircraft"** (empty actions) instead of silent no-ops. FCU bug/var knobs kept best-effort. No LVar/H-Event bridge (host limitation). Profile notes document untested-in-CI Fenix version + known limits. Existing `generic` / `a320` / `b737` profiles unchanged.
+- **Commands tab (GUI):** view and edit the voice command catalog (merged base + active aircraft profile). Filter, add/delete, edit id/phrases/response/reject/actions/conditions/flags. **Apply** updates the live pipeline in memory; **Save** writes `base_commands.json` + active `aircraft/*.json` and applies. Core stays free of WPF (`HostSession.ApplyCommandSources` / ConfigLoader save).
+- **Dynamic `list_commands` voice command:** ask the co-pilot what it can do (`list commands`, `what can you do`, `command list`, `available commands`, …). Builds the list from the **currently loaded** merged catalog (base + active aircraft profile). TTS speaks a short summary (count + example phrases); the full list (command id + phrase per entry) is written to the console / debug log. Empty actions — works Offline and Live; profile Apply/Reload updates the list. No file export.
 - **`FUTURE.md`** – Planung für kommende Anpassungen:
-  1. Fenix A320-Anpassung (aircraft-spezifische Events/LVars)
-  2. Anweisungsliste ausgeben (Sprachbefehl + Konsole/TTS)
+  1. ~~Fenix A320-Anpassung~~ -> profile `fenix_a320` (SimConnect events + Unable; LVar bridge still backlog)
+  2. ~~Anweisungsliste ausgeben (Sprachbefehl + Konsole/TTS)~~ → implemented as `list_commands`
 
 ---
 

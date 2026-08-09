@@ -37,8 +37,9 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 
 | Tab | Contents |
 |-----|----------|
-| **Status** | SimConnect connected/IsLive/errors, aircraft profile, last phrase + confidence, last action, mic indicator, versions |
-| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile; **Apply / Save / Reload / Open Config Folder** |
+| **Status** | SimConnect connected/IsLive/errors, **detected aircraft** (TITLE or Unknown), active aircraft profile, last phrase + confidence, last action, mic indicator, versions |
+| **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
+| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft**, **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
 
 Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
@@ -136,10 +137,16 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 
 | File | Purpose |
 |------|---------|
-| `settings.json` | SimConnect app name, speech, TTS, behavior flags, aircraft profile name |
+| `settings.json` | SimConnect app name, speech, TTS, behavior flags, aircraft profile name, `auto_detect_aircraft`, `announce_profile_switch` |
+| `aircraft_detection.json` | Auto-detect rules: case-insensitive contains patterns → profile id + `fallback_profile` |
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
+| `aircraft/fenix_a320.json` | **Fenix A320** — core gear/lights/flaps/brake/AP/FD via SimConnect events; unmapped FCU modes speak Unable |
+
+**Auto aircraft detection:** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json`. Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
+
+**Fenix A320 profile:** set `aircraft_profile` to `fenix_a320` in `settings.json`, or pick it in the GUI Settings profile list, then **Apply** / **Save** / **Reload**. No app restart required. Live cockpit effect requires Free Flight with Fenix loaded and status **Live**. Notes and limitations (including that this host cannot write Fenix-only LVars/H-Events) live in the profile JSON. Fenix build verification in this repo environment: **unverified** (no Free Flight + Fenix in CI).
 
 Next to the host EXE (also under `extras/`):
 
@@ -150,6 +157,8 @@ Next to the host EXE (also under `extras/`):
 | `Microsoft.FlightSimulator.SimConnect.dll` | Optional managed wrapper |
 
 Commands are JSON-driven — no aircraft-specific hardcoding in C# for events. Profiles merge on top of the base catalog.
+
+**List available commands:** say *“Co Pilot what can you do”* / *“list commands”* / *“command list”* / *“available commands”*. The host builds the list from the **currently loaded** catalog (base + active aircraft profile): TTS gives a short summary; the full list (id + phrase) is written to the console / Debug log. Works Offline and Live; changes with profile Apply/Reload.
 
 **SimConnect app name:** `PrivateCoPilotVoice` (unique).
 

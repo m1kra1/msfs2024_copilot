@@ -444,6 +444,20 @@
       ]
     },
     {
+      "id": "list_commands",
+      "phrases": [
+        "list commands",
+        "what can you do",
+        "command list",
+        "available commands",
+        "what commands do you have",
+        "show commands"
+      ],
+      "response": "Listing available commands.",
+      "conditions": [],
+      "actions": []
+    },
+    {
       "id": "checklist_before_start",
       "phrases": ["before start checklist", "run before start"],
       "response": "Before start checklist. Parking brake set. Fuel quantity checked. Beacon on.",

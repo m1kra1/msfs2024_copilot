@@ -346,6 +346,8 @@ public class SkepticFixTests
         public bool IsLive => IsConnected;
         public string StatusMessage { get; private set; } = "";
         public SimVarSnapshot Snapshot { get; } = new();
+        public string AircraftTitle { get; set; } = "";
+        public string AtcModel { get; set; } = "";
 
         public bool Connect(string appName, int configIndex = 0)
         {

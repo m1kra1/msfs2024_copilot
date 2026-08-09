@@ -28,16 +28,41 @@ public sealed class HostSession : IDisposable
     private bool _disposed;
     private bool _micActive;
     private bool _speechListening;
+    /// <summary>Identity key last handled for auto profile switch (stamped only when auto can switch).</summary>
+    private string _lastDetectedIdentityKey = "";
+
+    /// <summary>
+    /// Identity key last used for display/log/StatusChanged (always; dedupes 50ms poll spam).
+    /// Separate from switch key so auto-off observations do not block false→true re-eval.
+    /// Null = never seen.
+    /// </summary>
+    private string? _lastSeenDisplayIdentityKey;
+
+    private AircraftDetectionConfig _detectionConfig = new();
+    private readonly object _detectLock = new();
+
+    /// <summary>
+    /// When CLI --profile is set, auto profile switching is locked for the session.
+    /// Detected title is still updated when available.
+    /// </summary>
+    private bool CliProfileLocked => !string.IsNullOrWhiteSpace(_options.Profile);
 
     public UiLogSink Log { get; } = new();
     public string ConfigRoot { get; private set; } = "";
     public AppSettings Settings { get; private set; } = new();
     public CommandCatalog Catalog { get; private set; } = new();
+    public AircraftDetectionConfig DetectionConfig => _detectionConfig;
     public string ApplicationVersion { get; }
     public string PackageVersion { get; private set; } = "1.2.0";
 
     /// <summary>How many times speech listening was (re)started — for tests and diagnostics.</summary>
     public int SpeechStartCount { get; private set; }
+
+    /// <summary>How many times auto-detect applied a profile change (catalog rebuild path).</summary>
+    public int AutoDetectProfileSwitchCount { get; private set; }
+
+    /// <summary>How many times the command catalog was rebuilt from settings/profile.</summary>
+    public int CatalogRebuildCount { get; private set; }
 
     /// <summary>Current phrase matcher built from the active catalog (for tests).</summary>
     public PhraseMatcher? Matcher => _matcher;
@@ -47,6 +72,13 @@ public sealed class HostSession : IDisposable
     public string SimStatusMessage => _sim?.StatusMessage ?? "Not started";
     public string? LastSimError { get; private set; }
     public string AircraftProfile => Settings.AircraftProfile;
+
+    /// <summary>Last detected TITLE (or "Unknown").</summary>
+    public string DetectedAircraftTitle { get; private set; } = AircraftProfileMatcher.UnknownTitle;
+
+    /// <summary>Last detected ATC MODEL (may be empty).</summary>
+    public string DetectedAtcModel { get; private set; } = "";
+
     public string LastPhrase { get; private set; } = "";
     public float LastConfidence { get; private set; }
     public string LastAction { get; private set; } = "";
@@ -192,7 +224,13 @@ public sealed class HostSession : IDisposable
     /// </summary>
     public void ApplySettingsFromUi(AppSettings edited, bool saveToDisk, bool rebuildCatalog = true)
     {
+        // Snapshot BEFORE copy — edited must not be the live Settings object already mutated by UI.
+        var autoWas = Settings.AutoDetectAircraft;
         CopyEditableSettings(edited, Settings);
+
+        // Manual Apply always wins for the selected profile unless false→true auto-detect
+        // re-evaluates a previously observed identity below. CLI --profile only suppresses
+        // auto-detect switching (ProcessAircraftIdentity), not GUI/settings Apply.
 
         if (saveToDisk)
         {
@@ -216,7 +254,116 @@ public sealed class HostSession : IDisposable
         else
             Log.Info("[Settings] Pipeline rebuilt (speech not listening yet).");
 
+        // false→true: identity may already be known while auto was off (key was not stamped).
+        // Re-run detection so the matching profile applies without waiting for a new aircraft.
+        if (!autoWas && Settings.AutoDetectAircraft && !CliProfileLocked)
+        {
+            _lastDetectedIdentityKey = "";
+            var titleForReeval = string.Equals(
+                    DetectedAircraftTitle, AircraftProfileMatcher.UnknownTitle, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : DetectedAircraftTitle;
+            ProcessAircraftIdentity(titleForReeval, DetectedAtcModel);
+        }
+
         StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Evaluate aircraft identity and optionally switch profile (auto-detect).
+    /// Safe offline: updates display title, never throws. Used by the poll path and unit tests.
+    /// Display/log/StatusChanged are deduped by identity so the live SECOND/50ms path does not thrash.
+    /// Switch-stamp key is separate and only set when auto can switch.
+    /// </summary>
+    public void ProcessAircraftIdentity(string? title, string? atcModel)
+    {
+        lock (_detectLock)
+        {
+            var key = AircraftProfileMatcher.IdentityKey(title, atcModel);
+            var displayTitle = AircraftProfileMatcher.DisplayTitle(title);
+            var displayModel = (atcModel ?? string.Empty).Trim();
+
+            // Empty identity: Unknown display — notify once, not every poll.
+            if (key.Length == 0)
+            {
+                if (_lastSeenDisplayIdentityKey is not null
+                    && _lastSeenDisplayIdentityKey.Length == 0)
+                    return;
+
+                _lastSeenDisplayIdentityKey = "";
+                DetectedAircraftTitle = AircraftProfileMatcher.UnknownTitle;
+                DetectedAtcModel = "";
+                StatusChanged?.Invoke();
+                return;
+            }
+
+            var canAutoSwitch = Settings.AutoDetectAircraft && !CliProfileLocked;
+
+            // When auto-switch is off/locked: update display + log only if identity changed.
+            // Do NOT stamp _lastDetectedIdentityKey (false→true re-eval must still work).
+            if (!canAutoSwitch)
+            {
+                if (string.Equals(key, _lastSeenDisplayIdentityKey, StringComparison.Ordinal))
+                    return;
+
+                _lastSeenDisplayIdentityKey = key;
+                DetectedAircraftTitle = displayTitle;
+                DetectedAtcModel = displayModel;
+
+                var matchedPreview = EnsureProfileExists(
+                    AircraftProfileMatcher.ResolveProfile(_detectionConfig, title, atcModel));
+                Log.Info(
+                    $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{matchedPreview}'" +
+                    (CliProfileLocked ? " (CLI --profile lock: no switch)" : " (auto-detect off: no switch)"));
+                StatusChanged?.Invoke();
+                return;
+            }
+
+            // Auto can switch: silent if this identity was already handled for switching.
+            if (string.Equals(key, _lastDetectedIdentityKey, StringComparison.Ordinal))
+                return;
+
+            _lastDetectedIdentityKey = key;
+            _lastSeenDisplayIdentityKey = key;
+            DetectedAircraftTitle = displayTitle;
+            DetectedAtcModel = displayModel;
+
+            var matched = EnsureProfileExists(
+                AircraftProfileMatcher.ResolveProfile(_detectionConfig, title, atcModel));
+
+            Log.Info(
+                $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{matched}'");
+
+            if (string.Equals(Settings.AircraftProfile, matched, StringComparison.OrdinalIgnoreCase))
+            {
+                StatusChanged?.Invoke();
+                return;
+            }
+
+            var previous = Settings.AircraftProfile;
+            Settings.AircraftProfile = matched;
+            RebuildCatalogFromCurrentSettings();
+            RebuildPipelineServices();
+            if (_speechListening)
+                StartSpeechListening();
+
+            AutoDetectProfileSwitchCount++;
+            Log.Info($"[AircraftDetect] Profile switched: '{previous}' → '{matched}' (catalog rebuilt)");
+
+            if (Settings.AnnounceProfileSwitch && _tts is not null)
+            {
+                try
+                {
+                    _tts.Speak($"Aircraft profile {matched}.", 0);
+                }
+                catch
+                {
+                    // TTS optional
+                }
+            }
+
+            StatusChanged?.Invoke();
+        }
     }
 
     public void ReloadFromDisk()
@@ -228,6 +375,75 @@ public sealed class HostSession : IDisposable
     }
 
     public IReadOnlyList<string> ListProfiles() => ConfigLoader.ListAircraftProfiles(ConfigRoot);
+
+    /// <summary>Loads base_commands.json from the active config root (working copy for the Commands UI).</summary>
+    public CommandCatalog LoadBaseCommandsFromDisk()
+    {
+        var path = Path.Combine(ConfigRoot, "base_commands.json");
+        return ConfigLoader.CloneCatalog(ConfigLoader.LoadBaseCommands(path));
+    }
+
+    /// <summary>Loads the active aircraft profile from disk (working copy for the Commands UI).</summary>
+    public AircraftProfile LoadActiveProfileFromDisk()
+    {
+        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
+            ? "generic"
+            : Settings.AircraftProfile.Trim();
+        var path = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+        if (File.Exists(path))
+            return ConfigLoader.CloneProfile(ConfigLoader.LoadAircraftProfile(path));
+
+        return new AircraftProfile { ProfileId = profileName, Title = profileName };
+    }
+
+    /// <summary>
+    /// Merges base + profile into the live catalog, rebuilds the pipeline, and optionally persists both files.
+    /// Does not re-read settings.json (preserves in-memory settings Apply edits).
+    /// </summary>
+    public void ApplyCommandSources(CommandCatalog baseCatalog, AircraftProfile profile, bool saveToDisk)
+    {
+        if (baseCatalog is null)
+            throw new ArgumentNullException(nameof(baseCatalog));
+        if (profile is null)
+            throw new ArgumentNullException(nameof(profile));
+
+        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
+            ? "generic"
+            : Settings.AircraftProfile.Trim();
+        if (string.IsNullOrWhiteSpace(profile.ProfileId))
+            profile.ProfileId = profileName;
+
+        if (saveToDisk)
+        {
+            var basePath = Path.Combine(ConfigRoot, "base_commands.json");
+            ConfigLoader.SaveBaseCommands(basePath, baseCatalog);
+            Log.Info($"[Commands] Saved {basePath} ({baseCatalog.Commands.Count} commands)");
+
+            var profilePath = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(profilePath)!);
+            // Keep profile id aligned with active settings profile name for file mapping.
+            profile.ProfileId = profileName;
+            ConfigLoader.SaveAircraftProfile(profilePath, profile);
+            Log.Info($"[Commands] Saved {profilePath} ({profile.Commands.Count} profile commands)");
+        }
+        else
+        {
+            Log.Info(
+                $"[Commands] Applied in memory (base={baseCatalog.Commands.Count}, profile={profile.Commands.Count}; not saved to disk).");
+        }
+
+        Catalog = ConfigLoader.Merge(baseCatalog, profile);
+        CatalogRebuildCount++;
+        Log.Info($"[Config] Catalog rebuilt from UI sources: {Catalog.Commands.Count} commands (profile '{profileName}')");
+
+        RebuildPipelineServices();
+        if (_speechListening)
+            StartSpeechListening();
+        else
+            Log.Info("[Commands] Pipeline rebuilt (speech not listening yet).");
+
+        StatusChanged?.Invoke();
+    }
 
     public void StartSpeechListening()
     {
@@ -284,6 +500,10 @@ public sealed class HostSession : IDisposable
                 _sim?.ReceiveMessage();
                 var armed = _pttArm?.IsArmed == true || _pttArm?.IsKeyCurrentlyDown == true;
                 MicActive = armed;
+
+                // Low-rate aircraft identity: SimConnect already requests TITLE/ATC MODEL on SECOND period.
+                if (_sim is not null && _sim.IsLive)
+                    ProcessAircraftIdentity(_sim.AircraftTitle, _sim.AtcModel);
             }
             catch { /* ignore */ }
         }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(50));
@@ -439,6 +659,13 @@ public sealed class HostSession : IDisposable
                 Log.Error($"[ActionError] {e}");
         }
 
+        // Full dynamic list (and any other detail lines) before the short spoken summary
+        if (result.DetailLogLines is { Count: > 0 })
+        {
+            foreach (var line in result.DetailLogLines)
+                Log.Info(line);
+        }
+
         Log.Info($"[Response] {result.SpokenResponse}");
         if (result.Allowed && result.ActionsExecuted.Count > 0 && !IsLive)
             Log.Warn("[SimConnect] NOTE: command accepted but SimConnect is NOT live — aircraft will not change.");
@@ -453,9 +680,19 @@ public sealed class HostSession : IDisposable
         if (!string.IsNullOrWhiteSpace(profileOverride))
             Settings.AircraftProfile = profileOverride!;
         Catalog = catalog;
+        CatalogRebuildCount++;
+
+        _detectionConfig = ConfigLoader.LoadAircraftDetection(ConfigRoot);
+        _lastDetectedIdentityKey = "";
+        _lastSeenDisplayIdentityKey = null;
 
         Log.Info($"[Config] Commands loaded: {Catalog.Commands.Count}");
         Log.Info($"[Config] Aircraft profile: {Settings.AircraftProfile}");
+        Log.Info(
+            $"[Config] auto_detect_aircraft={Settings.AutoDetectAircraft} announce_profile_switch={Settings.AnnounceProfileSwitch}" +
+            (CliProfileLocked ? " (CLI --profile lock)" : ""));
+        Log.Info(
+            $"[Config] Detection rules: {_detectionConfig.Rules.Count} fallback='{_detectionConfig.FallbackProfile}'");
         Log.Info($"[Config] Wake word: '{Settings.Speech.WakeWord}' | PTT: {Settings.Speech.PttKey}");
         Log.Info($"[Config] continuous_listen={Settings.Speech.ContinuousListen} ptt_grace_ms={Settings.Speech.PttGraceMs}");
 
@@ -495,7 +732,22 @@ public sealed class HostSession : IDisposable
             profile = new AircraftProfile { ProfileId = profileName, Title = "missing profile" };
 
         Catalog = ConfigLoader.Merge(baseCatalog, profile);
+        CatalogRebuildCount++;
         Log.Info($"[Config] Catalog rebuilt for profile '{profileName}': {Catalog.Commands.Count} commands");
+    }
+
+    private string EnsureProfileExists(string profileName)
+    {
+        var name = string.IsNullOrWhiteSpace(profileName) ? "generic" : profileName.Trim();
+        var path = Path.Combine(ConfigRoot, "aircraft", $"{name}.json");
+        if (File.Exists(path))
+            return name;
+
+        var fallback = string.IsNullOrWhiteSpace(_detectionConfig.FallbackProfile)
+            ? "generic"
+            : _detectionConfig.FallbackProfile.Trim();
+        Log.Warn($"[AircraftDetect] Profile '{name}' not found — using fallback '{fallback}'");
+        return fallback;
     }
 
     private void RebuildPipelineServices()
@@ -505,7 +757,13 @@ public sealed class HostSession : IDisposable
 
         _matcher = new PhraseMatcher(Catalog.Commands);
         _executor = new ActionExecutor(_sim);
-        _processor = new CommandProcessor(_matcher, new ConditionEngine(), _executor, Settings.Behavior);
+        _processor = new CommandProcessor(
+            _matcher,
+            new ConditionEngine(),
+            _executor,
+            Settings.Behavior,
+            Catalog.Commands);
+
         _gate = new SpeechInputGate(Settings.Speech);
         _pttArm?.Dispose();
         _pttArm = new PttArmService(Settings.Speech.PttKey, Settings.Speech.PttGraceMs);
@@ -569,6 +827,8 @@ public sealed class HostSession : IDisposable
         to.Behavior.ConfirmBeforeAction = from.Behavior.ConfirmBeforeAction;
         to.Behavior.CalloutDelayMs = from.Behavior.CalloutDelayMs;
         to.AircraftProfile = from.AircraftProfile;
+        to.AutoDetectAircraft = from.AutoDetectAircraft;
+        to.AnnounceProfileSwitch = from.AnnounceProfileSwitch;
     }
 
     private void LoadPackageVersionHint()

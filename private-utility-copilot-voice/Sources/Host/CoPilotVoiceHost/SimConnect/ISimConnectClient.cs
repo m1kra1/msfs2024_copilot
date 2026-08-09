@@ -19,6 +19,12 @@ public interface ISimConnectClient : IDisposable
     /// <summary>Current status snapshot (updated via event-based / low-rate requests, ≤ 5 Hz).</summary>
     SimVarSnapshot Snapshot { get; }
 
+    /// <summary>TITLE SimVar when live (empty if unknown / offline).</summary>
+    string AircraftTitle { get; }
+
+    /// <summary>ATC MODEL SimVar when live (empty if unknown / offline).</summary>
+    string AtcModel { get; }
+
     void TransmitEvent(string eventName, uint data = 0);
 
     void SetSimVar(string name, double value, string units);

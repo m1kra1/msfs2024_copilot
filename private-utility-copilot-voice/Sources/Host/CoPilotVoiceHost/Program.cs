@@ -257,11 +257,13 @@ public sealed class HostOptions
         Console.WriteLine("""
             CoPilotVoiceHost — Private Voice Co-Pilot (WPF + headless)
             Usage:
-              CoPilotVoiceHost [--config <dir>] [--profile generic|a320|b737]
+              CoPilotVoiceHost [--config <dir>] [--profile generic|a320|b737|fenix_a320]
                                [--inject "Co Pilot gear up"] [--offline] [--no-tts] [--no-speech]
                                [--once] [--vs 500] [--ptt] [--bypass-gate] [--allow-offline-fallback]
                                [--headless]
             Default: GUI window. Use --headless (or --once / --inject) for console-only mode.
+            --profile locks the aircraft profile for the session (disables auto-detect switching).
+            Auto-detect: settings auto_detect_aircraft + config/aircraft_detection.json (when Live).
             """);
     }
 }

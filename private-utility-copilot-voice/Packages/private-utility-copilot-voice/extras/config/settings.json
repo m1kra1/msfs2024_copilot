@@ -22,5 +22,7 @@
     "require_positive_climb_for_gear_up": true,
     "callout_delay_ms": 400
   },
-  "aircraft_profile": "generic"
+  "aircraft_profile": "generic",
+  "auto_detect_aircraft": false,
+  "announce_profile_switch": false
 }

@@ -1,4 +1,17 @@
 {
+  "profile_id": "fenix_a320",
+  "title": "Fenix A320 family (SimConnect events + Unable for unmapped FCU)",
+  "extends": "generic",
+  "notes": "Fenix-oriented profile for Private Voice Co-Pilot. Tested-in-environment: unverified in this CI/dev host (no Free Flight + Fenix). Live Free Flight with a recent Fenix A320 MSFS 2024 build is required to confirm cockpit switches. Core gear/flaps/parking-brake/AP/external-light commands use standard SimConnect client events that Fenix typically honors for hardware. True LVar / H-Event / B-Event bridges are NOT supported by this host action pipeline — unmapped FCU modes and custom systems return a clear Unable TTS instead of a silent no-op.",
+  "limitations": [
+    "No automatic aircraft detection — select fenix_a320 via settings.json aircraft_profile or GUI Settings → Apply/Save/Reload.",
+    "Host can only TransmitEvent / local SetSimVar; Fenix-only LVars and H/B-Events cannot be written through this pipeline.",
+    "Airbus FCU mode engages (HDG/ALT/SPD/VS hold, NAV, APP, LOC) are overridden to Unable — they do not map cleanly to Boeing-style SimConnect mode events on Fenix.",
+    "FCU bug/var knobs (heading/alt/spd/vs inc/dec) keep standard events best-effort; cockpit effect depends on Fenix build.",
+    "Anti-ice, APU, cabin/wing/logo lights, and complex overhead remain base mappings or may need future LVar support.",
+    "Taxi light on/off both use TOGGLE_TAXI_LIGHTS (sim limitation).",
+    "Parking brake on/off both use PARKING_BRAKES toggle (sim limitation)."
+  ],
   "commands": [
     {
       "id": "gear_up",
@@ -164,6 +177,22 @@
       ]
     },
     {
+      "id": "parking_brake_on",
+      "phrases": ["parking brake set", "parking brake on", "set parking brake"],
+      "response": "Parking brake set.",
+      "actions": [
+        { "type": "event", "name": "PARKING_BRAKES" }
+      ]
+    },
+    {
+      "id": "parking_brake_off",
+      "phrases": ["parking brake release", "parking brake off", "release parking brake"],
+      "response": "Parking brake released.",
+      "actions": [
+        { "type": "event", "name": "PARKING_BRAKES" }
+      ]
+    },
+    {
       "id": "autopilot_on",
       "phrases": ["autopilot on", "engage autopilot", "a p on", "auto pilot on"],
       "response": "Autopilot on.",
@@ -198,58 +227,51 @@
     {
       "id": "ap_heading_hold",
       "phrases": ["heading select", "heading hold", "h d g hold"],
-      "response": "Heading select.",
-      "actions": [
-        { "type": "event", "name": "AP_HDG_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_altitude_hold",
       "phrases": ["altitude hold", "a l t hold"],
-      "response": "Altitude hold.",
-      "actions": [
-        { "type": "event", "name": "AP_ALT_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_speed_hold",
       "phrases": ["speed hold", "speed select", "s p d hold"],
-      "response": "Speed hold.",
-      "actions": [
-        { "type": "event", "name": "AP_AIRSPEED_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_vs_hold",
       "phrases": ["vertical speed hold", "v s hold"],
-      "response": "Vertical speed hold.",
-      "actions": [
-        { "type": "event", "name": "AP_VS_HOLD" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_nav_mode",
       "phrases": ["nav mode", "l nav", "lateral navigation"],
-      "response": "Nav mode.",
-      "actions": [
-        { "type": "event", "name": "AP_NAV1_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_approach",
       "phrases": ["approach mode", "approach arm", "loc approach"],
-      "response": "Approach mode.",
-      "actions": [
-        { "type": "event", "name": "AP_APR_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "ap_loc_hold",
       "phrases": ["localizer", "loc mode"],
-      "response": "Localizer.",
-      "actions": [
-        { "type": "event", "name": "AP_LOC_HOLD_ON" }
-      ]
+      "response": "Unable – not available on this aircraft.",
+      "conditions": [],
+      "actions": []
     },
     {
       "id": "heading_bug_inc",
@@ -314,169 +336,8 @@
       "actions": [
         { "type": "event", "name": "AP_VS_VAR_DEC" }
       ]
-    },
-    {
-      "id": "anti_ice_on",
-      "phrases": ["anti ice on", "anti-ice on", "engine anti ice on", "wing anti ice on"],
-      "response": "Anti-ice on.",
-      "actions": [
-        { "type": "event", "name": "ANTI_ICE_ON" }
-      ]
-    },
-    {
-      "id": "anti_ice_off",
-      "phrases": ["anti ice off", "anti-ice off", "engine anti ice off", "wing anti ice off"],
-      "response": "Anti-ice off.",
-      "actions": [
-        { "type": "event", "name": "ANTI_ICE_OFF" }
-      ]
-    },
-    {
-      "id": "pitot_heat_on",
-      "phrases": ["pitot heat on", "pitot on"],
-      "response": "Pitot heat on.",
-      "actions": [
-        { "type": "event", "name": "PITOT_HEAT_ON" }
-      ]
-    },
-    {
-      "id": "pitot_heat_off",
-      "phrases": ["pitot heat off", "pitot off"],
-      "response": "Pitot heat off.",
-      "actions": [
-        { "type": "event", "name": "PITOT_HEAT_OFF" }
-      ]
-    },
-    {
-      "id": "parking_brake_on",
-      "phrases": ["parking brake set", "parking brake on", "set parking brake"],
-      "response": "Parking brake set.",
-      "actions": [
-        { "type": "event", "name": "PARKING_BRAKES" }
-      ]
-    },
-    {
-      "id": "parking_brake_off",
-      "phrases": ["parking brake release", "parking brake off", "release parking brake"],
-      "response": "Parking brake released.",
-      "actions": [
-        { "type": "event", "name": "PARKING_BRAKES" }
-      ]
-    },
-    {
-      "id": "spoilers_arm",
-      "phrases": ["speedbrake arm", "spoilers arm", "arm spoilers"],
-      "response": "Spoilers armed.",
-      "actions": [
-        { "type": "event", "name": "SPOILERS_ARM_ON" }
-      ]
-    },
-    {
-      "id": "spoilers_disarm",
-      "phrases": ["speedbrake disarm", "spoilers disarm", "disarm spoilers"],
-      "response": "Spoilers disarmed.",
-      "actions": [
-        { "type": "event", "name": "SPOILERS_ARM_OFF" }
-      ]
-    },
-    {
-      "id": "spoilers_on",
-      "phrases": ["speedbrake full", "spoilers full", "speed brakes out"],
-      "response": "Speedbrake full.",
-      "actions": [
-        { "type": "event", "name": "SPOILERS_ON" }
-      ]
-    },
-    {
-      "id": "spoilers_off",
-      "phrases": ["speedbrake retract", "spoilers retract", "speed brakes in"],
-      "response": "Speedbrake retract.",
-      "actions": [
-        { "type": "event", "name": "SPOILERS_OFF" }
-      ]
-    },
-    {
-      "id": "apu_start",
-      "phrases": ["a p u start", "start a p u", "apu start"],
-      "response": "APU start.",
-      "actions": [
-        { "type": "event", "name": "APU_STARTER" }
-      ]
-    },
-    {
-      "id": "apu_off",
-      "phrases": ["a p u off", "apu off", "shut down a p u"],
-      "response": "APU off.",
-      "actions": [
-        { "type": "event", "name": "APU_OFF_SWITCH" }
-      ]
-    },
-    {
-      "id": "cabin_lights_on",
-      "phrases": ["cabin lights on", "panel lights on"],
-      "response": "Cabin lights on.",
-      "actions": [
-        { "type": "event", "name": "CABIN_LIGHTS_ON" }
-      ]
-    },
-    {
-      "id": "cabin_lights_off",
-      "phrases": ["cabin lights off", "panel lights off"],
-      "response": "Cabin lights off.",
-      "actions": [
-        { "type": "event", "name": "CABIN_LIGHTS_OFF" }
-      ]
-    },
-    {
-      "id": "wing_lights_on",
-      "phrases": ["wing lights on"],
-      "response": "Wing lights on.",
-      "actions": [
-        { "type": "event", "name": "TOGGLE_WING_LIGHTS" }
-      ]
-    },
-    {
-      "id": "logo_lights_on",
-      "phrases": ["logo lights on", "logo light on"],
-      "response": "Logo lights on.",
-      "actions": [
-        { "type": "event", "name": "TOGGLE_LOGO_LIGHTS" }
-      ]
-    },
-    {
-      "id": "list_commands",
-      "phrases": [
-        "list commands",
-        "what can you do",
-        "command list",
-        "available commands",
-        "what commands do you have",
-        "show commands"
-      ],
-      "response": "Listing available commands.",
-      "conditions": [],
-      "actions": []
-    },
-    {
-      "id": "checklist_before_start",
-      "phrases": ["before start checklist", "run before start"],
-      "response": "Before start checklist. Parking brake set. Fuel quantity checked. Beacon on.",
-      "actions": [],
-      "checklist": true
-    },
-    {
-      "id": "checklist_before_takeoff",
-      "phrases": ["before takeoff checklist", "run before takeoff"],
-      "response": "Before takeoff checklist. Flaps set. Trim set. Lights as required. Transponder on.",
-      "actions": [],
-      "checklist": true
-    },
-    {
-      "id": "checklist_after_landing",
-      "phrases": ["after landing checklist", "run after landing"],
-      "response": "After landing checklist. Flaps up. Spoilers retract. Landing lights off. Taxi lights on.",
-      "actions": [],
-      "checklist": true
     }
-  ]
+  ],
+  "simvar_aliases": {},
+  "event_aliases": {}
 }

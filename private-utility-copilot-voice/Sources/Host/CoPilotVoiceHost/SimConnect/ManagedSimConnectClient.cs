@@ -23,6 +23,8 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     public bool IsLive => IsConnected && _simConnect is not null;
     public string StatusMessage { get; private set; } = "Not connected";
     public SimVarSnapshot Snapshot { get; } = new();
+    public string AircraftTitle { get; private set; } = "";
+    public string AtcModel { get; private set; } = "";
 
     /// <summary>True after a successful OnRecvSimObjectData → Snapshot apply (or test inject).</summary>
     public bool HasReceivedStatusData { get; private set; }
@@ -116,8 +118,11 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             HookRecvSimObjectData();
             MapStandardEvents();
             RegisterStatusDataDefinition();
+            RegisterAircraftDataDefinition();
             RegisterDataDefineStruct();
+            RegisterAircraftDataDefineStruct();
             RequestStatusData();
+            RequestAircraftData();
             IsConnected = true;
             StatusMessage = $"SimConnect connected as '{appName}' (config_index={configIndex}); OnRecvSimObjectData hooked.";
             return true;
@@ -226,6 +231,13 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         HasReceivedStatusData = true;
     }
 
+    /// <summary>Test / offline inject of aircraft identity strings (TITLE / ATC MODEL).</summary>
+    public void ApplyAircraftIdentity(string? title, string? atcModel)
+    {
+        AircraftTitle = (title ?? string.Empty).Trim();
+        AtcModel = (atcModel ?? string.Empty).Trim();
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -297,8 +309,8 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     }
 
     /// <summary>
-    /// Parses SIMCONNECT_RECV_SIMOBJECT_DATA via reflection and updates Snapshot.
-    /// Shipped live path for context-aware conditions (gear, VS, lights, etc.).
+    /// Parses SIMCONNECT_RECV_SIMOBJECT_DATA via reflection and updates Snapshot
+    /// or aircraft identity strings (TITLE / ATC MODEL).
     /// </summary>
     public void HandleRecvSimObjectData(object data)
     {
@@ -312,9 +324,6 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             if (reqIdObj is null) return;
 
             var reqId = Convert.ToUInt32(reqIdObj);
-            if (reqId != (uint)PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_STATUS)
-                return;
-
             var dwDataField = dataType.GetField("dwData") ?? dataType.GetProperty("dwData") as MemberInfo;
             object? dwData = dwDataField switch
             {
@@ -324,6 +333,15 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             };
 
             if (dwData is null) return;
+
+            if (reqId == (uint)PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_AIRCRAFT)
+            {
+                ApplyAircraftFromDwData(dwData);
+                return;
+            }
+
+            if (reqId != (uint)PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_STATUS)
+                return;
 
             // Managed SimConnect typically puts the registered struct in dwData[0]
             if (dwData is Array arr && arr.Length > 0)
@@ -357,6 +375,43 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         {
             Console.WriteLine($"[SimConnect] OnRecvSimObjectData parse failed: {ex.Message}");
         }
+    }
+
+    private void ApplyAircraftFromDwData(object dwData)
+    {
+        if (dwData is Array arr && arr.Length > 0)
+        {
+            var item = arr.GetValue(0);
+            if (item is PrivateCopilotAircraftData aircraft)
+            {
+                AircraftTitle = (aircraft.Title ?? string.Empty).Trim();
+                AtcModel = (aircraft.AtcModel ?? string.Empty).Trim();
+                return;
+            }
+
+            if (item is not null)
+                TryMapBoxedAircraft(item);
+            return;
+        }
+
+        if (dwData is PrivateCopilotAircraftData direct)
+        {
+            AircraftTitle = (direct.Title ?? string.Empty).Trim();
+            AtcModel = (direct.AtcModel ?? string.Empty).Trim();
+        }
+    }
+
+    private void TryMapBoxedAircraft(object item)
+    {
+        var t = item.GetType();
+        var title = t.GetField("Title", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item)
+                    ?? t.GetProperty("Title", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item);
+        var model = t.GetField("AtcModel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item)
+                    ?? t.GetProperty("AtcModel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item);
+        if (title is string ts)
+            AircraftTitle = ts.Trim();
+        if (model is string ms)
+            AtcModel = ms.Trim();
     }
 
     private bool TryMapBoxedStatus(object item)
@@ -469,7 +524,88 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         }
     }
 
+    private void RegisterAircraftDataDefinition()
+    {
+        if (_simConnect is null || _simConnectType is null) return;
+
+        var addToDataDef = _simConnectType.GetMethod("AddToDataDefinition",
+            BindingFlags.Instance | BindingFlags.Public);
+        if (addToDataDef is null) return;
+
+        var datatype = _simConnectType.Assembly.GetType(
+            "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_DATATYPE");
+        object string256 = datatype is not null ? Enum.Parse(datatype, "STRING256") : 9;
+        object string32 = datatype is not null ? Enum.Parse(datatype, "STRING32") : 6;
+
+        try
+        {
+            addToDataDef.Invoke(_simConnect, new object?[]
+            {
+                PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_AIRCRAFT,
+                "TITLE",
+                null,
+                string256,
+                0f,
+                0xffffffffu
+            });
+            addToDataDef.Invoke(_simConnect, new object?[]
+            {
+                PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_AIRCRAFT,
+                "ATC MODEL",
+                null,
+                string32,
+                0f,
+                0xffffffffu
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SimConnect] Aircraft data def register failed: {ex.Message}");
+        }
+    }
+
+    private void RegisterAircraftDataDefineStruct()
+    {
+        if (_simConnect is null || _simConnectType is null) return;
+
+        var methods = _simConnectType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(m => m.Name == "RegisterDataDefineStruct" && m.IsGenericMethodDefinition)
+            .ToList();
+
+        foreach (var method in methods)
+        {
+            try
+            {
+                var closed = method.MakeGenericMethod(typeof(PrivateCopilotAircraftData));
+                var ps = closed.GetParameters();
+                if (ps.Length == 1)
+                {
+                    closed.Invoke(_simConnect, new object[] { PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_AIRCRAFT });
+                    return;
+                }
+            }
+            catch
+            {
+                // try next overload
+            }
+        }
+    }
+
     private void RequestStatusData()
+    {
+        RequestDataOnSimObject(
+            PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_STATUS,
+            PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_STATUS);
+    }
+
+    private void RequestAircraftData()
+    {
+        RequestDataOnSimObject(
+            PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_AIRCRAFT,
+            PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_AIRCRAFT);
+    }
+
+    private void RequestDataOnSimObject(PrivateCopilotRequestId requestId, PrivateCopilotDefineId defineId)
     {
         if (_simConnect is null || _simConnectType is null) return;
 
@@ -489,8 +625,8 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         {
             requestMethod.Invoke(_simConnect, new object[]
             {
-                PrivateCopilotRequestId.PRIVATE_COPILOT_REQ_STATUS,
-                PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_STATUS,
+                requestId,
+                defineId,
                 0u,
                 period,
                 flags,

@@ -6,12 +6,14 @@ namespace CoPilotVoiceHost.SimConnect;
 /// </summary>
 public enum PrivateCopilotDefineId : uint
 {
-    PRIVATE_COPILOT_DEF_STATUS = 0xC0_01_00_01
+    PRIVATE_COPILOT_DEF_STATUS = 0xC0_01_00_01,
+    PRIVATE_COPILOT_DEF_AIRCRAFT = 0xC0_01_00_02
 }
 
 public enum PrivateCopilotRequestId : uint
 {
-    PRIVATE_COPILOT_REQ_STATUS = 0xC0_02_00_01
+    PRIVATE_COPILOT_REQ_STATUS = 0xC0_02_00_01,
+    PRIVATE_COPILOT_REQ_AIRCRAFT = 0xC0_02_00_02
 }
 
 public enum PrivateCopilotEventId : uint

@@ -28,6 +28,13 @@ public static class ConfigLoader
         PropertyNamingPolicy = null
     };
 
+    private static readonly JsonSerializerOptions WriteCommandsOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
+
     /// <summary>Persists settings.json using the same property names as the schema (JsonPropertyName).</summary>
     public static void SaveSettings(string settingsPath, AppSettings settings)
     {
@@ -37,6 +44,55 @@ public static class ConfigLoader
 
         var json = JsonSerializer.Serialize(settings, WriteOptions);
         File.WriteAllText(settingsPath, json);
+    }
+
+    /// <summary>Persists base_commands.json (same schema as load).</summary>
+    public static void SaveBaseCommands(string baseCommandsPath, CommandCatalog catalog)
+    {
+        var dir = Path.GetDirectoryName(baseCommandsPath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = JsonSerializer.Serialize(catalog ?? new CommandCatalog(), WriteCommandsOptions);
+        File.WriteAllText(baseCommandsPath, json);
+    }
+
+    /// <summary>Persists an aircraft profile JSON file.</summary>
+    public static void SaveAircraftProfile(string profilePath, AircraftProfile profile)
+    {
+        var dir = Path.GetDirectoryName(profilePath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = JsonSerializer.Serialize(profile ?? new AircraftProfile(), WriteCommandsOptions);
+        File.WriteAllText(profilePath, json);
+    }
+
+    /// <summary>Deep-clones a command definition (safe for UI working copies).</summary>
+    public static CommandDefinition CloneCommandPublic(CommandDefinition src) => CloneCommand(src);
+
+    /// <summary>Deep-clones a catalog.</summary>
+    public static CommandCatalog CloneCatalog(CommandCatalog src) =>
+        new()
+        {
+            Commands = (src?.Commands ?? new List<CommandDefinition>())
+                .Select(CloneCommand)
+                .ToList()
+        };
+
+    /// <summary>Deep-clones an aircraft profile (commands + aliases).</summary>
+    public static AircraftProfile CloneProfile(AircraftProfile src)
+    {
+        src ??= new AircraftProfile();
+        return new AircraftProfile
+        {
+            ProfileId = src.ProfileId,
+            Title = src.Title,
+            Extends = src.Extends,
+            Commands = src.Commands.Select(CloneCommand).ToList(),
+            SimVarAliases = new Dictionary<string, string>(src.SimVarAliases, StringComparer.OrdinalIgnoreCase),
+            EventAliases = new Dictionary<string, string>(src.EventAliases, StringComparer.OrdinalIgnoreCase)
+        };
     }
 
     public static IReadOnlyList<string> ListAircraftProfiles(string configRoot)
@@ -59,6 +115,20 @@ public static class ConfigLoader
         var json = File.ReadAllText(baseCommandsPath);
         return JsonSerializer.Deserialize<CommandCatalog>(json, JsonOptions)
                ?? throw new InvalidOperationException("Failed to deserialize base_commands.json");
+    }
+
+    /// <summary>
+    /// Loads aircraft_detection.json. Missing file yields empty rules + fallback "generic".
+    /// </summary>
+    public static AircraftDetectionConfig LoadAircraftDetection(string configRoot)
+    {
+        var path = Path.Combine(configRoot, "aircraft_detection.json");
+        if (!File.Exists(path))
+            return new AircraftDetectionConfig { FallbackProfile = "generic" };
+
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<AircraftDetectionConfig>(json, JsonOptions)
+               ?? new AircraftDetectionConfig { FallbackProfile = "generic" };
     }
 
     public static AircraftProfile LoadAircraftProfile(string profilePath)

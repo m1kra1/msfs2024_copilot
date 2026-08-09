@@ -4,6 +4,20 @@ using CoPilotVoiceHost.Models;
 namespace CoPilotVoiceHost.SimConnect;
 
 /// <summary>
+/// TITLE (STRING256) + ATC MODEL (STRING32) for aircraft auto-detection.
+/// Field order matches AddToDataDefinition registration.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+public struct PrivateCopilotAircraftData
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+    public string Title;
+
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+    public string AtcModel;
+}
+
+/// <summary>
 /// Sequential layout matching <see cref="StatusSimVars.Definitions"/> order for
 /// RegisterDataDefineStruct / OnRecvSimObjectData.
 /// </summary>

@@ -1,0 +1,37 @@
+{
+  "fallback_profile": "generic",
+  "rules": [
+    {
+      "pattern": "fenix",
+      "match": "any",
+      "profile": "fenix_a320",
+      "comment": "Fenix A320 family titles / ATC model"
+    },
+    {
+      "pattern": "A320",
+      "match": "any",
+      "profile": "a320",
+      "comment": "Generic / Asobo / other A320 titles (after Fenix rule)"
+    },
+    {
+      "pattern": "A319",
+      "match": "any",
+      "profile": "a320"
+    },
+    {
+      "pattern": "A321",
+      "match": "any",
+      "profile": "a320"
+    },
+    {
+      "pattern": "737",
+      "match": "any",
+      "profile": "b737"
+    },
+    {
+      "pattern": "Boeing 737",
+      "match": "title",
+      "profile": "b737"
+    }
+  ]
+}

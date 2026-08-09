@@ -18,6 +18,44 @@ public sealed class AppSettings
 
     [JsonPropertyName("aircraft_profile")]
     public string AircraftProfile { get; set; } = "generic";
+
+    /// <summary>
+    /// When true and SimConnect is live (and CLI --profile is not set), switch
+    /// aircraft_profile from config/aircraft_detection.json rules.
+    /// </summary>
+    [JsonPropertyName("auto_detect_aircraft")]
+    public bool AutoDetectAircraft { get; set; }
+
+    /// <summary>Optional short TTS when auto-detect changes the active profile.</summary>
+    [JsonPropertyName("announce_profile_switch")]
+    public bool AnnounceProfileSwitch { get; set; }
+}
+
+/// <summary>Loaded from config/aircraft_detection.json (editable without recompile).</summary>
+public sealed class AircraftDetectionConfig
+{
+    [JsonPropertyName("fallback_profile")]
+    public string FallbackProfile { get; set; } = "generic";
+
+    [JsonPropertyName("rules")]
+    public List<AircraftDetectionRule> Rules { get; set; } = new();
+}
+
+public sealed class AircraftDetectionRule
+{
+    /// <summary>Case-insensitive substring to match.</summary>
+    [JsonPropertyName("pattern")]
+    public string Pattern { get; set; } = string.Empty;
+
+    /// <summary>title | atc_model | any (default any).</summary>
+    [JsonPropertyName("match")]
+    public string Match { get; set; } = "any";
+
+    [JsonPropertyName("profile")]
+    public string Profile { get; set; } = "generic";
+
+    [JsonPropertyName("comment")]
+    public string? Comment { get; set; }
 }
 
 public sealed class SimConnectSettings
@@ -190,4 +228,10 @@ public sealed class CommandResult
     public string SpokenResponse { get; init; } = string.Empty;
     public IReadOnlyList<ActionDefinition> ActionsExecuted { get; init; } = Array.Empty<ActionDefinition>();
     public string? DenyReason { get; init; }
+
+    /// <summary>
+    /// Optional extra log lines (e.g. full command list for list_commands).
+    /// Written by the host to console / debug log after the main response.
+    /// </summary>
+    public IReadOnlyList<string> DetailLogLines { get; init; } = Array.Empty<string>();
 }

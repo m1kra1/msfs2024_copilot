@@ -12,17 +12,20 @@ public sealed class CommandProcessor
     private readonly ConditionEngine _conditions;
     private readonly ActionExecutor _executor;
     private readonly BehaviorSettings _behavior;
+    private readonly IReadOnlyList<CommandDefinition> _catalogCommands;
 
     public CommandProcessor(
         PhraseMatcher matcher,
         ConditionEngine conditions,
         ActionExecutor executor,
-        BehaviorSettings behavior)
+        BehaviorSettings behavior,
+        IReadOnlyList<CommandDefinition>? catalogCommands = null)
     {
         _matcher = matcher;
         _conditions = conditions;
         _executor = executor;
         _behavior = behavior;
+        _catalogCommands = catalogCommands ?? Array.Empty<CommandDefinition>();
     }
 
     /// <param name="speakWithDelay">
@@ -60,8 +63,22 @@ public sealed class CommandProcessor
             };
         }
 
+        // Dynamic response for list_commands from the live catalog; otherwise static JSON response.
+        string spoken;
+        IReadOnlyList<string> detailLines = Array.Empty<string>();
+        if (CommandListBuilder.IsListCommand(command.Id))
+        {
+            var source = _catalogCommands.Count > 0 ? _catalogCommands : new[] { command };
+            spoken = CommandListBuilder.BuildSpokenSummary(source);
+            detailLines = CommandListBuilder.BuildFullLogLines(source);
+        }
+        else
+        {
+            spoken = command.Response;
+        }
+
         // Allowed: TTS first (confirm + delay), then transmit events
-        SpeakBeforeActions(speakWithDelay, command.Response);
+        SpeakBeforeActions(speakWithDelay, spoken);
 
         var executed = _executor.Execute(command.Actions);
 
@@ -70,9 +87,10 @@ public sealed class CommandProcessor
             CommandId = command.Id,
             MatchedPhrase = matchedPhrase,
             Allowed = true,
-            SpokenResponse = command.Response,
+            SpokenResponse = spoken,
             ActionsExecuted = executed,
-            DenyReason = null
+            DenyReason = null,
+            DetailLogLines = detailLines
         };
     }
 

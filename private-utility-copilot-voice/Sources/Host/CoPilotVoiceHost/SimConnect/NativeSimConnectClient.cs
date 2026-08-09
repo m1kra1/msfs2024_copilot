@@ -20,9 +20,13 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private bool _defsRegistered;
 
     private const uint DEFINITION_STATUS = 0xC0010001;
+    private const uint DEFINITION_AIRCRAFT = 0xC0010002;
     private const uint REQUEST_STATUS = 0xC0020001;
+    private const uint REQUEST_AIRCRAFT = 0xC0020002;
     private const uint OBJECT_USER = 0;
     private const int DATATYPE_FLOAT64 = 4;
+    private const int DATATYPE_STRING256 = 9;
+    private const int DATATYPE_STRING32 = 6;
     private const int PERIOD_SECOND = 3;
     private const uint RECV_EXCEPTION = 2;
     private const uint RECV_OPEN = 1;
@@ -37,6 +41,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     public bool IsLive => IsConnected;
     public string StatusMessage { get; private set; } = "Native SimConnect not open";
     public SimVarSnapshot Snapshot { get; } = new();
+    public string AircraftTitle { get; private set; } = "";
+    public string AtcModel { get; private set; } = "";
 
     public bool Connect(string appName, int configIndex = 0)
     {
@@ -83,7 +89,9 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                     Console.WriteLine($"[SimConnect] Open OK via {label} (index=0x{index:X8})");
                     MapAllStandardEvents();
                     RegisterStatusDefinitions();
+                    RegisterAircraftDefinitions();
                     RequestStatusData();
+                    RequestAircraftData();
 
                     _run = true;
                     _dispatchThread = new Thread(DispatchLoop)
@@ -209,11 +217,36 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         _defsRegistered = true;
     }
 
+    private void RegisterAircraftDefinitions()
+    {
+        if (!IsConnected) return;
+        try
+        {
+            // TITLE STRING256 + ATC MODEL STRING32 (null units for strings)
+            SimConnect_AddToDataDefinition(
+                _h, DEFINITION_AIRCRAFT, "TITLE", null, DATATYPE_STRING256, 0f, uint.MaxValue);
+            SimConnect_AddToDataDefinition(
+                _h, DEFINITION_AIRCRAFT, "ATC MODEL", null, DATATYPE_STRING32, 0f, uint.MaxValue);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SimConnect] Aircraft string defs failed: {ex.Message}");
+        }
+    }
+
     private void RequestStatusData()
     {
         if (!IsConnected) return;
         SimConnect_RequestDataOnSimObject(
             _h, REQUEST_STATUS, DEFINITION_STATUS, OBJECT_USER,
+            PERIOD_SECOND, 0, 0, 0, 0);
+    }
+
+    private void RequestAircraftData()
+    {
+        if (!IsConnected) return;
+        SimConnect_RequestDataOnSimObject(
+            _h, REQUEST_AIRCRAFT, DEFINITION_AIRCRAFT, OBJECT_USER,
             PERIOD_SECOND, 0, 0, 0, 0);
     }
 
@@ -262,7 +295,22 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         if (dwId != RECV_SIMOBJECT_DATA)
             return;
 
+        // SIMCONNECT_RECV_SIMOBJECT_DATA: dwRequestID at offset 12
+        var requestId = unchecked((uint)Marshal.ReadInt32(pData, 12));
         const int headerSize = 40;
+
+        if (requestId == REQUEST_AIRCRAFT)
+        {
+            // TITLE STRING256 (256 bytes) + ATC MODEL STRING32 (32 bytes)
+            if (cb < headerSize + 256 + 32) return;
+            AircraftTitle = Marshal.PtrToStringAnsi(IntPtr.Add(pData, headerSize), 256)?.TrimEnd('\0').Trim() ?? "";
+            AtcModel = Marshal.PtrToStringAnsi(IntPtr.Add(pData, headerSize + 256), 32)?.TrimEnd('\0').Trim() ?? "";
+            return;
+        }
+
+        if (requestId != REQUEST_STATUS)
+            return;
+
         var defs = StatusSimVars.Definitions;
         var need = headerSize + defs.Length * sizeof(double);
         if (cb < need) return;

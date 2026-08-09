@@ -75,18 +75,21 @@
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
-                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="0" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="Last phrase" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
-                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
-                  <TextBlock Text="Confidence" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
-                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="Last action" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
-                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
-                  <TextBlock Text="Microphone" Style="{StaticResource LabelMuted}" Grid.Row="4" Margin="0,4"/>
-                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                  <TextBlock Text="Detected aircraft" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
+                  <TextBlock x:Name="TxtDetectedAircraft" Text="Unknown" Grid.Row="0" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
+                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Last phrase" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Confidence" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
+                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Last action" Style="{StaticResource LabelMuted}" Grid.Row="4" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="4" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Microphone" Style="{StaticResource LabelMuted}" Grid.Row="5" Margin="0,4"/>
+                  <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
                     <Ellipse x:Name="MicDot" Width="14" Height="14" Fill="{StaticResource BorderBrushKey}" Margin="0,0,10,0"/>
                     <TextBlock x:Name="TxtMic" Text="Idle"/>
                   </StackPanel>
@@ -132,6 +135,7 @@
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
                   <TextBlock Text="TTS voice" Style="{StaticResource LabelMuted}" Grid.Row="0" VerticalAlignment="Center"/>
                   <TextBox x:Name="SetTtsVoice" Grid.Row="0" Grid.Column="1" Margin="0,5"/>
@@ -143,7 +147,14 @@
                             Margin="0,5"
                             IsEditable="True"
                             MaxDropDownHeight="320"
-                            ToolTip="Select aircraft command profile"/>
+                            ToolTip="Select aircraft command profile (manual; auto-detect can override when enabled)"/>
+                  <CheckBox x:Name="SetAutoDetect"
+                            Content="Auto-detect aircraft profile from SimConnect (TITLE / ATC MODEL)"
+                            Grid.Row="3" Grid.ColumnSpan="2" Margin="0,10,0,0"
+                            ToolTip="When Live and enabled, switches profile via config/aircraft_detection.json. CLI --profile locks auto switch."/>
+                  <CheckBox x:Name="SetAnnounceProfile"
+                            Content="Announce profile switch (TTS)"
+                            Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0"/>
                 </Grid>
               </GroupBox>
               <WrapPanel Margin="0,4,0,0">
@@ -154,6 +165,113 @@
               </WrapPanel>
             </StackPanel>
           </ScrollViewer>
+        </TabItem>
+
+        <!-- COMMANDS -->
+        <TabItem Header="Commands" GotFocus="CommandsTab_GotFocus">
+          <Grid Margin="12,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+              <WrapPanel DockPanel.Dock="Right">
+                <Button Content="Reload" Click="BtnCmdReload_Click" ToolTip="Reload base + active profile from disk into editor"/>
+                <Button Content="Apply" Click="BtnCmdApply_Click" ToolTip="Apply editor to live catalog (memory only)"/>
+                <Button Content="Save" Click="BtnCmdSave_Click" Style="{StaticResource PrimaryButton}"
+                        ToolTip="Save base_commands.json + active aircraft profile and apply"/>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Filter" Style="{StaticResource LabelMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="CmdFilter" Width="200" MinHeight="32" Margin="0,0,12,0" TextChanged="CmdFilter_TextChanged"/>
+                <TextBlock x:Name="CmdStatus" Style="{StaticResource LabelMuted}" VerticalAlignment="Center" Text=""/>
+              </StackPanel>
+            </DockPanel>
+
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.1*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="1.2*"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- List -->
+              <DockPanel Grid.Column="0">
+                <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                  <Button Content="Add" Click="BtnCmdAdd_Click" MinWidth="72"/>
+                  <ComboBox x:Name="CmdAddTarget" Width="140" Margin="6,0,0,0" VerticalAlignment="Center"
+                            ToolTip="Where new commands are stored">
+                    <ComboBoxItem Content="base" IsSelected="True"/>
+                    <ComboBoxItem Content="active profile"/>
+                  </ComboBox>
+                  <Button Content="Delete" Click="BtnCmdDelete_Click" MinWidth="72" Margin="8,0,0,0"/>
+                </WrapPanel>
+                <ListView x:Name="CmdList"
+                          SelectionChanged="CmdList_SelectionChanged"
+                          BorderThickness="1">
+                  <ListView.View>
+                    <GridView>
+                      <GridViewColumn Header="Id" Width="150" DisplayMemberBinding="{Binding Id}"/>
+                      <GridViewColumn Header="Source" Width="90" DisplayMemberBinding="{Binding Source}"/>
+                      <GridViewColumn Header="Phrases" Width="220" DisplayMemberBinding="{Binding PhrasesPreview}"/>
+                    </GridView>
+                  </ListView.View>
+                </ListView>
+              </DockPanel>
+
+              <!-- Editor -->
+              <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                  <GroupBox Header="COMMAND">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Text="Id" Style="{StaticResource LabelMuted}" VerticalAlignment="Center" Margin="0,4"/>
+                      <TextBox x:Name="CmdEditId" Grid.Column="1" Margin="0,4"/>
+                      <TextBlock Text="Source" Style="{StaticResource LabelMuted}" Grid.Row="1" VerticalAlignment="Center" Margin="0,4"/>
+                      <TextBlock x:Name="CmdEditSource" Grid.Row="1" Grid.Column="1" Margin="0,4" FontWeight="SemiBold"/>
+                      <TextBlock Text="Response (TTS)" Style="{StaticResource LabelMuted}" Grid.Row="2" VerticalAlignment="Center" Margin="0,4"/>
+                      <TextBox x:Name="CmdEditResponse" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"/>
+                      <TextBlock Text="Reject TTS" Style="{StaticResource LabelMuted}" Grid.Row="3" VerticalAlignment="Center" Margin="0,4"/>
+                      <TextBox x:Name="CmdEditReject" Grid.Row="3" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                      <CheckBox x:Name="CmdEditClimb" Content="require_positive_climb_flag" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0"/>
+                      <CheckBox x:Name="CmdEditChecklist" Content="checklist" Grid.Row="5" Grid.ColumnSpan="2" Margin="0,6,0,0"/>
+                    </Grid>
+                  </GroupBox>
+                  <GroupBox Header="PHRASES (one per line)">
+                    <TextBox x:Name="CmdEditPhrases" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                  </GroupBox>
+                  <GroupBox Header="ACTIONS (one per line: EVENT_NAME or type|name)">
+                    <TextBox x:Name="CmdEditActions" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                             VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+                  </GroupBox>
+                  <GroupBox Header="CONDITIONS (one per line: SIMVAR | op | value | units)">
+                    <TextBox x:Name="CmdEditConditions" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                             VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+                  </GroupBox>
+                  <TextBlock Style="{StaticResource LabelMuted}" TextWrapping="Wrap" Margin="0,4,0,0"
+                             Text="Apply = live catalog only. Save = write base_commands.json and the active aircraft profile, then apply. Profile overrides base when ids match."/>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+
+            <TextBlock Grid.Row="2" x:Name="CmdHint" Style="{StaticResource LabelMuted}" Margin="0,8,0,0"
+                       TextWrapping="Wrap"
+                       Text="Showing merged catalog (base + active profile). Edit fields, then Apply or Save."/>
+          </Grid>
         </TabItem>
 
         <!-- DEBUG -->
