@@ -11,6 +11,10 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
+### Changed
+
+- **README.md** fully refreshed for 1.2.0: GUI Settings Apply/Save/Reload semantics, speech restart, SimConnect files, CLI flags, quick-test checklist; docs workflow note (README + CHANGELOG stay current on `dev`).
+
 ### Added
 
 - **`FUTURE.md`** – Planung für kommende Anpassungen:

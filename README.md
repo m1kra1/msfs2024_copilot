@@ -5,7 +5,11 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **GitHub:** https://github.com/m1kra1/msfs2024_copilot
+- **Version:** 1.2.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
+- **Planned work:** [FUTURE.md](FUTURE.md)
+
+**Docs workflow:** every meaningful code change updates **README.md** and **CHANGELOG.md**, then is pushed to **`dev`**.
 
 ---
 
@@ -15,7 +19,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 |--------|------|
 | **Community package** | Drop-in folder under Community2024. Holds WASM marker + host files. |
 | **WASM module** | Marker only (`module_init` / `module_deinit` / `module_update`). **No** co-pilot logic, STT, or TTS. |
-| **CoPilotVoiceHost.exe** | Out-of-process .NET 8 **WPF** host: GUI + microphone, speech, TTS, SimConnect, JSON commands. |
+| **CoPilotVoiceHost.exe** | Out-of-process .NET 8 **WPF** host: GUI + microphone, speech, TTS, SimConnect, JSON commands. Core logic lives in `HostSession` (no WPF deps). |
 
 **Why the host is separate:** Windows speech/TTS and a stable SimConnect client need a normal desktop process. WASM cannot run that stack in an SDK-friendly way. The official pattern for tools like this is an **out-of-process** app.
 
@@ -34,14 +38,25 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 | Tab | Contents |
 |-----|----------|
 | **Status** | SimConnect connected/IsLive/errors, aircraft profile, last phrase + confidence, last action, mic indicator, versions |
-| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile; Apply / Save / Reload / Open Config Folder |
+| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
 
 Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
 
+#### Settings buttons (important)
+
+| Button | Effect |
+|--------|--------|
+| **Apply** | Applies edits **in memory only** (does not rewrite `settings.json`). Rebuilds command catalog for the selected aircraft profile and **restarts speech/grammar** if listening is active. |
+| **Save** | Same as Apply, then **writes** `config/settings.json`. |
+| **Reload** | Re-reads `settings.json` + profiles from disk (discards unsaved Apply edits), rebuilds pipeline, restarts speech if it was listening. |
+| **Open Config Folder** | Opens the resolved `config` directory in Explorer. |
+
+After Apply/Save, wake word, PTT, continuous listen, and profile phrases take effect on the live mic path without restarting the whole app.
+
 ### Headless / CLI mode
 
-Use for automation, scripts, and the same behavior as the old console host:
+Use for automation, scripts, and the old console-style host:
 
 ```bat
 CoPilotVoiceHost.exe --headless
@@ -49,7 +64,7 @@ CoPilotVoiceHost.exe --headless --offline --once
 CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
 ```
 
-`--once` and `--inject` also force headless (no window). Headless writes `copilot-host-headless.log` next to the EXE.
+`--once` and `--inject` also force headless (no window). Headless writes **`copilot-host-headless.log`** next to the EXE (WinExe subsystem).
 
 ---
 
@@ -59,6 +74,7 @@ CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
 - Windows (speech + TTS APIs)
 - **.NET 8** runtime (for the published host), or build from source with the .NET 8 SDK
 - Microphone for voice commands
+- **Microsoft MSFS `SimConnect.dll`** next to the host (KittyHawk client — **not** Flight Sim World / Dovetail). Shipped under `extras` when packaged, plus `SimConnect.cfg` (IPv4 `127.0.0.1:500`).
 - Optional: Visual Studio 2022 + **MSFS 2024 Platform Toolset** (to compile the WASM `.wasm` binary)
 
 ---
@@ -66,8 +82,9 @@ CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
 ## Install (Community2024)
 
 1. Build or use the package under  
-   `private-utility-copilot-voice/Packages/private-utility-copilot-voice/`
-2. Copy that folder into your MSFS **Community** directory (Community2024).
+   `private-utility-copilot-voice/Packages/private-utility-copilot-voice/`  
+   (or run the published host from `PackageSources/extras/`).
+2. Copy the package folder into your MSFS **Community** directory (Community2024), if not already there.
 3. Start MSFS → **Free Flight** (aircraft loaded).
 4. From the package’s `extras` folder, run:
 
@@ -78,9 +95,9 @@ CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
    or start `CoPilotVoiceHost.exe` directly.
 
 5. Check the GUI status bar / Status tab: **Live**. If **Offline**, speech still works but **nothing in the aircraft will move**.  
-   Ensure Free Flight is running and `SimConnect.dll` sits next to `CoPilotVoiceHost.exe` (included under `extras` when packaged).
+   Ensure Free Flight is running and the correct **`SimConnect.dll`** + **`SimConnect.cfg`** sit next to `CoPilotVoiceHost.exe`.
 
-Host logs appear in the **Debug** tab (and in headless mode on the console / `copilot-host-headless.log`). Look for `[SimConnect] LIVE event sent: …`.
+Host logs appear in the **Debug** tab (and in headless mode via `copilot-host-headless.log`). Look for `[SimConnect] LIVE event sent: …`.
 
 ---
 
@@ -93,21 +110,21 @@ Default settings (`config/settings.json`):
 | Wake word | `Co Pilot` |
 | PTT key | `F12` |
 | Continuous listen | `false` (wake word **or** PTT required) |
-| PTT grace | `ptt_grace_ms` = 3000 (bare phrases OK for 3s after releasing PTT) |
+| PTT grace | `ptt_grace_ms` = 3000 (bare phrases OK for ~3 s after releasing PTT) |
 | Confidence threshold | `0.75` |
 | TTS voice | Microsoft David (if installed) |
 | Gear-up gate | Positive climb required (`require_positive_climb_for_gear_up`) |
-| Live SimConnect | Requires `SimConnect.dll` next to the EXE; console must show **`IsLive=True`** |
+| Live SimConnect | Requires MSFS `SimConnect.dll` + Free Flight; GUI must show **Live** |
 
 **Examples**
 
 - `Co Pilot positive climb gear up` → checks VS & gear → “Checked. Gear up.” → `GEAR_UP`
-- Hold **F12** and say `landing lights on` → no wake word needed while PTT is held
+- Hold **F12** and say `landing lights on` → no wake word needed while PTT is held (plus grace after release)
 - `Co Pilot flaps up` / `autopilot on` / `anti ice on` / `parking brake set` / …
 
 Bare phrases without wake word or PTT are **ignored** when `continuous_listen` is false.
 
-You can also type phrases into the host console (same gate rules apply unless you use CLI flags).
+In the GUI **Debug** tab you can inject phrases (optional **Force** bypasses the wake/PTT gate).
 
 ---
 
@@ -122,32 +139,53 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
 
+Next to the host EXE (also under `extras/`):
+
+| File | Purpose |
+|------|---------|
+| `SimConnect.dll` | Microsoft MSFS client (KittyHawk) |
+| `SimConnect.cfg` | Client config (default IPv4 127.0.0.1 Port **500**) |
+| `Microsoft.FlightSimulator.SimConnect.dll` | Optional managed wrapper |
+
 Commands are JSON-driven — no aircraft-specific hardcoding in C# for events. Profiles merge on top of the base catalog.
 
 **SimConnect app name:** `PrivateCoPilotVoice` (unique).
+
+Server-side listen ports come from  
+`%APPDATA%\Microsoft Flight Simulator 2024\SimConnect.xml` (typically Port 500 IPv4).
 
 ---
 
 ## Repository layout
 
 ```
-private-utility-copilot-voice/
-├── PackageDefinitions/          # MSFS package definition (MISC, modules + extras)
-├── PackageSources/
-│   ├── modules/                 # WASM artifact path (+ README until .wasm is built)
-│   └── extras/                  # Host EXE, config, docs, voices, run_copilot.bat
-├── Packages/                    # Built Community package output
-├── Sources/
-│   ├── Code/WasmModule/         # Standalone WASM sources
-│   └── Host/                    # CoPilotVoiceHost + unit tests (.NET 8)
-└── private-utility-copilot-voice.xml
+CO_Pilot_msfs2024/
+├── README.md
+├── CHANGELOG.md
+├── FUTURE.md
+└── private-utility-copilot-voice/
+    ├── PackageDefinitions/          # MSFS package definition (MISC, modules + extras)
+    ├── PackageSources/
+    │   ├── modules/                 # WASM artifact path (+ README until .wasm is built)
+    │   └── extras/                  # Host EXE, config, SimConnect, docs, run_copilot.bat
+    ├── Packages/                    # Built Community package output
+    ├── Sources/
+    │   ├── Code/WasmModule/         # Standalone WASM sources
+    │   └── Host/                    # CoPilotVoiceHost (WPF) + unit tests (.NET 8)
+    └── private-utility-copilot-voice.xml
 ```
+
+Host source highlights:
+
+- `Host/HostSession.cs` — session shared by GUI and headless (settings, speech, SimConnect, inject)
+- `Ui/MainWindow.xaml` — Status / Settings / Debug
+- `Config/`, `Core/`, `SimConnect/`, `Speech/` — no WPF dependencies
 
 ---
 
 ## Build
 
-### Host (.NET 8)
+### Host (.NET 8 / WPF)
 
 ```bat
 cd private-utility-copilot-voice\Sources\Host
@@ -155,6 +193,8 @@ dotnet build -c Release
 dotnet test -c Release
 dotnet publish CoPilotVoiceHost\CoPilotVoiceHost.csproj -c Release -r win-x64 --self-contained false -o ..\..\PackageSources\extras
 ```
+
+Project: `OutputType=WinExe`, `TargetFramework=net8.0-windows`, `UseWPF=true`.
 
 ### WASM (optional)
 
@@ -173,18 +213,24 @@ Load `private-utility-copilot-voice.xml` → Build Package → copy `Packages/pr
 ## Host CLI (debug / offline)
 
 ```bat
-CoPilotVoiceHost.exe --config <path-to-config> --offline --no-tts --no-speech --once
-CoPilotVoiceHost.exe --config <path> --offline --inject "Co Pilot gear up" --vs 500
-CoPilotVoiceHost.exe --inject "landing lights on" --ptt --offline
+CoPilotVoiceHost.exe --headless --config <path-to-config> --offline --no-tts --no-speech --once
+CoPilotVoiceHost.exe --headless --config <path> --offline --inject "Co Pilot gear up" --vs 500
+CoPilotVoiceHost.exe --headless --inject "landing lights on" --ptt --offline
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `--offline` | No live SimConnect DLL; recording client + fixture SimVars |
-| `--inject "..."` | One-shot phrase |
+| `--headless` | Console-only (no WPF window) |
+| `--offline` | Recording client + fixture SimVars (no live sim events) |
+| `--inject "..."` | One-shot phrase (forces headless) |
 | `--ptt` | Treat inject as PTT held (allow bare phrase) |
 | `--vs 500` | Fixture vertical speed (fpm) offline |
-| `--once` | Load config / connect path and exit |
+| `--once` | Load config / connect path and exit (forces headless) |
+| `--config <dir>` | Config directory containing `settings.json` |
+| `--profile name` | Aircraft profile override (`generic`, `a320`, `b737`, …) |
+| `--no-tts` / `--no-speech` | Disable Windows TTS / mic recognizer |
+| `--bypass-gate` | Skip wake-word/PTT gate on inject |
+| `--allow-offline-fallback` | Fall back to recording if live connect fails |
 
 ---
 
@@ -198,6 +244,7 @@ CoPilotVoiceHost.exe --inject "landing lights on" --ptt --offline
 6. **Modular JSON** profiles; unique SimConnect IDs  
 7. **No busy SimVar polling** — period/event style (status ~1 Hz / ≤ 5 Hz intent)  
 8. **Private use** — Community copy only  
+9. **Core free of WPF** — UI only in `Ui/` + bootstrap  
 
 ---
 
@@ -218,7 +265,25 @@ Private personal project. Creator field is **Private**. Not intended for Marketp
 
 ## Quick test checklist
 
+### GUI
+
 1. Free Flight loaded  
-2. `run_copilot.bat` running, console shows config + SimConnect status  
-3. Say: **“Co Pilot positive climb gear up”** (with a real climb, gear down)  
-4. Expect TTS: “Checked. Gear up.” and gear retract in sim (when SimConnect is live)  
+2. `run_copilot.bat` → window opens (dark theme)  
+3. Status bar shows **Live** (or Offline if SimConnect not connected)  
+4. Settings → change wake word → **Apply** → still shows new value; **Save** writes `settings.json`  
+5. Debug → inject `Co Pilot landing lights on` → last action / log updates  
+6. Minimize → tray icon keeps host running  
+
+### Voice / live sim
+
+1. Free Flight + **Live** in status bar  
+2. Say: **“Co Pilot positive climb gear up”** (real climb, gear down)  
+3. Expect TTS + `[SimConnect] LIVE event sent: GEAR_UP` and gear retract  
+
+### Headless
+
+```bat
+CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
+```
+
+Expect exit 0 and `LANDING_LIGHTS_ON` in `copilot-host-headless.log`.
