@@ -23,6 +23,16 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.2.1] - 2026-08-09
+
+### Changed
+
+- **Visual modernization (dark cockpit theme):** centralized `Themes/DarkCockpit.xaml` ResourceDictionary with polished styles for Window, TabControl/TabItem, Button (incl. primary), TextBox, CheckBox, GroupBox, StatusBar, and full **ComboBox / ComboBoxItem** templates.
+- **ComboBox readability:** FontSize 14, MinHeight 36, padding, high-contrast popup (dark panel + light text), clear hover/selected states, wrap/ellipsis for long items; editable text stays high-contrast.
+- App.xaml merges the theme dictionary; MainWindow spacing/hierarchy tightened for a calmer sim-side look.
+
+---
+
 ## [1.2.0] - 2026-08-09
 
 ### Added

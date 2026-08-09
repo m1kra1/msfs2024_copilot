@@ -250,4 +250,65 @@ public class GuiHostTests
         Assert.Contains("Inject", xaml);
         Assert.Contains("Force Reconnect", xaml);
     }
+
+    [Fact]
+    public void DarkCockpit_Theme_Dictionary_Has_Readable_ComboBox_Styles()
+    {
+        var path = FindHostFile("Themes", "DarkCockpit.xaml");
+        Assert.True(File.Exists(path), "Themes/DarkCockpit.xaml must exist (centralized theme)");
+        var xaml = File.ReadAllText(path);
+
+        // Centralized brushes
+        Assert.Contains("BgBrush", xaml);
+        Assert.Contains("FgBrush", xaml);
+        Assert.Contains("InputBrush", xaml);
+        Assert.Contains("SelectedBrush", xaml);
+        Assert.Contains("HoverBrush", xaml);
+
+        // ComboBox + ComboBoxItem full templates (open + closed readability)
+        Assert.Contains("TargetType=\"ComboBox\"", xaml);
+        Assert.Contains("TargetType=\"ComboBoxItem\"", xaml);
+        Assert.Contains("PART_EditableTextBox", xaml);
+        Assert.Contains("IsDropDownOpen", xaml);
+        Assert.Contains("IsHighlighted", xaml);
+        Assert.Contains("IsSelected", xaml);
+        Assert.Contains("MinHeight", xaml);
+        Assert.Contains("FontSize\" Value=\"14\"", xaml.Replace(" ", "") + xaml); // tolerate spacing
+        Assert.Contains("FontSize", xaml);
+        Assert.Contains("14", xaml);
+        Assert.Contains("Padding", xaml);
+        Assert.Contains("DropDownBorder", xaml);
+        Assert.Contains("ComboToggleTemplate", xaml);
+
+        // Other polished controls
+        Assert.Contains("TargetType=\"Button\"", xaml);
+        Assert.Contains("TargetType=\"TabItem\"", xaml);
+        Assert.Contains("TargetType=\"TextBox\"", xaml);
+        Assert.Contains("TargetType=\"CheckBox\"", xaml);
+        Assert.Contains("TargetType=\"StatusBar\"", xaml);
+        Assert.Contains("PrimaryButton", xaml);
+    }
+
+    [Fact]
+    public void App_Xaml_Merges_DarkCockpit_ResourceDictionary()
+    {
+        var path = FindHostFile("App.xaml");
+        var xaml = File.ReadAllText(path);
+        Assert.Contains("MergedDictionaries", xaml);
+        Assert.Contains("Themes/DarkCockpit.xaml", xaml);
+    }
+
+    private static string FindHostFile(params string[] relativeParts)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 12 && dir != null; i++, dir = dir.Parent)
+        {
+            var parts = new[] { dir.FullName, "Sources", "Host", "CoPilotVoiceHost" }.Concat(relativeParts).ToArray();
+            var candidate = Path.Combine(parts);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new FileNotFoundException(string.Join("/", relativeParts));
+    }
 }

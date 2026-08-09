@@ -2,86 +2,98 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CoPilot Voice Host – Offline"
-        Height="640" Width="920"
-        MinHeight="480" MinWidth="720"
+        Height="680" Width="960"
+        MinHeight="520" MinWidth="760"
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing"
         StateChanged="Window_StateChanged">
   <DockPanel>
     <!-- Status bar -->
-    <StatusBar x:Name="BottomBar" DockPanel.Dock="Bottom" Background="#FF12151A" Height="28">
+    <StatusBar x:Name="BottomBar" DockPanel.Dock="Bottom" MinHeight="32">
       <StatusBarItem>
         <StackPanel Orientation="Horizontal">
-          <Ellipse x:Name="ConnDot" Width="10" Height="10" Fill="#FFE74C3C" Margin="0,0,8,0"/>
-          <TextBlock x:Name="StatusBarText" Text="Disconnected · Offline" Foreground="#FFE6EAF0"/>
+          <Ellipse x:Name="ConnDot" Width="11" Height="11" Fill="{StaticResource BadBrush}" Margin="0,0,10,0"/>
+          <TextBlock x:Name="StatusBarText" Text="Disconnected · Offline"/>
         </StackPanel>
       </StatusBarItem>
       <StatusBarItem HorizontalAlignment="Right">
-        <TextBlock x:Name="StatusBarVersion" Text="" Foreground="#FF9AA3B2"/>
+        <TextBlock x:Name="StatusBarVersion" Text="" Foreground="{StaticResource MutedBrush}"/>
       </StatusBarItem>
     </StatusBar>
 
-    <Grid Margin="12">
+    <Grid Margin="16,14,16,10">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <DockPanel Grid.Row="0" Margin="0,0,0,10">
-        <CheckBox x:Name="AlwaysOnTopCheck" Content="Always on Top" Checked="AlwaysOnTop_Changed" Unchecked="AlwaysOnTop_Changed" VerticalAlignment="Center"/>
-        <TextBlock DockPanel.Dock="Right" x:Name="HeaderMode" Text="Mode: Offline" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
+      <DockPanel Grid.Row="0" Margin="0,0,0,12">
+        <CheckBox x:Name="AlwaysOnTopCheck"
+                  Content="Always on Top"
+                  Checked="AlwaysOnTop_Changed"
+                  Unchecked="AlwaysOnTop_Changed"
+                  VerticalAlignment="Center"/>
+        <TextBlock DockPanel.Dock="Right"
+                   x:Name="HeaderMode"
+                   Text="Mode: Offline"
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"/>
       </DockPanel>
 
       <TabControl Grid.Row="1">
         <!-- STATUS -->
         <TabItem Header="Status">
-          <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,10">
             <StackPanel>
-              <GroupBox Header="SimConnect">
+              <GroupBox Header="SIMCONNECT">
                 <Grid>
                   <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="150"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="Connection" Grid.Row="0" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtConnected" Text="—" Grid.Row="0" Grid.Column="1"/>
-                  <TextBlock Text="IsLive" Grid.Row="1" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtLive" Text="—" Grid.Row="1" Grid.Column="1"/>
-                  <TextBlock Text="Status message" Grid.Row="2" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtSimMessage" Text="—" Grid.Row="2" Grid.Column="1" TextWrapping="Wrap"/>
-                  <TextBlock Text="Last error" Grid.Row="3" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtSimError" Text="—" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap" Foreground="#FFE74C3C"/>
+                  <TextBlock Text="Connection" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
+                  <TextBlock x:Name="TxtConnected" Text="—" Grid.Row="0" Grid.Column="1" Margin="0,4" FontWeight="SemiBold"/>
+                  <TextBlock Text="IsLive" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLive" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4" FontWeight="SemiBold"/>
+                  <TextBlock Text="Status message" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
+                  <TextBlock x:Name="TxtSimMessage" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Last error" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
+                  <TextBlock x:Name="TxtSimError" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4" TextWrapping="Wrap" Foreground="{StaticResource BadBrush}"/>
                 </Grid>
               </GroupBox>
-              <GroupBox Header="Flight / Voice">
+              <GroupBox Header="FLIGHT / VOICE">
                 <Grid>
                   <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="150"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="Aircraft profile" Grid.Row="0" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="0" Grid.Column="1"/>
-                  <TextBlock Text="Last phrase" Grid.Row="1" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="1" Grid.Column="1" TextWrapping="Wrap"/>
-                  <TextBlock Text="Confidence" Grid.Row="2" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="2" Grid.Column="1"/>
-                  <TextBlock Text="Last action" Grid.Row="3" Foreground="#FF9AA3B2"/>
-                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="3" Grid.Column="1" TextWrapping="Wrap"/>
-                  <TextBlock Text="Microphone" Grid.Row="4" Foreground="#FF9AA3B2"/>
-                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
-                    <Ellipse x:Name="MicDot" Width="14" Height="14" Fill="#FF3A4250" Margin="0,0,8,0"/>
+                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
+                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="0" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Last phrase" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Confidence" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
+                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Last action" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Microphone" Style="{StaticResource LabelMuted}" Grid.Row="4" Margin="0,4"/>
+                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                    <Ellipse x:Name="MicDot" Width="14" Height="14" Fill="{StaticResource BorderBrushKey}" Margin="0,0,10,0"/>
                     <TextBlock x:Name="TxtMic" Text="Idle"/>
                   </StackPanel>
                 </Grid>
               </GroupBox>
-              <GroupBox Header="Versions">
-                <TextBlock x:Name="TxtVersions" Text="—"/>
+              <GroupBox Header="VERSIONS">
+                <TextBlock x:Name="TxtVersions" Text="—" Margin="0,2"/>
               </GroupBox>
             </StackPanel>
           </ScrollViewer>
@@ -89,46 +101,53 @@
 
         <!-- SETTINGS -->
         <TabItem Header="Settings">
-          <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,10">
             <StackPanel>
-              <GroupBox Header="Speech">
+              <GroupBox Header="SPEECH">
                 <Grid>
                   <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="170"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="Wake word" Grid.Row="0" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <TextBox x:Name="SetWakeWord" Grid.Row="0" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="PTT key" Grid.Row="1" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <TextBox x:Name="SetPttKey" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="Confidence (0–1)" Grid.Row="2" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <TextBox x:Name="SetConfidence" Grid.Row="2" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="PTT grace ms" Grid.Row="3" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <TextBox x:Name="SetPttGrace" Grid.Row="3" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Wake word" Style="{StaticResource LabelMuted}" Grid.Row="0" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetWakeWord" Grid.Row="0" Grid.Column="1" Margin="0,5"/>
+                  <TextBlock Text="PTT key" Style="{StaticResource LabelMuted}" Grid.Row="1" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetPttKey" Grid.Row="1" Grid.Column="1" Margin="0,5"/>
+                  <TextBlock Text="Confidence (0–1)" Style="{StaticResource LabelMuted}" Grid.Row="2" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetConfidence" Grid.Row="2" Grid.Column="1" Margin="0,5"/>
+                  <TextBlock Text="PTT grace ms" Style="{StaticResource LabelMuted}" Grid.Row="3" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetPttGrace" Grid.Row="3" Grid.Column="1" Margin="0,5"/>
                   <CheckBox x:Name="SetContinuous" Content="Continuous listen" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0"/>
                 </Grid>
               </GroupBox>
-              <GroupBox Header="TTS / Behavior / Profile">
+              <GroupBox Header="TTS / BEHAVIOR / PROFILE">
                 <Grid>
                   <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="170"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition/><RowDefinition/><RowDefinition/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="TTS voice" Grid.Row="0" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <TextBox x:Name="SetTtsVoice" Grid.Row="0" Grid.Column="1" Margin="0,4"/>
-                  <CheckBox x:Name="SetPositiveClimb" Content="Require positive climb for gear up" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8"/>
-                  <TextBlock Text="Aircraft profile" Grid.Row="2" VerticalAlignment="Center" Foreground="#FF9AA3B2"/>
-                  <ComboBox x:Name="SetProfile" Grid.Row="2" Grid.Column="1" Margin="0,4" IsEditable="True"/>
+                  <TextBlock Text="TTS voice" Style="{StaticResource LabelMuted}" Grid.Row="0" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetTtsVoice" Grid.Row="0" Grid.Column="1" Margin="0,5"/>
+                  <CheckBox x:Name="SetPositiveClimb" Content="Require positive climb for gear up" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10"/>
+                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="2" VerticalAlignment="Center"/>
+                  <!-- Full ComboBox template from theme; editable text stays high-contrast -->
+                  <ComboBox x:Name="SetProfile"
+                            Grid.Row="2" Grid.Column="1"
+                            Margin="0,5"
+                            IsEditable="True"
+                            MaxDropDownHeight="320"
+                            ToolTip="Select aircraft command profile"/>
                 </Grid>
               </GroupBox>
-              <WrapPanel>
-                <Button Content="Apply" Click="BtnApply_Click"/>
+              <WrapPanel Margin="0,4,0,0">
+                <Button Content="Apply" Click="BtnApply_Click" Style="{StaticResource PrimaryButton}"/>
                 <Button Content="Save" Click="BtnSave_Click"/>
                 <Button Content="Reload" Click="BtnReload_Click"/>
                 <Button Content="Open Config Folder" Click="BtnOpenConfig_Click"/>
@@ -139,26 +158,42 @@
 
         <!-- DEBUG -->
         <TabItem Header="Debug">
-          <Grid Margin="8">
+          <Grid Margin="12,10">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <WrapPanel Grid.Row="0">
+            <WrapPanel Grid.Row="0" Margin="0,0,0,10">
               <Button Content="Force Reconnect" Click="BtnReconnect_Click"/>
               <Button Content="Clear Logs" Click="BtnClearLogs_Click"/>
               <Button Content="Test TTS" Click="BtnTestTts_Click"/>
               <Button Content="Reload Config &amp; Profiles" Click="BtnReloadAll_Click"/>
-              <CheckBox x:Name="DbgContinuous" Content="Continuous listen (live)" VerticalAlignment="Center" Margin="8,0" Checked="DbgContinuous_Changed" Unchecked="DbgContinuous_Changed"/>
+              <CheckBox x:Name="DbgContinuous"
+                        Content="Continuous listen (live)"
+                        VerticalAlignment="Center"
+                        Margin="8,0,0,8"
+                        Checked="DbgContinuous_Changed"
+                        Unchecked="DbgContinuous_Changed"/>
             </WrapPanel>
-            <TextBox x:Name="LogView" Grid.Row="1" IsReadOnly="True" TextWrapping="NoWrap"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                     FontFamily="Consolas" FontSize="12" AcceptsReturn="True"/>
-            <DockPanel Grid.Row="2" Margin="0,8,0,0">
-              <Button DockPanel.Dock="Right" Content="Inject" Click="BtnInject_Click" MinWidth="90"/>
-              <CheckBox x:Name="InjectForce" Content="Force (bypass gate)" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
-              <TextBox x:Name="InjectBox" Margin="0,0,8,0"/>
+            <TextBox x:Name="LogView"
+                     Grid.Row="1"
+                     Style="{StaticResource LogTextBox}"
+                     IsReadOnly="True"
+                     AcceptsReturn="True"/>
+            <DockPanel Grid.Row="2" Margin="0,12,0,0">
+              <Button DockPanel.Dock="Right"
+                      Content="Inject"
+                      Click="BtnInject_Click"
+                      MinWidth="100"
+                      Style="{StaticResource PrimaryButton}"
+                      Margin="0,0,0,0"/>
+              <CheckBox x:Name="InjectForce"
+                        Content="Force (bypass gate)"
+                        DockPanel.Dock="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,14,0"/>
+              <TextBox x:Name="InjectBox" Margin="0,0,10,0" MinHeight="36"/>
             </DockPanel>
           </Grid>
         </TabItem>

@@ -43,6 +43,8 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 
 Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
 
+Theme styles live in `Sources/Host/CoPilotVoiceHost/Themes/DarkCockpit.xaml` (merged from `App.xaml`), including readable **ComboBox** dropdowns (FontSize 14, high contrast, hover/selected states).
+
 #### Settings buttons (important)
 
 | Button | Effect |
