@@ -17,6 +17,27 @@ Versioning follows package `package_version` where applicable.
   1. Fenix A320-Anpassung (aircraft-spezifische Events/LVars)
   2. Anweisungsliste ausgeben (Sprachbefehl + Konsole/TTS)
 
+---
+
+## [1.2.0] - 2026-08-09
+
+### Added
+
+- **WPF desktop GUI** for `CoPilotVoiceHost` (default launch):
+  - Tabs: **Status**, **Settings**, **Debug**
+  - System tray (Show / Hide / Reconnect / Exit), Always on Top, dark theme
+  - Status bar + window title Live/Offline
+  - Settings Apply / Save / Reload / Open Config Folder
+  - Debug: live log, inject phrase, Force Reconnect, Test TTS, continuous-listen toggle
+- **`--headless`** CLI flag; `--once` / `--inject` still run console-only pipeline
+- Shared **`HostSession`** (no WPF deps) for GUI + headless
+- Headless log file `copilot-host-headless.log` next to the EXE
+- Unit tests for WinExe/WPF csproj, settings save round-trip, session inject, XAML shell
+
+### Changed
+
+- Project: `OutputType=WinExe`, `UseWPF=true`, `UseWindowsForms=true` (tray)
+- README documents GUI + headless usage
 
 ---
 

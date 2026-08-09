@@ -4,12 +4,12 @@
   "title": "Private Voice Co-Pilot",
   "manufacturer": "Private",
   "creator": "Private",
-  "package_version": "1.1.1",
+  "package_version": "1.2.0",
   "minimum_game_version": "1.0.0",
   "release_notes": {
     "neutral": {
-      "LastUpdate": "1.1.1: MSFS KittyHawk SimConnect.dll + SimConnect.cfg (fix FSW E_FAIL)",
-      "OlderHistory": "1.1.0: native SimConnect + PTT grace; 1.0.0: Initial private release"
+      "LastUpdate": "1.2.0: WPF GUI (Status/Settings/Debug) + --headless CLI",
+      "OlderHistory": "1.1.1: MSFS SimConnect.dll; 1.1.0: native SC + PTT; 1.0.0: initial"
     }
   }
 }

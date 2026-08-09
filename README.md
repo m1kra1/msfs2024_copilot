@@ -15,7 +15,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 |--------|------|
 | **Community package** | Drop-in folder under Community2024. Holds WASM marker + host files. |
 | **WASM module** | Marker only (`module_init` / `module_deinit` / `module_update`). **No** co-pilot logic, STT, or TTS. |
-| **CoPilotVoiceHost.exe** | Out-of-process .NET 8 host: microphone, speech recognition, TTS, SimConnect, JSON commands. |
+| **CoPilotVoiceHost.exe** | Out-of-process .NET 8 **WPF** host: GUI + microphone, speech, TTS, SimConnect, JSON commands. |
 
 **Why the host is separate:** Windows speech/TTS and a stable SimConnect client need a normal desktop process. WASM cannot run that stack in an SDK-friendly way. The official pattern for tools like this is an **out-of-process** app.
 
@@ -24,8 +24,32 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 ```
 MSFS Free Flight  →  Community package + WASM marker
         +
-run_copilot.bat   →  CoPilotVoiceHost.exe (voice + SimConnect)
+run_copilot.bat   →  CoPilotVoiceHost.exe (GUI by default; voice + SimConnect)
 ```
+
+### Desktop GUI (default)
+
+Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-friendly window**:
+
+| Tab | Contents |
+|-----|----------|
+| **Status** | SimConnect connected/IsLive/errors, aircraft profile, last phrase + confidence, last action, mic indicator, versions |
+| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile; Apply / Save / Reload / Open Config Folder |
+| **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
+
+Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
+
+### Headless / CLI mode
+
+Use for automation, scripts, and the same behavior as the old console host:
+
+```bat
+CoPilotVoiceHost.exe --headless
+CoPilotVoiceHost.exe --headless --offline --once
+CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
+```
+
+`--once` and `--inject` also force headless (no window). Headless writes `copilot-host-headless.log` next to the EXE.
 
 ---
 
@@ -53,10 +77,10 @@ run_copilot.bat   →  CoPilotVoiceHost.exe (voice + SimConnect)
 
    or start `CoPilotVoiceHost.exe` directly.
 
-5. Check the host console: **`IsLive=True`**. If `IsLive=False`, speech still works but **nothing in the aircraft will move**.  
+5. Check the GUI status bar / Status tab: **Live**. If **Offline**, speech still works but **nothing in the aircraft will move**.  
    Ensure Free Flight is running and `SimConnect.dll` sits next to `CoPilotVoiceHost.exe` (included under `extras` when packaged).
 
-Host console logs config load, SimConnect status, recognized phrases, and transmitted events (`[SimConnect] LIVE event sent: …`).
+Host logs appear in the **Debug** tab (and in headless mode on the console / `copilot-host-headless.log`). Look for `[SimConnect] LIVE event sent: …`.
 
 ---
 

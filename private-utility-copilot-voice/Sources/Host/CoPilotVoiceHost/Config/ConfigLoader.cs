@@ -22,6 +22,35 @@ public static class ConfigLoader
                ?? throw new InvalidOperationException("Failed to deserialize settings.json");
     }
 
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = null
+    };
+
+    /// <summary>Persists settings.json using the same property names as the schema (JsonPropertyName).</summary>
+    public static void SaveSettings(string settingsPath, AppSettings settings)
+    {
+        var dir = Path.GetDirectoryName(settingsPath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = JsonSerializer.Serialize(settings, WriteOptions);
+        File.WriteAllText(settingsPath, json);
+    }
+
+    public static IReadOnlyList<string> ListAircraftProfiles(string configRoot)
+    {
+        var aircraftDir = Path.Combine(configRoot, "aircraft");
+        if (!Directory.Exists(aircraftDir))
+            return Array.Empty<string>();
+
+        return Directory.GetFiles(aircraftDir, "*.json")
+            .Select(f => Path.GetFileNameWithoutExtension(f)!)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public static CommandCatalog LoadBaseCommands(string baseCommandsPath)
     {
         if (!File.Exists(baseCommandsPath))

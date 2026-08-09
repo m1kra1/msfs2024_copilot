@@ -13,7 +13,7 @@ public sealed class PttArmService : IDisposable
     private long _armedUntilTick;
     private bool _wasDown;
     private bool _disposed;
-    private Timer? _timer;
+    private System.Threading.Timer? _timer;
 
     public PttArmService(string keyName, int graceMs = 3000)
     {
@@ -42,7 +42,7 @@ public sealed class PttArmService : IDisposable
     public void StartPolling(int intervalMs = 50)
     {
         _timer?.Dispose();
-        _timer = new Timer(_ => Poll(), null, 0, Math.Max(20, intervalMs));
+        _timer = new System.Threading.Timer(_ => Poll(), null, 0, Math.Max(20, intervalMs));
     }
 
     /// <summary>Poll key state once (also called from recognition path).</summary>
