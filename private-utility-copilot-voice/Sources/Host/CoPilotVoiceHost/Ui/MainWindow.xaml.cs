@@ -146,14 +146,15 @@ public partial class MainWindow : Window
 
     private void BtnApply_Click(object sender, RoutedEventArgs e)
     {
-        _session.ApplySettingsFromUi(ReadSettingsFromUi(), saveToDisk: false, reloadProfiles: true);
+        // In-memory only: must not re-read settings.json (would wipe edits).
+        _session.ApplySettingsFromUi(ReadSettingsFromUi(), saveToDisk: false, rebuildCatalog: true);
         LoadSettingsToUi();
         RefreshStatus();
     }
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
-        _session.ApplySettingsFromUi(ReadSettingsFromUi(), saveToDisk: true, reloadProfiles: true);
+        _session.ApplySettingsFromUi(ReadSettingsFromUi(), saveToDisk: true, rebuildCatalog: true);
         LoadSettingsToUi();
         RefreshStatus();
     }
@@ -193,8 +194,10 @@ public partial class MainWindow : Window
 
     private void BtnReloadAll_Click(object sender, RoutedEventArgs e)
     {
+        // ReloadFromDisk restarts speech when listening was already active.
         _session.ReloadFromDisk();
-        _session.StartSpeechListening();
+        if (_session.SpeechStartCount == 0)
+            _session.StartSpeechListening();
         LoadSettingsToUi();
         RefreshStatus();
     }

@@ -27,6 +27,7 @@ public sealed class HostSession : IDisposable
     private System.Threading.Timer? _reconnectTimer;
     private bool _disposed;
     private bool _micActive;
+    private bool _speechListening;
 
     public UiLogSink Log { get; } = new();
     public string ConfigRoot { get; private set; } = "";
@@ -34,6 +35,12 @@ public sealed class HostSession : IDisposable
     public CommandCatalog Catalog { get; private set; } = new();
     public string ApplicationVersion { get; }
     public string PackageVersion { get; private set; } = "1.2.0";
+
+    /// <summary>How many times speech listening was (re)started — for tests and diagnostics.</summary>
+    public int SpeechStartCount { get; private set; }
+
+    /// <summary>Current phrase matcher built from the active catalog (for tests).</summary>
+    public PhraseMatcher? Matcher => _matcher;
 
     public bool IsConnected => _sim?.IsConnected ?? false;
     public bool IsLive => _sim?.IsLive ?? false;
@@ -73,7 +80,8 @@ public sealed class HostSession : IDisposable
 
         ConfigRoot = ConfigLoader.ResolveConfigRoot(_options.ConfigRoot);
         LoadPackageVersionHint();
-        ReloadConfigInternal(reconnectSim: true, restartSpeech: true);
+        // Initial load from disk; speech starts separately via StartSpeechListening when needed.
+        ReloadConfigInternal(reconnectSim: true, restartSpeech: false);
 
         Log.Info("Private Voice Co-Pilot Host session started");
         Log.Info($"Package: private-utility-copilot-voice | App {ApplicationVersion} | Package {PackageVersion}");
@@ -176,20 +184,15 @@ public sealed class HostSession : IDisposable
         StatusChanged?.Invoke();
     }
 
-    public void ApplySettingsFromUi(AppSettings edited, bool saveToDisk, bool reloadProfiles)
+    /// <summary>
+    /// Apply UI edits into the live <see cref="Settings"/> object.
+    /// When <paramref name="saveToDisk"/> is false, values stay in memory only (disk is not re-read).
+    /// When <paramref name="rebuildCatalog"/> is true, base_commands + selected aircraft profile are re-merged
+    /// and the speech grammar is rebuilt if listening is active.
+    /// </summary>
+    public void ApplySettingsFromUi(AppSettings edited, bool saveToDisk, bool rebuildCatalog = true)
     {
-        Settings.Speech.WakeWord = edited.Speech.WakeWord;
-        Settings.Speech.PttKey = edited.Speech.PttKey;
-        Settings.Speech.ConfidenceThreshold = edited.Speech.ConfidenceThreshold;
-        Settings.Speech.ContinuousListen = edited.Speech.ContinuousListen;
-        Settings.Speech.PttGraceMs = edited.Speech.PttGraceMs;
-        Settings.Tts.Voice = edited.Tts.Voice;
-        Settings.Tts.Rate = edited.Tts.Rate;
-        Settings.Tts.Volume = edited.Tts.Volume;
-        Settings.Behavior.RequirePositiveClimbForGearUp = edited.Behavior.RequirePositiveClimbForGearUp;
-        Settings.Behavior.ConfirmBeforeAction = edited.Behavior.ConfirmBeforeAction;
-        Settings.Behavior.CalloutDelayMs = edited.Behavior.CalloutDelayMs;
-        Settings.AircraftProfile = edited.AircraftProfile;
+        CopyEditableSettings(edited, Settings);
 
         if (saveToDisk)
         {
@@ -199,23 +202,26 @@ public sealed class HostSession : IDisposable
         }
         else
         {
-            Log.Info("[Settings] Applied in memory (not saved).");
+            Log.Info("[Settings] Applied in memory (not saved to disk).");
         }
 
-        _tts?.ApplySettings(Settings.Tts);
-        _pttArm?.Dispose();
-        _pttArm = new PttArmService(Settings.Speech.PttKey, Settings.Speech.PttGraceMs);
-        _pttArm.StartPolling(50);
-        _gate = new SpeechInputGate(Settings.Speech);
+        // Never call LoadAll() here — that would wipe in-memory Apply edits.
+        if (rebuildCatalog)
+            RebuildCatalogFromCurrentSettings();
 
-        if (reloadProfiles)
-            ReloadConfigInternal(reconnectSim: false, restartSpeech: true);
+        RebuildPipelineServices();
+
+        if (_speechListening)
+            StartSpeechListening();
+        else
+            Log.Info("[Settings] Pipeline rebuilt (speech not listening yet).");
 
         StatusChanged?.Invoke();
     }
 
     public void ReloadFromDisk()
     {
+        // Full disk reload replaces Settings, then rebuilds pipeline + speech if active.
         ReloadConfigInternal(reconnectSim: false, restartSpeech: true);
         Log.Info("[Settings] Reloaded from disk.");
         StatusChanged?.Invoke();
@@ -226,6 +232,13 @@ public sealed class HostSession : IDisposable
     public void StartSpeechListening()
     {
         StopSpeechListening();
+        _speechListening = true;
+        SpeechStartCount++;
+
+        // Ensure matcher/gate reflect current Settings before loading grammar
+        if (_matcher is null || _gate is null)
+            RebuildPipelineServices();
+
         try
         {
             if (_options.NoSpeech)
@@ -255,7 +268,8 @@ public sealed class HostSession : IDisposable
         try
         {
             _speech.Start();
-            Log.Info($"[Speech] Listening wake='{Settings.Speech.WakeWord}' ptt={Settings.Speech.PttKey} continuous={Settings.Speech.ContinuousListen}");
+            Log.Info(
+                $"[Speech] Listening (#{SpeechStartCount}) wake='{Settings.Speech.WakeWord}' ptt={Settings.Speech.PttKey} continuous={Settings.Speech.ContinuousListen} phrases={_matcher?.AllPhrases.Count ?? 0}");
         }
         catch (Exception ex)
         {
@@ -296,7 +310,7 @@ public sealed class HostSession : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        StopSpeechListening();
+        StopSpeechListeningForShutdown();
         _pttArm?.Dispose();
         _tts?.Dispose();
         _sim?.Dispose();
@@ -319,6 +333,15 @@ public sealed class HostSession : IDisposable
             catch { /* ignore */ }
             _speech = null;
         }
+
+        // Keep _speechListening true across restarts so Apply/Reload know to start again;
+        // only Dispose/full stop clears it via StopSpeechListeningForShutdown.
+    }
+
+    private void StopSpeechListeningForShutdown()
+    {
+        _speechListening = false;
+        StopSpeechListening();
     }
 
     private void OnSpeechRecognized(string text, float conf)
@@ -423,10 +446,12 @@ public sealed class HostSession : IDisposable
 
     private void ReloadConfigInternal(bool reconnectSim, bool restartSpeech)
     {
-        var (settings, catalog) = ConfigLoader.LoadAll(ConfigRoot, _options.Profile);
+        // Disk → Settings (this intentionally overwrites in-memory Apply edits)
+        var profileOverride = string.IsNullOrWhiteSpace(_options.Profile) ? null : _options.Profile;
+        var (settings, catalog) = ConfigLoader.LoadAll(ConfigRoot, profileOverride);
         Settings = settings;
-        if (!string.IsNullOrWhiteSpace(_options.Profile))
-            Settings.AircraftProfile = _options.Profile!;
+        if (!string.IsNullOrWhiteSpace(profileOverride))
+            Settings.AircraftProfile = profileOverride!;
         Catalog = catalog;
 
         Log.Info($"[Config] Commands loaded: {Catalog.Commands.Count}");
@@ -435,42 +460,51 @@ public sealed class HostSession : IDisposable
         Log.Info($"[Config] continuous_listen={Settings.Speech.ContinuousListen} ptt_grace_ms={Settings.Speech.PttGraceMs}");
 
         if (reconnectSim || _sim is null)
+            ConnectSimClient();
+
+        RebuildPipelineServices();
+
+        if (restartSpeech && _speechListening)
         {
-            _sim?.Dispose();
-            _sim = SimConnectClientFactory.CreateAndConnect(
-                Settings.SimConnect.AppName,
-                Settings.SimConnect.ConfigIndex,
-                preferOffline: _options.ForceOffline,
-                allowOfflineFallback: _options.ForceOffline || _options.AllowOfflineFallback,
-                out var live);
-
-            Log.Info($"[SimConnect] {_sim.StatusMessage}");
-            Log.Info($"[SimConnect] Connected={_sim.IsConnected} IsLive={_sim.IsLive}");
-            if (!_sim.IsLive)
-            {
-                LastSimError = _sim.StatusMessage;
-                Log.Warn("[SimConnect] WARNING: Not live. Recognized commands will speak but will NOT move switches in MSFS.");
-            }
-            else
-            {
-                LastSimError = null;
-            }
-
-            if (!live && _sim is RecordingSimConnectClient recording)
-            {
-                recording.Snapshot.Set("GEAR POSITION", 1);
-                recording.Snapshot.Set("VERTICAL SPEED", _options.FixtureVerticalSpeed ?? 500);
-                recording.Snapshot.Set("FLAPS HANDLE INDEX", 0);
-                recording.Snapshot.Set("AUTOPILOT MASTER", 0);
-                recording.Snapshot.Set("LIGHT LANDING", 0);
-                recording.Snapshot.Set("BRAKE PARKING POSITION", 0);
-                recording.Snapshot.Set("ENG ANTI ICE", 0);
-                Log.Info($"[SimConnect] Offline snapshot seeded (VS={_options.FixtureVerticalSpeed ?? 500} fpm).");
-            }
+            StartSpeechListening();
+        }
+        else if (restartSpeech)
+        {
+            Log.Info("[Config] Speech restart requested but listening was not active.");
         }
 
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Re-merge base_commands + aircraft profile using <see cref="Settings.AircraftProfile"/>
+    /// without reloading settings.json (preserves in-memory Apply edits).
+    /// </summary>
+    public void RebuildCatalogFromCurrentSettings()
+    {
+        var basePath = Path.Combine(ConfigRoot, "base_commands.json");
+        var baseCatalog = ConfigLoader.LoadBaseCommands(basePath);
+        var profileName = string.IsNullOrWhiteSpace(Settings.AircraftProfile)
+            ? "generic"
+            : Settings.AircraftProfile;
+        var profilePath = Path.Combine(ConfigRoot, "aircraft", $"{profileName}.json");
+        AircraftProfile profile;
+        if (File.Exists(profilePath))
+            profile = ConfigLoader.LoadAircraftProfile(profilePath);
+        else
+            profile = new AircraftProfile { ProfileId = profileName, Title = "missing profile" };
+
+        Catalog = ConfigLoader.Merge(baseCatalog, profile);
+        Log.Info($"[Config] Catalog rebuilt for profile '{profileName}': {Catalog.Commands.Count} commands");
+    }
+
+    private void RebuildPipelineServices()
+    {
+        if (_sim is null)
+            throw new InvalidOperationException("SimConnect client not initialized");
+
         _matcher = new PhraseMatcher(Catalog.Commands);
-        _executor = new ActionExecutor(_sim!);
+        _executor = new ActionExecutor(_sim);
         _processor = new CommandProcessor(_matcher, new ConditionEngine(), _executor, Settings.Behavior);
         _gate = new SpeechInputGate(Settings.Speech);
         _pttArm?.Dispose();
@@ -484,13 +518,57 @@ public sealed class HostSession : IDisposable
             ? new ConsoleTtsService()
             : CreateTts(Settings.Tts);
         _tts.ApplySettings(Settings.Tts);
+    }
 
-        if (restartSpeech && !_options.Once && string.IsNullOrWhiteSpace(_options.InjectPhrase))
+    private void ConnectSimClient()
+    {
+        _sim?.Dispose();
+        _sim = SimConnectClientFactory.CreateAndConnect(
+            Settings.SimConnect.AppName,
+            Settings.SimConnect.ConfigIndex,
+            preferOffline: _options.ForceOffline,
+            allowOfflineFallback: _options.ForceOffline || _options.AllowOfflineFallback,
+            out var live);
+
+        Log.Info($"[SimConnect] {_sim.StatusMessage}");
+        Log.Info($"[SimConnect] Connected={_sim.IsConnected} IsLive={_sim.IsLive}");
+        if (!_sim.IsLive)
         {
-            // For GUI/session continuous mode; headless inject doesn't need speech yet
+            LastSimError = _sim.StatusMessage;
+            Log.Warn("[SimConnect] WARNING: Not live. Recognized commands will speak but will NOT move switches in MSFS.");
+        }
+        else
+        {
+            LastSimError = null;
         }
 
-        StatusChanged?.Invoke();
+        if (!live && _sim is RecordingSimConnectClient recording)
+        {
+            recording.Snapshot.Set("GEAR POSITION", 1);
+            recording.Snapshot.Set("VERTICAL SPEED", _options.FixtureVerticalSpeed ?? 500);
+            recording.Snapshot.Set("FLAPS HANDLE INDEX", 0);
+            recording.Snapshot.Set("AUTOPILOT MASTER", 0);
+            recording.Snapshot.Set("LIGHT LANDING", 0);
+            recording.Snapshot.Set("BRAKE PARKING POSITION", 0);
+            recording.Snapshot.Set("ENG ANTI ICE", 0);
+            Log.Info($"[SimConnect] Offline snapshot seeded (VS={_options.FixtureVerticalSpeed ?? 500} fpm).");
+        }
+    }
+
+    private static void CopyEditableSettings(AppSettings from, AppSettings to)
+    {
+        to.Speech.WakeWord = from.Speech.WakeWord;
+        to.Speech.PttKey = from.Speech.PttKey;
+        to.Speech.ConfidenceThreshold = from.Speech.ConfidenceThreshold;
+        to.Speech.ContinuousListen = from.Speech.ContinuousListen;
+        to.Speech.PttGraceMs = from.Speech.PttGraceMs;
+        to.Tts.Voice = from.Tts.Voice;
+        to.Tts.Rate = from.Tts.Rate;
+        to.Tts.Volume = from.Tts.Volume;
+        to.Behavior.RequirePositiveClimbForGearUp = from.Behavior.RequirePositiveClimbForGearUp;
+        to.Behavior.ConfirmBeforeAction = from.Behavior.ConfirmBeforeAction;
+        to.Behavior.CalloutDelayMs = from.Behavior.CalloutDelayMs;
+        to.AircraftProfile = from.AircraftProfile;
     }
 
     private void LoadPackageVersionHint()

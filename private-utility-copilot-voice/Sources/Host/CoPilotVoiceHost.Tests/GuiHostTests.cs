@@ -98,6 +98,139 @@ public class GuiHostTests
     }
 
     [Fact]
+    public void ApplySettings_InMemory_Does_Not_Wipe_Edits_With_Disk_Reload()
+    {
+        var root = FindConfigRoot();
+        // Isolate disk: copy settings so we can prove Apply does not re-read and overwrite
+        var tmpRoot = Path.Combine(Path.GetTempPath(), "copilot-apply-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tmpRoot, "aircraft"));
+            File.Copy(Path.Combine(root, "settings.json"), Path.Combine(tmpRoot, "settings.json"));
+            File.Copy(Path.Combine(root, "base_commands.json"), Path.Combine(tmpRoot, "base_commands.json"));
+            foreach (var f in Directory.GetFiles(Path.Combine(root, "aircraft"), "*.json"))
+                File.Copy(f, Path.Combine(tmpRoot, "aircraft", Path.GetFileName(f)));
+
+            using var session = new HostSession(new HostOptions
+            {
+                ConfigRoot = tmpRoot,
+                ForceOffline = true,
+                NoTts = true,
+                NoSpeech = true,
+                AllowOfflineFallback = true
+            });
+            session.Start();
+
+            var diskWake = ConfigLoader.LoadSettings(Path.Combine(tmpRoot, "settings.json")).Speech.WakeWord;
+            Assert.False(string.IsNullOrWhiteSpace(diskWake));
+
+            var edited = session.Settings;
+            edited.Speech.WakeWord = "Sky Boss Apply";
+            edited.Speech.PttGraceMs = 2222;
+            edited.Behavior.RequirePositiveClimbForGearUp = !edited.Behavior.RequirePositiveClimbForGearUp;
+            var climbAfter = edited.Behavior.RequirePositiveClimbForGearUp;
+
+            // The bug: reloadProfiles/LoadAll wiped memory. Apply must keep in-memory values.
+            session.ApplySettingsFromUi(edited, saveToDisk: false, rebuildCatalog: true);
+
+            Assert.Equal("Sky Boss Apply", session.Settings.Speech.WakeWord);
+            Assert.Equal(2222, session.Settings.Speech.PttGraceMs);
+            Assert.Equal(climbAfter, session.Settings.Behavior.RequirePositiveClimbForGearUp);
+
+            // Disk unchanged
+            var stillDisk = ConfigLoader.LoadSettings(Path.Combine(tmpRoot, "settings.json"));
+            Assert.Equal(diskWake, stillDisk.Speech.WakeWord);
+            Assert.NotEqual("Sky Boss Apply", stillDisk.Speech.WakeWord);
+        }
+        finally
+        {
+            try { Directory.Delete(tmpRoot, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void ApplySettings_Restarts_Speech_And_Rebuilds_Grammar_When_Listening()
+    {
+        var root = FindConfigRoot();
+        using var session = new HostSession(new HostOptions
+        {
+            ConfigRoot = root,
+            ForceOffline = true,
+            NoTts = true,
+            NoSpeech = true,
+            AllowOfflineFallback = true
+        });
+        session.Start();
+        session.StartSpeechListening();
+        var starts = session.SpeechStartCount;
+        Assert.True(starts >= 1);
+
+        var edited = session.Settings;
+        edited.Speech.WakeWord = "Sky Boss Live";
+        edited.AircraftProfile = "a320";
+        session.ApplySettingsFromUi(edited, saveToDisk: false, rebuildCatalog: true);
+
+        Assert.Equal("Sky Boss Live", session.Settings.Speech.WakeWord);
+        Assert.Equal("a320", session.Settings.AircraftProfile);
+        Assert.True(session.SpeechStartCount > starts,
+            "Apply must restart speech so wake word / grammar take effect on the live path");
+        Assert.NotNull(session.Matcher);
+        // a320 profile merges extra command — catalog should still include gear_up + a320 command
+        var ids = session.Catalog.Commands.Select(c => c.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("gear_up", ids);
+        Assert.Contains("a320_managed_speed", ids);
+
+        // New wake word must work for inject gate via Process path
+        var code = session.InjectPhrase("Sky Boss Live landing lights on", forceGate: false);
+        Assert.Equal(0, code);
+        Assert.Contains("LANDING_LIGHTS_ON", session.LastAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Save_Then_ReloadFromDisk_Restores_Saved_WakeWord_And_Restarts_Speech()
+    {
+        var root = FindConfigRoot();
+        var tmpRoot = Path.Combine(Path.GetTempPath(), "copilot-save-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(tmpRoot, "aircraft"));
+            File.Copy(Path.Combine(root, "settings.json"), Path.Combine(tmpRoot, "settings.json"));
+            File.Copy(Path.Combine(root, "base_commands.json"), Path.Combine(tmpRoot, "base_commands.json"));
+            foreach (var f in Directory.GetFiles(Path.Combine(root, "aircraft"), "*.json"))
+                File.Copy(f, Path.Combine(tmpRoot, "aircraft", Path.GetFileName(f)));
+
+            using var session = new HostSession(new HostOptions
+            {
+                ConfigRoot = tmpRoot,
+                ForceOffline = true,
+                NoTts = true,
+                NoSpeech = true,
+                AllowOfflineFallback = true
+            });
+            session.Start();
+            session.StartSpeechListening();
+            var starts = session.SpeechStartCount;
+
+            var edited = session.Settings;
+            edited.Speech.WakeWord = "Saved Wake";
+            session.ApplySettingsFromUi(edited, saveToDisk: true, rebuildCatalog: true);
+            Assert.Equal("Saved Wake", session.Settings.Speech.WakeWord);
+            Assert.True(session.SpeechStartCount > starts);
+
+            // Mutate memory, then ReloadFromDisk must bring Saved Wake back and restart speech
+            session.Settings.Speech.WakeWord = "Tampered";
+            var starts2 = session.SpeechStartCount;
+            session.ReloadFromDisk();
+            Assert.Equal("Saved Wake", session.Settings.Speech.WakeWord);
+            Assert.True(session.SpeechStartCount > starts2);
+        }
+        finally
+        {
+            try { Directory.Delete(tmpRoot, recursive: true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
     public void MainWindow_Xaml_Has_Status_Settings_Debug_Shell()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

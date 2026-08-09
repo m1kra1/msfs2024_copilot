@@ -32,7 +32,12 @@ Versioning follows package `package_version` where applicable.
 - **`--headless`** CLI flag; `--once` / `--inject` still run console-only pipeline
 - Shared **`HostSession`** (no WPF deps) for GUI + headless
 - Headless log file `copilot-host-headless.log` next to the EXE
-- Unit tests for WinExe/WPF csproj, settings save round-trip, session inject, XAML shell
+- Unit tests for WinExe/WPF csproj, settings save round-trip, session inject, XAML shell, Apply/Save/Reload speech restart
+
+### Fixed
+
+- **Settings Apply** no longer re-reads `settings.json` and wiping in-memory edits; catalog rebuild uses the selected profile while keeping live Settings.
+- **Speech grammar / wake word** rebuild on Apply, Save, and Reload when listening is active (`StartSpeechListening` after pipeline rebuild).
 
 ### Changed
 
