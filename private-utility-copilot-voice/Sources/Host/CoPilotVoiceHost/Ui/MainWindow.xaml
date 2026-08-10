@@ -67,7 +67,7 @@
                   <TextBlock x:Name="TxtSimError" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4" TextWrapping="Wrap" Foreground="{StaticResource BadBrush}"/>
                 </Grid>
               </GroupBox>
-              <GroupBox Header="FLIGHT / VOICE">
+              <GroupBox Header="FLIGHT DATA">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="150"/>
@@ -76,20 +76,44 @@
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="Detected aircraft" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
-                  <TextBlock x:Name="TxtDetectedAircraft" Text="Unknown" Grid.Row="0" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
-                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
-                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="Last phrase" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
-                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
-                  <TextBlock Text="Confidence" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
-                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4"/>
-                  <TextBlock Text="Last action" Style="{StaticResource LabelMuted}" Grid.Row="4" Margin="0,4"/>
-                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="4" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
-                  <TextBlock Text="Microphone" Style="{StaticResource LabelMuted}" Grid.Row="5" Margin="0,4"/>
-                  <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                  <TextBlock Text="Aircraft" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
+                  <TextBlock x:Name="TxtDetectedAircraft" Text="Unknown" Grid.Row="0" Grid.Column="1" Margin="0,4" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                  <TextBlock Text="Airport" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
+                  <TextBlock x:Name="TxtAirport" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Altitude" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
+                  <TextBlock x:Name="TxtAltitude" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Speed (IAS)" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
+                  <TextBlock x:Name="TxtAirspeed" Text="—" Grid.Row="3" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Vertical speed" Style="{StaticResource LabelMuted}" Grid.Row="4" Margin="0,4"/>
+                  <TextBlock x:Name="TxtVerticalSpeed" Text="—" Grid.Row="4" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="On ground" Style="{StaticResource LabelMuted}" Grid.Row="5" Margin="0,4"/>
+                  <TextBlock x:Name="TxtOnGround" Text="—" Grid.Row="5" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Sim data" Style="{StaticResource LabelMuted}" Grid.Row="6" Margin="0,4"/>
+                  <TextBlock x:Name="TxtSimData" Text="Waiting…" Grid.Row="6" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="7" Margin="0,4"/>
+                  <TextBlock x:Name="TxtProfile" Text="—" Grid.Row="7" Grid.Column="1" Margin="0,4"/>
+                </Grid>
+              </GroupBox>
+              <GroupBox Header="VOICE">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Text="Last phrase" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastPhrase" Text="—" Grid.Row="0" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Confidence" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,4"/>
+                  <TextBlock x:Name="TxtConfidence" Text="—" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
+                  <TextBlock Text="Last action" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,4"/>
+                  <TextBlock x:Name="TxtLastAction" Text="—" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+                  <TextBlock Text="Microphone" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4"/>
+                  <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
                     <Ellipse x:Name="MicDot" Width="14" Height="14" Fill="{StaticResource BorderBrushKey}" Margin="0,0,10,0"/>
                     <TextBlock x:Name="TxtMic" Text="Idle"/>
                   </StackPanel>

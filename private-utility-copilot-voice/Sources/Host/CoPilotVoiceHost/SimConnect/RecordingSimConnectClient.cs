@@ -18,6 +18,8 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     public SimVarSnapshot Snapshot { get; } = new();
     public string AircraftTitle { get; set; } = "";
     public string AtcModel { get; set; } = "";
+    public string AirportIdent { get; set; } = "";
+    public bool HasReceivedStatusData => Snapshot.Values.Count > 0;
     public IReadOnlyList<(string Name, uint Data)> TransmittedEvents => _events;
     public IReadOnlyList<(string Name, double Value, string Units)> SetSimVars => _sets;
 

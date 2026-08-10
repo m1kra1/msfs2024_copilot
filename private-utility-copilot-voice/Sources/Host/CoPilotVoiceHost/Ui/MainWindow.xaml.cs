@@ -23,7 +23,7 @@ public partial class MainWindow : Window
 
     private readonly HostSession _session;
     private readonly Forms.NotifyIcon _tray;
-    private bool _exitFromTray;
+    private bool _exitRequested;
     private bool _suppressContinuousEvent;
     private int _uiLogLineCount;
     private bool _logTrimScheduled;
@@ -148,6 +148,37 @@ public partial class MainWindow : Window
             : _session.DetectedAircraftTitle;
         if (!string.IsNullOrWhiteSpace(_session.DetectedAtcModel))
             TxtDetectedAircraft.Text += $" · ATC {_session.DetectedAtcModel}";
+
+        // Live flight telemetry (updated ~2 Hz while SimConnect is live).
+        TxtAirport.Text = string.IsNullOrWhiteSpace(_session.DetectedAirportIdent)
+            ? "—"
+            : _session.DetectedAirportIdent;
+        if (live && _session.HasReceivedSimData)
+        {
+            TxtAltitude.Text = $"{_session.PlaneAltitudeFeet:F0} ft";
+            TxtAirspeed.Text = $"{_session.IndicatedAirspeedKnots:F0} kt";
+            var vs = _session.VerticalSpeedFpm;
+            TxtVerticalSpeed.Text = $"{vs:+0;-0;0} fpm";
+            TxtOnGround.Text = _session.SimOnGround ? "Yes" : "No (airborne)";
+            TxtSimData.Text = "Receiving";
+        }
+        else if (live)
+        {
+            TxtAltitude.Text = "…";
+            TxtAirspeed.Text = "…";
+            TxtVerticalSpeed.Text = "…";
+            TxtOnGround.Text = "…";
+            TxtSimData.Text = "Waiting for SimConnect data…";
+        }
+        else
+        {
+            TxtAltitude.Text = "—";
+            TxtAirspeed.Text = "—";
+            TxtVerticalSpeed.Text = "—";
+            TxtOnGround.Text = "—";
+            TxtSimData.Text = "Offline";
+        }
+
         var activeProfile = _session.AircraftProfile;
         TxtProfile.Text = activeProfile;
         // Keep Settings combo in sync with auto-detect / session profile so Apply cannot
@@ -436,26 +467,29 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, EventArgs e)
     {
-        if (WindowState == WindowState.Minimized)
+        // Minimize still hides to tray for convenience; full close (X) exits completely.
+        if (!_exitRequested && WindowState == WindowState.Minimized)
         {
             Hide();
-            _tray.ShowBalloonTip(800, "CoPilot Voice Host", "Running in system tray.", Forms.ToolTipIcon.Info);
+            _tray.ShowBalloonTip(800, "CoPilot Voice Host", "Minimized to tray. Close the window or use Exit to quit.", Forms.ToolTipIcon.Info);
         }
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_exitFromTray)
+        // Always fully shut down: speech, SimConnect dispatch thread, tray, session.
+        _exitRequested = true;
+        try { _session.Log.LineAppended -= OnLogLine; } catch { /* ignore */ }
+        try
         {
-            e.Cancel = true;
-            WindowState = WindowState.Minimized;
-            return;
+            _tray.Visible = false;
+            _tray.Dispose();
         }
+        catch { /* ignore */ }
 
-        _session.Log.LineAppended -= OnLogLine;
-        _tray.Visible = false;
-        _tray.Dispose();
-        _session.Dispose();
+        try { _session.Dispose(); } catch { /* ignore */ }
+
+        try { System.Windows.Application.Current?.Shutdown(); } catch { /* ignore */ }
     }
 
     private void ShowFromTray()
@@ -467,9 +501,8 @@ public partial class MainWindow : Window
 
     private void ExitApp()
     {
-        _exitFromTray = true;
+        _exitRequested = true;
         Close();
-        System.Windows.Application.Current?.Shutdown();
     }
 
     // ── Commands tab ─────────────────────────────────────────────────────────

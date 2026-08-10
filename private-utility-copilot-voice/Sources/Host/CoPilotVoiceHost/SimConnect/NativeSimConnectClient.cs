@@ -20,7 +20,10 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private readonly Dictionary<string, uint> _setVarDefs = new(StringComparer.OrdinalIgnoreCase);
     private uint _nextEventId = 0xC0030001;
     private uint _nextSetDefId = 0xC0010100;
-    private bool _defsRegistered;
+    private int _statusFieldCount;
+    private int _aircraftStringFields;
+    private bool _loggedFirstStatus;
+    private bool _loggedFirstAircraft;
 
     private const uint DEFINITION_STATUS = 0xC0010001;
     private const uint DEFINITION_AIRCRAFT = 0xC0010002;
@@ -48,6 +51,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     public SimVarSnapshot Snapshot { get; } = new();
     public string AircraftTitle { get; private set; } = "";
     public string AtcModel { get; private set; } = "";
+    public string AirportIdent { get; private set; } = "";
+    public bool HasReceivedStatusData { get; private set; }
 
     public bool Connect(string appName, int configIndex = 0)
     {
@@ -252,53 +257,80 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
     private void RegisterStatusDefinitions()
     {
-        if (_defsRegistered || !IsConnected) return;
+        if (!IsConnected) return;
+        _statusFieldCount = 0;
+        try { SimConnect_ClearDataDefinition(_h, DEFINITION_STATUS); } catch { /* first use */ }
+
         foreach (var (name, units) in StatusSimVars.Definitions)
         {
-            try
+            var hr = SimConnect_AddToDataDefinition(
+                _h, DEFINITION_STATUS, name, units, DATATYPE_FLOAT64, 0f, uint.MaxValue);
+            if (hr >= 0)
             {
-                SimConnect_AddToDataDefinition(
-                    _h, DEFINITION_STATUS, name, units, DATATYPE_FLOAT64, 0f, uint.MaxValue);
+                _statusFieldCount++;
             }
-            catch
+            else
             {
-                // optional
+                Console.WriteLine(
+                    $"[SimConnect] AddToDataDefinition failed for '{name}' ({units}) hr=0x{unchecked((uint)hr):X8}");
             }
         }
-        _defsRegistered = true;
+
+        Console.WriteLine($"[SimConnect] DEF_STATUS registered fields: {_statusFieldCount}/{StatusSimVars.Definitions.Length}");
     }
 
     private void RegisterAircraftDefinitions()
     {
         if (!IsConnected) return;
-        try
+        _aircraftStringFields = 0;
+        try { SimConnect_ClearDataDefinition(_h, DEFINITION_AIRCRAFT); } catch { /* first use */ }
+
+        // TITLE STRING256 + ATC MODEL STRING32 + GPS APPROACH AIRPORT ID STRING32
+        void AddString(string name, int datatype)
         {
-            // TITLE STRING256 + ATC MODEL STRING32 (null units for strings)
-            SimConnect_AddToDataDefinition(
-                _h, DEFINITION_AIRCRAFT, "TITLE", null, DATATYPE_STRING256, 0f, uint.MaxValue);
-            SimConnect_AddToDataDefinition(
-                _h, DEFINITION_AIRCRAFT, "ATC MODEL", null, DATATYPE_STRING32, 0f, uint.MaxValue);
+            var hr = SimConnect_AddToDataDefinition(
+                _h, DEFINITION_AIRCRAFT, name, "", datatype, 0f, uint.MaxValue);
+            if (hr >= 0)
+            {
+                _aircraftStringFields++;
+            }
+            else
+            {
+                // Retry with null unit pointer for some client builds.
+                hr = SimConnect_AddToDataDefinition(
+                    _h, DEFINITION_AIRCRAFT, name, null, datatype, 0f, uint.MaxValue);
+                if (hr >= 0)
+                    _aircraftStringFields++;
+                else
+                    Console.WriteLine(
+                        $"[SimConnect] Aircraft string def failed '{name}' hr=0x{unchecked((uint)hr):X8}");
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[SimConnect] Aircraft string defs failed: {ex.Message}");
-        }
+
+        AddString("TITLE", DATATYPE_STRING256);
+        AddString("ATC MODEL", DATATYPE_STRING32);
+        AddString("GPS APPROACH AIRPORT ID", DATATYPE_STRING32);
+        Console.WriteLine($"[SimConnect] DEF_AIRCRAFT string fields registered: {_aircraftStringFields}");
     }
 
     private void RequestStatusData()
     {
-        if (!IsConnected) return;
-        SimConnect_RequestDataOnSimObject(
+        if (!IsConnected || _statusFieldCount <= 0) return;
+        var hr = SimConnect_RequestDataOnSimObject(
             _h, REQUEST_STATUS, DEFINITION_STATUS, OBJECT_USER,
             PERIOD_SECOND, 0, 0, 0, 0);
+        if (hr < 0)
+            Console.WriteLine($"[SimConnect] RequestData status failed hr=0x{unchecked((uint)hr):X8}");
     }
 
     private void RequestAircraftData()
     {
-        if (!IsConnected) return;
-        SimConnect_RequestDataOnSimObject(
+        if (!IsConnected || _aircraftStringFields <= 0) return;
+        var hr = SimConnect_RequestDataOnSimObject(
             _h, REQUEST_AIRCRAFT, DEFINITION_AIRCRAFT, OBJECT_USER,
             PERIOD_SECOND, 0, 0, 0, 0);
+        if (hr < 0)
+            Console.WriteLine($"[SimConnect] RequestData aircraft failed hr=0x{unchecked((uint)hr):X8}");
     }
 
     private void DispatchLoop()
@@ -346,33 +378,65 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         if (dwId != RECV_SIMOBJECT_DATA)
             return;
 
-        // SIMCONNECT_RECV_SIMOBJECT_DATA: dwRequestID at offset 12
+        // SIMCONNECT_RECV_SIMOBJECT_DATA: dwRequestID @12, dwDefineCount @36, data @40
         var requestId = unchecked((uint)Marshal.ReadInt32(pData, 12));
+        var defineCount = unchecked((uint)Marshal.ReadInt32(pData, 36));
         const int headerSize = 40;
 
         if (requestId == REQUEST_AIRCRAFT)
         {
-            // TITLE STRING256 (256 bytes) + ATC MODEL STRING32 (32 bytes)
+            // TITLE STRING256 + ATC MODEL STRING32 + optional airport STRING32
             if (cb < headerSize + 256 + 32) return;
             AircraftTitle = Marshal.PtrToStringAnsi(IntPtr.Add(pData, headerSize), 256)?.TrimEnd('\0').Trim() ?? "";
             AtcModel = Marshal.PtrToStringAnsi(IntPtr.Add(pData, headerSize + 256), 32)?.TrimEnd('\0').Trim() ?? "";
+            if (cb >= headerSize + 256 + 32 + 32)
+                AirportIdent = Marshal.PtrToStringAnsi(IntPtr.Add(pData, headerSize + 256 + 32), 32)?.TrimEnd('\0').Trim() ?? "";
+            if (!_loggedFirstAircraft)
+            {
+                _loggedFirstAircraft = true;
+                Console.WriteLine(
+                    $"[SimConnect] AIRCRAFT data: title='{AircraftTitle}' model='{AtcModel}' airport='{AirportIdent}' cb={cb}");
+            }
+
             return;
         }
 
         if (requestId != REQUEST_STATUS)
             return;
 
-        var defs = StatusSimVars.Definitions;
-        var need = headerSize + defs.Length * sizeof(double);
-        if (cb < need) return;
+        // Prefer packet defineCount; fall back to what we successfully registered.
+        var fieldCount = defineCount > 0
+            ? (int)defineCount
+            : _statusFieldCount;
+        if (fieldCount <= 0)
+            fieldCount = StatusSimVars.Definitions.Length;
 
-        var values = new double[defs.Length];
-        for (var i = 0; i < defs.Length; i++)
+        fieldCount = Math.Min(fieldCount, StatusSimVars.Definitions.Length);
+        var need = headerSize + fieldCount * sizeof(double);
+        if (cb < need)
         {
-            values[i] = Marshal.PtrToStructure<double>(IntPtr.Add(pData, headerSize + i * sizeof(double)));
+            // Try with whatever doubles fit (partial payload still useful).
+            var fit = (int)((cb - headerSize) / sizeof(double));
+            if (fit <= 0) return;
+            fieldCount = Math.Min(fieldCount, fit);
         }
 
+        var values = new double[fieldCount];
+        for (var i = 0; i < fieldCount; i++)
+            values[i] = Marshal.PtrToStructure<double>(IntPtr.Add(pData, headerSize + i * sizeof(double)));
+
         StatusSnapshotMapper.Apply(Snapshot, values);
+        HasReceivedStatusData = true;
+        if (!_loggedFirstStatus)
+        {
+            _loggedFirstStatus = true;
+            Snapshot.TryGet("VERTICAL SPEED", out var vs);
+            Snapshot.TryGet("PLANE ALTITUDE", out var alt);
+            Snapshot.TryGet("AIRSPEED INDICATED", out var ias);
+            Snapshot.TryGet("SIM ON GROUND", out var gnd);
+            Console.WriteLine(
+                $"[SimConnect] STATUS data: fields={fieldCount} VS={vs:F0} ALT={alt:F0} IAS={ias:F0} ONGND={gnd} cb={cb}");
+        }
     }
 
     /// <summary>

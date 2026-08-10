@@ -37,7 +37,7 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 
 | Tab | Contents |
 |-----|----------|
-| **Status** | SimConnect connected/IsLive/errors, **detected aircraft** (TITLE or Unknown), active aircraft profile, last phrase + confidence, last action, mic indicator, versions |
+| **Status** | SimConnect connected/IsLive/errors, **FLIGHT DATA** (aircraft TITLE, airport, altitude, IAS, V/S, on ground), active profile, last phrase + confidence, last action, mic, versions |
 | **Manual** | Categorized buttons for every loaded voice command (active profile). Click to fire (bypasses wake/PTT; conditions still apply). Refresh after profile switch. |
 | **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
 | **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |

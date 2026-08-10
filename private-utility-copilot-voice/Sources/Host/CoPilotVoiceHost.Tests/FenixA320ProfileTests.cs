@@ -305,6 +305,26 @@ public class FenixA320ProfileTests
     }
 
     [Fact]
+    public void Fenix_LandingLights_ThreePositions_On_Off_Retract()
+    {
+        var root = FindConfigRoot();
+        var (_, catalog) = ConfigLoader.LoadAll(root, ProfileId);
+
+        static double LandingL(CommandDefinition cmd) =>
+            cmd.Actions.First(a =>
+                a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                && a.Name.Equals("L:S_OH_EXT_LT_LANDING_L", StringComparison.OrdinalIgnoreCase)).Value ?? -1;
+
+        Assert.Equal(2, LandingL(catalog.Commands.Single(c => c.Id == "landing_lights_on")));
+        Assert.Equal(1, LandingL(catalog.Commands.Single(c => c.Id == "landing_lights_off")));
+        Assert.Equal(0, LandingL(catalog.Commands.Single(c => c.Id == "landing_lights_retract")));
+
+        using var session = StartOfflineSession(root, ProfileId);
+        Assert.Equal(0, session.InjectPhrase("Co Pilot landing lights retract"));
+        Assert.Contains("L:S_OH_EXT_LT_LANDING_L", session.LastAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void HostSession_Inject_Fenix_GearUp_Denied_On_Ground()
     {
         var root = FindConfigRoot();

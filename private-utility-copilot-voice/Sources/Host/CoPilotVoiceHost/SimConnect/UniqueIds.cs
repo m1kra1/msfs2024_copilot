@@ -149,7 +149,11 @@ public static class StandardEventMap
     public static IReadOnlyDictionary<string, PrivateCopilotEventId> All => Map;
 }
 
-/// <summary>Status SimVars requested at ≤ 5 Hz (SIMCONNECT_PERIOD_SIM_FRAME with skip, or SECOND).</summary>
+/// <summary>Status SimVars requested at SECOND period (event-driven; no busy poll).</summary>
+/// <remarks>
+/// Names must be valid MSFS SimVars. A single bad name that fails AddToDataDefinition
+/// shortens the payload; native/managed clients register only successful fields.
+/// </remarks>
 public static class StatusSimVars
 {
     public static readonly (string Name, string Units)[] Definitions =
@@ -164,10 +168,14 @@ public static class StatusSimVars
         ("LIGHT BEACON", "bool"),
         ("LIGHT NAV", "bool"),
         ("BRAKE PARKING POSITION", "bool"),
-        ("ANTITOCK BRAKES ACTIVE", "bool"),
+        // Fixed typo ANTITOCK → ANTISKID (invalid name caused incomplete DEF_STATUS payloads).
+        ("ANTISKID BRAKES ACTIVE", "bool"),
         ("ENG ANTI ICE", "bool"),
         ("AIRSPEED INDICATED", "knots"),
         ("PLANE ALTITUDE", "feet"),
-        ("SIM ON GROUND", "bool")
+        ("SIM ON GROUND", "bool"),
+        // Optional extras for Status dashboard (safe MSFS names).
+        ("GROUND VELOCITY", "knots"),
+        ("PLANE HEADING DEGREES MAGNETIC", "degrees")
     };
 }

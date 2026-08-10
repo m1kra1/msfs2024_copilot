@@ -36,7 +36,11 @@ public class SkepticFixTests
             FlapsHandleIndex = 2,
             AutopilotMaster = 1,
             LightLanding = 1,
-            EngAntiIce = 1
+            EngAntiIce = 1,
+            AirspeedIndicated = 180,
+            PlaneAltitude = 5000,
+            SimOnGround = 0,
+            AntiSkidBrakesActive = 1
         };
 
         StatusSnapshotMapper.Apply(snap, data);
@@ -47,6 +51,23 @@ public class SkepticFixTests
         Assert.True(snap.TryGet("AUTOPILOT MASTER", out var ap) && ap == 1);
         Assert.True(snap.TryGet("LIGHT LANDING", out var ll) && ll == 1);
         Assert.True(snap.TryGet("ENG ANTI ICE", out var ai) && ai == 1);
+        Assert.True(snap.TryGet("ANTISKID BRAKES ACTIVE", out var skid) && skid == 1);
+        Assert.True(snap.TryGet("AIRSPEED INDICATED", out var ias) && ias == 180);
+        Assert.True(snap.TryGet("PLANE ALTITUDE", out var alt) && alt == 5000);
+        Assert.False(snap.TryGet("ANTITOCK BRAKES ACTIVE", out _));
+    }
+
+    [Fact]
+    public void StatusSimVars_Do_Not_Contain_Known_Bad_Names()
+    {
+        Assert.DoesNotContain(StatusSimVars.Definitions, d =>
+            d.Name.Contains("ANTITOCK", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(StatusSimVars.Definitions, d =>
+            d.Name.Equals("ANTISKID BRAKES ACTIVE", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(StatusSimVars.Definitions, d =>
+            d.Name.Equals("AIRSPEED INDICATED", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(StatusSimVars.Definitions, d =>
+            d.Name.Equals("PLANE ALTITUDE", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -348,6 +369,8 @@ public class SkepticFixTests
         public SimVarSnapshot Snapshot { get; } = new();
         public string AircraftTitle { get; set; } = "";
         public string AtcModel { get; set; } = "";
+        public string AirportIdent { get; set; } = "";
+        public bool HasReceivedStatusData => Snapshot.Values.Count > 0;
 
         public bool Connect(string appName, int configIndex = 0)
         {

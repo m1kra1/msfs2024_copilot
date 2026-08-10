@@ -25,6 +25,12 @@ public interface ISimConnectClient : IDisposable
     /// <summary>ATC MODEL SimVar when live (empty if unknown / offline).</summary>
     string AtcModel { get; }
 
+    /// <summary>Best-effort airport ident (approach / GPS) when live; empty if unknown.</summary>
+    string AirportIdent { get; }
+
+    /// <summary>True after at least one DEF_STATUS payload was applied to <see cref="Snapshot"/>.</summary>
+    bool HasReceivedStatusData { get; }
+
     void TransmitEvent(string eventName, uint data = 0);
 
     void SetSimVar(string name, double value, string units);

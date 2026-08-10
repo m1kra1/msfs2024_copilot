@@ -25,6 +25,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     public SimVarSnapshot Snapshot { get; } = new();
     public string AircraftTitle { get; private set; } = "";
     public string AtcModel { get; private set; } = "";
+    public string AirportIdent { get; private set; } = "";
 
     /// <summary>True after a successful OnRecvSimObjectData → Snapshot apply (or test inject).</summary>
     public bool HasReceivedStatusData { get; private set; }
@@ -307,11 +308,13 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         HasReceivedStatusData = true;
     }
 
-    /// <summary>Test / offline inject of aircraft identity strings (TITLE / ATC MODEL).</summary>
-    public void ApplyAircraftIdentity(string? title, string? atcModel)
+    /// <summary>Test / offline inject of aircraft identity strings (TITLE / ATC MODEL / airport).</summary>
+    public void ApplyAircraftIdentity(string? title, string? atcModel, string? airportIdent = null)
     {
         AircraftTitle = (title ?? string.Empty).Trim();
         AtcModel = (atcModel ?? string.Empty).Trim();
+        if (airportIdent is not null)
+            AirportIdent = airportIdent.Trim();
     }
 
     public void Dispose()
@@ -462,6 +465,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             {
                 AircraftTitle = (aircraft.Title ?? string.Empty).Trim();
                 AtcModel = (aircraft.AtcModel ?? string.Empty).Trim();
+                AirportIdent = (aircraft.AirportIdent ?? string.Empty).Trim();
                 return;
             }
 
@@ -474,6 +478,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         {
             AircraftTitle = (direct.Title ?? string.Empty).Trim();
             AtcModel = (direct.AtcModel ?? string.Empty).Trim();
+            AirportIdent = (direct.AirportIdent ?? string.Empty).Trim();
         }
     }
 
@@ -484,10 +489,14 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
                     ?? t.GetProperty("Title", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item);
         var model = t.GetField("AtcModel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item)
                     ?? t.GetProperty("AtcModel", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item);
+        var airport = t.GetField("AirportIdent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item)
+                      ?? t.GetProperty("AirportIdent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase)?.GetValue(item);
         if (title is string ts)
             AircraftTitle = ts.Trim();
         if (model is string ms)
             AtcModel = ms.Trim();
+        if (airport is string ap)
+            AirportIdent = ap.Trim();
     }
 
     private bool TryMapBoxedStatus(object item)
@@ -633,6 +642,22 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
                 0f,
                 0xffffffffu
             });
+            try
+            {
+                addToDataDef.Invoke(_simConnect, new object?[]
+                {
+                    PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_AIRCRAFT,
+                    "GPS APPROACH AIRPORT ID",
+                    null,
+                    string32,
+                    0f,
+                    0xffffffffu
+                });
+            }
+            catch
+            {
+                // optional airport string
+            }
         }
         catch (Exception ex)
         {
@@ -763,8 +788,8 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
 public static class SimConnectClientFactory
 {
     /// <summary>
-    /// Prefer managed wrapper, then native P/Invoke SimConnect.dll, then offline recording.
-    /// Interactive runs should call Connect and treat !IsLive as a real problem.
+    /// Prefer native P/Invoke SimConnect.dll (own dispatch thread — reliable TITLE/status data),
+    /// then managed wrapper, then offline recording.
     /// </summary>
     public static ISimConnectClient Create(bool preferOffline = false)
     {
@@ -774,14 +799,7 @@ public static class SimConnectClientFactory
             return new RecordingSimConnectClient();
         }
 
-        if (ManagedSimConnectClient.TryCreate(out var managed, out var reason))
-        {
-            Console.WriteLine($"[SimConnect] Managed path available: {reason}");
-            return managed!;
-        }
-
-        Console.WriteLine($"[SimConnect] Managed wrapper unavailable: {reason}");
-        Console.WriteLine("[SimConnect] Trying native SimConnect.dll (P/Invoke)...");
+        Console.WriteLine("[SimConnect] Preferring native SimConnect.dll (P/Invoke)...");
         return new NativeSimConnectClient();
     }
 
@@ -803,10 +821,23 @@ public static class SimConnectClientFactory
             return offline;
         }
 
-        // 1) Managed
+        // 1) Native P/Invoke first — dedicated GetNextDispatch thread delivers STATUS + AIRCRAFT
+        // without requiring a WPF HWND (managed OnRecv often stays silent in WinExe).
+        var native = new NativeSimConnectClient();
+        if (native.Connect(appName, configIndex))
+        {
+            live = true;
+            Console.WriteLine($"[SimConnect] Using native client: {native.StatusMessage}");
+            return native;
+        }
+
+        Console.WriteLine($"[SimConnect] Native connect failed: {native.StatusMessage}");
+        native.Dispose();
+
+        // 2) Managed fallback
         if (ManagedSimConnectClient.TryCreate(out var managed, out var mReason))
         {
-            Console.WriteLine($"[SimConnect] {mReason}");
+            Console.WriteLine($"[SimConnect] Trying managed fallback: {mReason}");
             if (managed!.Connect(appName, configIndex))
             {
                 live = true;
@@ -820,17 +851,6 @@ public static class SimConnectClientFactory
         {
             Console.WriteLine($"[SimConnect] Managed not available: {mReason}");
         }
-
-        // 2) Native P/Invoke
-        var native = new NativeSimConnectClient();
-        if (native.Connect(appName, configIndex))
-        {
-            live = true;
-            return native;
-        }
-
-        Console.WriteLine($"[SimConnect] Native connect failed: {native.StatusMessage}");
-        native.Dispose();
 
         if (!allowOfflineFallback)
         {

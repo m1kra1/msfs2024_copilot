@@ -15,11 +15,16 @@ public struct PrivateCopilotAircraftData
 
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
     public string AtcModel;
+
+    /// <summary>Best-effort approach/nearest airport id when the sim provides it.</summary>
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+    public string AirportIdent;
 }
 
 /// <summary>
 /// Sequential layout matching <see cref="StatusSimVars.Definitions"/> order for
 /// RegisterDataDefineStruct / OnRecvSimObjectData.
+/// Extra trailing fields remain 0 if an older payload is shorter.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct PrivateCopilotStatusData
@@ -39,6 +44,8 @@ public struct PrivateCopilotStatusData
     public double AirspeedIndicated;
     public double PlaneAltitude;
     public double SimOnGround;
+    public double GroundVelocity;
+    public double PlaneHeadingMagnetic;
 }
 
 /// <summary>
@@ -59,11 +66,13 @@ public static class StatusSnapshotMapper
         snapshot.Set("LIGHT BEACON", data.LightBeacon);
         snapshot.Set("LIGHT NAV", data.LightNav);
         snapshot.Set("BRAKE PARKING POSITION", data.BrakeParkingPosition);
-        snapshot.Set("ANTITOCK BRAKES ACTIVE", data.AntiSkidBrakesActive);
+        snapshot.Set("ANTISKID BRAKES ACTIVE", data.AntiSkidBrakesActive);
         snapshot.Set("ENG ANTI ICE", data.EngAntiIce);
         snapshot.Set("AIRSPEED INDICATED", data.AirspeedIndicated);
         snapshot.Set("PLANE ALTITUDE", data.PlaneAltitude);
         snapshot.Set("SIM ON GROUND", data.SimOnGround);
+        snapshot.Set("GROUND VELOCITY", data.GroundVelocity);
+        snapshot.Set("PLANE HEADING DEGREES MAGNETIC", data.PlaneHeadingMagnetic);
     }
 
     /// <summary>Apply ordered doubles in the same order as <see cref="StatusSimVars.Definitions"/>.</summary>

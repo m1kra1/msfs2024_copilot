@@ -49,7 +49,13 @@
     },
     {
       "id": "landing_lights_on",
-      "phrases": ["landing lights on", "landing light on", "landing lights on please"],
+      "phrases": [
+        "landing lights on",
+        "landing light on",
+        "landing lights on please",
+        "landing lights extend",
+        "extend landing lights"
+      ],
       "response": "Landing lights on.",
       "actions": [
         { "type": "event", "name": "LANDING_LIGHTS_ON" },
@@ -67,6 +73,23 @@
         { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 1, "units": "number" },
         { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 1, "units": "number" },
         { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "landing_lights_retract",
+      "phrases": [
+        "landing lights retract",
+        "retract landing lights",
+        "landing light retract",
+        "landing lights stow",
+        "stow landing lights"
+      ],
+      "response": "Landing lights retract.",
+      "actions": [
+        { "type": "event", "name": "LANDING_LIGHTS_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 0, "units": "number" }
       ]
     },
     {

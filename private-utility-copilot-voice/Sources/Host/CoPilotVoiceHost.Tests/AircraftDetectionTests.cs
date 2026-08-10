@@ -532,6 +532,8 @@ public class AircraftDetectionTests
         Assert.Contains("TxtDetectedAircraft", xaml);
         Assert.Contains("SetAutoDetect", xaml);
         Assert.Contains("SetAnnounceProfile", xaml);
-        Assert.Contains("Detected aircraft", xaml);
+        Assert.Contains("Text=\"Aircraft\"", xaml);
+        Assert.Contains("FLIGHT DATA", xaml);
+        Assert.Contains("TxtAirport", xaml);
     }
 }

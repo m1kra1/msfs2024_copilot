@@ -253,6 +253,28 @@ public class GuiHostTests
         Assert.Contains("CmdList", xaml);
         Assert.Contains("BtnCmdSave_Click", xaml);
         Assert.Contains("BtnCmdApply_Click", xaml);
+        Assert.Contains("FLIGHT DATA", xaml);
+        Assert.Contains("TxtAltitude", xaml);
+        Assert.Contains("TxtAirspeed", xaml);
+        Assert.Contains("TxtVerticalSpeed", xaml);
+        Assert.Contains("TxtAirport", xaml);
+    }
+
+    [Fact]
+    public void MainWindow_Code_Closes_Fully_Without_Cancel_To_Tray()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        string? cs = null;
+        for (var i = 0; i < 10 && dir != null; i++, dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "Sources", "Host", "CoPilotVoiceHost", "Ui", "MainWindow.xaml.cs");
+            if (File.Exists(candidate)) { cs = File.ReadAllText(candidate); break; }
+        }
+
+        Assert.NotNull(cs);
+        Assert.Contains("_session.Dispose()", cs);
+        Assert.DoesNotContain("e.Cancel = true", cs);
+        Assert.Contains("_exitRequested", cs);
     }
 
     [Fact]

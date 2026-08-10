@@ -85,7 +85,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - After profile change, subsequent commands (including `list_commands`) must see the new merged catalog.
 
 ## Performance / resource notes (do not regress)
-- No busy SimVar polling; SimConnect status/aircraft data remain event/SECOND-period style. Host message pump (~50 ms) may call `ReceiveMessage`; aircraft-identity evaluation is throttled (~2 Hz) and identity-deduped.
+- No busy SimVar polling; SimConnect status/aircraft data remain event/SECOND-period style. Prefer **native** SimConnect (dispatch thread) so TITLE/status arrive without a HWND; aircraft-identity + Status UI telemetry refresh ~2 Hz.
 - `UiLogSink` + Debug TextBox: bounded (~2000 lines); trim oldest under pressure.
 - Avoid duplicate background timers for PTT (session poll + HandlePhrase call `PttArmService.Poll`; do not add a second PttArm `StartPolling` on inject/--once paths).
 

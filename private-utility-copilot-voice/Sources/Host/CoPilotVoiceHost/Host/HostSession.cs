@@ -96,6 +96,18 @@ public sealed class HostSession : IDisposable
     /// <summary>Last detected ATC MODEL (may be empty).</summary>
     public string DetectedAtcModel { get; private set; } = "";
 
+    /// <summary>Best-effort airport ident from SimConnect (may be empty).</summary>
+    public string DetectedAirportIdent { get; private set; } = "";
+
+    /// <summary>True after at least one live DEF_STATUS payload reached the snapshot.</summary>
+    public bool HasReceivedSimData => _sim?.HasReceivedStatusData ?? false;
+
+    public double IndicatedAirspeedKnots => SnapshotValue("AIRSPEED INDICATED");
+    public double PlaneAltitudeFeet => SnapshotValue("PLANE ALTITUDE");
+    public double VerticalSpeedFpm => SnapshotValue(HostConstants.VerticalSpeedSimVar);
+    public double GroundVelocityKnots => SnapshotValue("GROUND VELOCITY");
+    public bool SimOnGround => SnapshotValue("SIM ON GROUND") > 0.5;
+
     public string LastPhrase { get; private set; } = "";
     public float LastConfidence { get; private set; }
     public string LastAction { get; private set; } = "";
@@ -544,13 +556,16 @@ public sealed class HostSession : IDisposable
                 var armed = _pttArm?.IsArmed == true || _pttArm?.IsKeyCurrentlyDown == true;
                 MicActive = armed;
 
-                // TITLE/ATC MODEL already arrive on SECOND period — evaluate identity ~2 Hz, not every 50 ms.
+                // TITLE/ATC MODEL + flight snapshot arrive on SECOND period — evaluate ~2 Hz.
                 if (_sim is not null && _sim.IsLive)
                 {
                     if (++_identityPollTick >= IdentityPollEveryNTicks)
                     {
                         _identityPollTick = 0;
+                        DetectedAirportIdent = (_sim.AirportIdent ?? "").Trim();
                         ProcessAircraftIdentity(_sim.AircraftTitle, _sim.AtcModel);
+                        // Always refresh Status UI for altitude/speed/VS/airport while live.
+                        StatusChanged?.Invoke();
                     }
                 }
             }
@@ -723,6 +738,12 @@ public sealed class HostSession : IDisposable
     }
 
     private string ActiveProfileName() => HostConstants.NormalizeProfileId(Settings.AircraftProfile);
+
+    private double SnapshotValue(string simVar)
+    {
+        if (_sim is null) return 0;
+        return _sim.Snapshot.TryGet(simVar, out var v) ? v : 0;
+    }
 
     private void LogResult(CommandResult result)
     {
