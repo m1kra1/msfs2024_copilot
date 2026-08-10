@@ -15,7 +15,9 @@ public static class Program
         // One-shot CLI and explicit headless keep console pipeline (tests + automation).
         var forceHeadless = options.Headless
                             || options.Once
-                            || !string.IsNullOrWhiteSpace(options.InjectPhrase);
+                            || options.LearnDump
+                            || !string.IsNullOrWhiteSpace(options.InjectPhrase)
+                            || !string.IsNullOrWhiteSpace(options.LearnExportPath);
 
         if (forceHeadless)
         {
@@ -170,6 +172,10 @@ public sealed class HostOptions
     public bool BypassSpeechGate { get; init; }
     public bool AllowOfflineFallback { get; init; }
     public bool Headless { get; init; }
+    /// <summary>Dump resolved Learn watch list (headless) and exit.</summary>
+    public bool LearnDump { get; init; }
+    /// <summary>Optional path to write Learn detections JSON after run / dump.</summary>
+    public string? LearnExportPath { get; init; }
 
     public static HostOptions Parse(string[] args)
     {
@@ -185,6 +191,8 @@ public sealed class HostOptions
         var bypassGate = false;
         var allowOffline = false;
         var headless = false;
+        var learnDump = false;
+        string? learnExport = null;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -227,6 +235,12 @@ public sealed class HostOptions
                 case "--headless":
                     headless = true;
                     break;
+                case "--learn-dump":
+                    learnDump = true;
+                    break;
+                case "--learn-export":
+                    learnExport = args[++i];
+                    break;
                 case "--help":
                 case "-h":
                     PrintHelp();
@@ -248,7 +262,9 @@ public sealed class HostOptions
             SimulatePtt = simPtt,
             BypassSpeechGate = bypassGate,
             AllowOfflineFallback = allowOffline || offline,
-            Headless = headless
+            Headless = headless,
+            LearnDump = learnDump,
+            LearnExportPath = learnExport
         };
     }
 
@@ -260,10 +276,12 @@ public sealed class HostOptions
               CoPilotVoiceHost [--config <dir>] [--profile generic|a320|b737|fenix_a320]
                                [--inject "Co Pilot gear up"] [--offline] [--no-tts] [--no-speech]
                                [--once] [--vs 500] [--ptt] [--bypass-gate] [--allow-offline-fallback]
-                               [--headless]
-            Default: GUI window. Use --headless (or --once / --inject) for console-only mode.
+                               [--headless] [--learn-dump] [--learn-export <path>]
+            Default: GUI window. Use --headless (or --once / --inject / --learn-dump) for console-only mode.
             --profile locks the aircraft profile for the session (disables auto-detect switching).
             Auto-detect: settings auto_detect_aircraft + config/aircraft_detection.json (when Live).
+            --learn-dump: print resolved Learn watch list (works offline) and exit.
+            --learn-export <path>: write Learn detections JSON (after dump/inject/run).
             """);
     }
 }

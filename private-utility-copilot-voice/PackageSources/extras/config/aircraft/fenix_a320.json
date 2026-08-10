@@ -763,6 +763,23 @@
       "checklist": true
     }
   ],
+  "learn_watch": [
+    { "name": "L:S_MIP_GEAR", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_LANDING_L", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_LANDING_R", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_NOSE", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_STROBE", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_BEACON", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_NAV_LOGO", "units": "number" },
+    { "name": "L:S_OH_EXT_LT_WING", "units": "number" },
+    { "name": "L:S_FC_FLAPS", "units": "number" },
+    { "name": "L:S_MIP_PARKING_BRAKE", "units": "number" },
+    { "name": "L:A_FC_SPEEDBRAKE", "units": "number" },
+    { "name": "L:S_OH_PNEU_APU_BLEED", "units": "number" },
+    { "name": "L:S_OH_ELEC_APU_MASTER", "units": "number" },
+    { "name": "L:S_OH_ELEC_BAT1", "units": "number" },
+    { "name": "L:S_OH_ELEC_BAT2", "units": "number" }
+  ],
   "simvar_aliases": {},
   "event_aliases": {}
 }

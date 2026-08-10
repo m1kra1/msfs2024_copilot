@@ -1,0 +1,15 @@
+{
+  "exclude_names": [
+    "AIRSPEED INDICATED",
+    "PLANE ALTITUDE",
+    "VERTICAL SPEED",
+    "GROUND VELOCITY",
+    "PLANE HEADING DEGREES MAGNETIC"
+  ],
+  "default_watches": [
+    { "name": "LIGHT WING", "units": "bool" },
+    { "name": "LIGHT LOGO", "units": "bool" },
+    { "name": "LIGHT CABIN", "units": "bool" },
+    { "name": "SPOILERS ARMED", "units": "bool" }
+  ]
+}

@@ -34,6 +34,9 @@ public static class ConfigLoader
     public static string AircraftDetectionPath(string configRoot) =>
         Path.Combine(configRoot, HostConstants.AircraftDetectionFileName);
 
+    public static string LearnWatchlistPath(string configRoot) =>
+        Path.Combine(configRoot, HostConstants.LearnWatchlistFileName);
+
     public static string AircraftProfilePath(string configRoot, string? profileName) =>
         Path.Combine(
             configRoot,
@@ -106,9 +109,19 @@ public static class ConfigLoader
             Extends = src.Extends,
             Commands = src.Commands.Select(CloneCommand).ToList(),
             SimVarAliases = new Dictionary<string, string>(src.SimVarAliases, StringComparer.OrdinalIgnoreCase),
-            EventAliases = new Dictionary<string, string>(src.EventAliases, StringComparer.OrdinalIgnoreCase)
+            EventAliases = new Dictionary<string, string>(src.EventAliases, StringComparer.OrdinalIgnoreCase),
+            LearnWatch = (src.LearnWatch ?? new List<LearnWatchEntry>())
+                .Select(CloneLearnWatch)
+                .ToList()
         };
     }
+
+    private static LearnWatchEntry CloneLearnWatch(LearnWatchEntry src) => new()
+    {
+        Name = src?.Name ?? "",
+        Units = string.IsNullOrWhiteSpace(src?.Units) ? "number" : src!.Units,
+        IsManual = src?.IsManual ?? false
+    };
 
     public static IReadOnlyList<string> ListAircraftProfiles(string configRoot)
     {
@@ -144,6 +157,27 @@ public static class ConfigLoader
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<AircraftDetectionConfig>(json, JsonOptions)
                ?? new AircraftDetectionConfig { FallbackProfile = HostConstants.DefaultProfileId };
+    }
+
+    /// <summary>
+    /// Loads config/learn_watchlist.json. Missing file → empty excludes/defaults (built-in continuous excludes still apply).
+    /// </summary>
+    public static LearnWatchlistConfig LoadLearnWatchlist(string configRoot)
+    {
+        var path = LearnWatchlistPath(configRoot);
+        if (!File.Exists(path))
+            return new LearnWatchlistConfig();
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            return JsonSerializer.Deserialize<LearnWatchlistConfig>(json, JsonOptions)
+                   ?? new LearnWatchlistConfig();
+        }
+        catch
+        {
+            return new LearnWatchlistConfig();
+        }
     }
 
     public static AircraftProfile LoadAircraftProfile(string profilePath)

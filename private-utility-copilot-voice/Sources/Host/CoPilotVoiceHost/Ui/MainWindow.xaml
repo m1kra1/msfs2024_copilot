@@ -220,6 +220,156 @@
           </Grid>
         </TabItem>
 
+        <!-- LEARN MODE -->
+        <TabItem Header="Learn" GotFocus="LearnTab_GotFocus">
+          <Grid Margin="12,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#2A3340" BorderBrush="#4A5568" BorderThickness="1"
+                    CornerRadius="4" Padding="10,8" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource FgBrush}" FontSize="12"
+                         Text="Learn Mode detects value changes on watched SimVars/LVars. Unknown study switches need a catalog entry, profile watchlist, or a manual watch name."/>
+            </Border>
+
+            <DockPanel Grid.Row="1" Margin="0,0,0,8">
+              <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <CheckBox x:Name="LearnActiveCheck" Content="Learn Mode active"
+                          VerticalAlignment="Center" Checked="LearnActive_Changed" Unchecked="LearnActive_Changed"/>
+                <TextBlock x:Name="LearnMeta" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Center" Margin="16,0,0,0"
+                           Text="Watches: 0 · Profile: — · Live: No"/>
+              </StackPanel>
+            </DockPanel>
+
+            <DockPanel Grid.Row="2" Margin="0,0,0,8">
+              <TextBlock DockPanel.Dock="Left" Text="Manual watch" Style="{StaticResource LabelMuted}"
+                         VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <Button DockPanel.Dock="Right" Content="Add" Click="BtnLearnAddWatch_Click" MinWidth="72" Margin="8,0,0,0"/>
+              <ComboBox x:Name="LearnWatchUnits" Width="100" Margin="8,0,0,0" DockPanel.Dock="Right"
+                        VerticalAlignment="Center" IsEditable="True" Text="number">
+                <ComboBoxItem Content="number" IsSelected="True"/>
+                <ComboBoxItem Content="bool"/>
+                <ComboBoxItem Content="percent"/>
+              </ComboBox>
+              <TextBox x:Name="LearnWatchName" MinHeight="32" VerticalContentAlignment="Center"
+                       ToolTip="e.g. L:S_MIP_GEAR or LIGHT LANDING"/>
+            </DockPanel>
+
+            <Grid Grid.Row="3">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.3*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <DockPanel Grid.Column="0">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Export JSON" Click="BtnLearnExport_Click" MinWidth="96" Margin="0,0,8,0"
+                            ToolTip="Write recent detections to learn-detections-*.json next to the EXE"/>
+                    <Button Content="Clear list" Click="BtnLearnClear_Click" MinWidth="80"/>
+                  </StackPanel>
+                  <CheckBox x:Name="LearnOnlyUnmapped" Content="Only unmapped" VerticalAlignment="Center"
+                            Checked="LearnFilter_Changed" Unchecked="LearnFilter_Changed"/>
+                </DockPanel>
+                <ListView x:Name="LearnList"
+                          SelectionChanged="LearnList_SelectionChanged"
+                          BorderThickness="1"
+                          Background="{StaticResource InputBrush}"
+                          Foreground="{StaticResource FgBrush}"
+                          TextElement.Foreground="{StaticResource FgBrush}">
+                  <ListView.View>
+                    <GridView>
+                      <GridViewColumn Header="Time" Width="72" DisplayMemberBinding="{Binding TimeText}"/>
+                      <GridViewColumn Header="Signal" Width="160" DisplayMemberBinding="{Binding SignalName}"/>
+                      <GridViewColumn Header="Change" Width="90" DisplayMemberBinding="{Binding ChangeText}"/>
+                      <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding StatusText}"/>
+                      <GridViewColumn Header="Mapped" Width="140" DisplayMemberBinding="{Binding MappedText}"/>
+                    </GridView>
+                  </ListView.View>
+                </ListView>
+              </DockPanel>
+
+              <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                  <TextBlock Text="Detail" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <TextBlock x:Name="LearnDetail" Style="{StaticResource LabelMuted}" TextWrapping="Wrap"
+                             Text="Select a detection."/>
+                  <WrapPanel Margin="0,10,0,0">
+                    <Button Content="Create Command" Click="BtnLearnCreate_Click" MinWidth="120" Margin="0,0,8,6"
+                            Style="{StaticResource PrimaryButton}"/>
+                    <Button x:Name="BtnLearnEdit" Content="Edit Mapped" Click="BtnLearnEdit_Click" MinWidth="100" Margin="0,0,8,6"
+                            IsEnabled="False"/>
+                    <Button Content="Copy name" Click="BtnLearnCopyName_Click" MinWidth="90" Margin="0,0,0,6"/>
+                  </WrapPanel>
+                </StackPanel>
+              </ScrollViewer>
+            </Grid>
+
+            <GroupBox Grid.Row="4" Header="Create / Edit command (active profile)" Margin="0,10,0,0" Padding="8">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Id" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Center" Margin="0,0,8,6"/>
+                <TextBox x:Name="LearnEditId" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
+                         MinHeight="32" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Phrases" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Top" Margin="0,4,8,6"/>
+                <TextBox x:Name="LearnEditPhrases" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                         MinHeight="56" AcceptsReturn="True" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,6"
+                         ToolTip="One phrase per line"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Response" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Center" Margin="0,0,8,6"/>
+                <TextBox x:Name="LearnEditResponse" Grid.Row="2" Grid.Column="1" MinHeight="32" Margin="0,0,8,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="Reject" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Center" Margin="0,0,8,6"/>
+                <TextBox x:Name="LearnEditReject" Grid.Row="2" Grid.Column="3" MinHeight="32" Margin="0,0,0,6"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Actions" Style="{StaticResource LabelMuted}"
+                           VerticalAlignment="Top" Margin="0,4,8,6"/>
+                <TextBox x:Name="LearnEditActions" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3"
+                         MinHeight="40" IsReadOnly="True" Margin="0,0,0,6"
+                         Background="#1A2028" Foreground="{StaticResource FgBrush}"/>
+
+                <WrapPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,4,0,0">
+                  <Button Content="Save to active profile" Click="BtnLearnSave_Click"
+                          Style="{StaticResource PrimaryButton}" MinWidth="160" Margin="0,0,8,0"/>
+                  <Button Content="Cancel" Click="BtnLearnCancelEdit_Click" MinWidth="80"/>
+                  <TextBlock x:Name="LearnEditStatus" Style="{StaticResource LabelMuted}"
+                             VerticalAlignment="Center" Margin="12,0,0,0" Text=""/>
+                </WrapPanel>
+              </Grid>
+            </GroupBox>
+
+            <TextBlock Grid.Row="5" x:Name="LearnStatus" Style="{StaticResource LabelMuted}"
+                       Margin="0,8,0,0" TextWrapping="Wrap" Text=""/>
+          </Grid>
+        </TabItem>
+
         <!-- COMMANDS -->
         <TabItem Header="Commands" GotFocus="CommandsTab_GotFocus">
           <Grid Margin="12,10">

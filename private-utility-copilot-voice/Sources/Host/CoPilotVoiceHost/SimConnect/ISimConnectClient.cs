@@ -35,6 +35,16 @@ public interface ISimConnectClient : IDisposable
 
     void SetSimVar(string name, double value, string units);
 
+    /// <summary>
+    /// Register extra named vars for Learn Mode (SECOND period).
+    /// Must use a separate data definition from status so failed LVars cannot break the dashboard.
+    /// No busy polling.
+    /// </summary>
+    void SetLearnWatchDefinitions(IReadOnlyList<(string Name, string Units)> vars);
+
+    /// <summary>Clear Learn Mode watch definitions and stop the learn data request.</summary>
+    void ClearLearnWatchDefinitions();
+
     /// <summary>Pump receive queue; call from UI/message loop or timer (not a busy poll of simvars).</summary>
     void ReceiveMessage();
 }

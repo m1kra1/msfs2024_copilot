@@ -49,6 +49,13 @@ public sealed class HostSession : IDisposable
     private AircraftDetectionConfig _detectionConfig = new();
     private readonly object _detectLock = new();
 
+    // ── Learn Mode (Core-only services; no WPF) ───────────────────────────────
+    private readonly LearnCaptureService _learnCapture = new();
+    private CommandMappingIndex? _learnMappingIndex;
+    private readonly List<LearnWatchEntry> _manualLearnWatches = new();
+    private LearnWatchlistConfig _learnWatchlist = new();
+    private bool _learnModeActive;
+
     /// <summary>Profile id last merged into <see cref="Catalog"/> (skips redundant disk re-merge on Apply).</summary>
     private string _mergedCatalogProfile = "";
 
@@ -70,7 +77,7 @@ public sealed class HostSession : IDisposable
     public CommandCatalog Catalog { get; private set; } = new();
     public AircraftDetectionConfig DetectionConfig => _detectionConfig;
     public string ApplicationVersion { get; }
-    public string PackageVersion { get; private set; } = "1.3.0";
+    public string PackageVersion { get; private set; } = "1.4.0";
 
     /// <summary>How many times speech listening was (re)started — for tests and diagnostics.</summary>
     public int SpeechStartCount { get; private set; }
@@ -124,10 +131,19 @@ public sealed class HostSession : IDisposable
 
     public event Action? StatusChanged;
 
+    /// <summary>Raised when Learn Mode detections or watch state change (UI thin shell).</summary>
+    public event Action? LearnChanged;
+
+    public bool LearnModeActive => _learnModeActive;
+
+    public int LearnWatchCount => _learnCapture.WatchCount;
+
+    public IReadOnlyList<LearnDetection> LearnDetections => _learnCapture.Recent;
+
     public HostSession(HostOptions options)
     {
         _options = options;
-        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.3.0";
+        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.4.0";
     }
 
     /// <summary>Initialize config + SimConnect + speech pipeline (does not block on stdin).</summary>
@@ -153,12 +169,45 @@ public sealed class HostSession : IDisposable
     {
         Start();
 
+        if (_options.LearnDump)
+        {
+            // Offline-friendly: dump resolved watch list for diagnostics / CI.
+            StartLearnMode(allowOffline: true);
+            var watches = PeekLearnWatches();
+            Log.Info($"[LearnDump] profile={AircraftProfile} watches={watches.Count}");
+            foreach (var w in watches)
+                Log.Info($"[LearnDump] {w.Name} ({w.Units}){(w.IsManual ? " [manual]" : "")}");
+
+            if (!string.IsNullOrWhiteSpace(_options.LearnExportPath))
+            {
+                try
+                {
+                    // Export watches snapshot as detections file shell (empty detections OK).
+                    var path = ExportLearnDetections(_options.LearnExportPath);
+                    Log.Info($"[LearnDump] export file: {path}");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[LearnDump] export failed: {ex.Message}");
+                    return 2;
+                }
+            }
+
+            StopLearnMode();
+            return 0;
+        }
+
         if (!string.IsNullOrWhiteSpace(_options.InjectPhrase))
-            return InjectPhrase(_options.InjectPhrase!, forceGate: _options.BypassSpeechGate || _options.SimulatePtt);
+        {
+            var code = InjectPhrase(_options.InjectPhrase!, forceGate: _options.BypassSpeechGate || _options.SimulatePtt);
+            MaybeExportLearnAfterRun();
+            return code;
+        }
 
         if (_options.Once)
         {
             Log.Info("[Host] --once: config and SimConnect path exercised; exiting.");
+            MaybeExportLearnAfterRun();
             return 0;
         }
 
@@ -187,7 +236,22 @@ public sealed class HostSession : IDisposable
         }
 
         Log.Info("[Host] Shutdown complete.");
+        MaybeExportLearnAfterRun();
         return 0;
+    }
+
+    private void MaybeExportLearnAfterRun()
+    {
+        if (string.IsNullOrWhiteSpace(_options.LearnExportPath))
+            return;
+        try
+        {
+            ExportLearnDetections(_options.LearnExportPath);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"[Learn] Export after run failed: {ex.Message}");
+        }
     }
 
     public int InjectPhrase(string phrase, bool forceGate = false)
@@ -236,6 +300,13 @@ public sealed class HostSession : IDisposable
             return;
         }
 
+        // Avoid half-state learn watches across reconnect.
+        if (_learnModeActive)
+        {
+            StopLearnMode();
+            Log.Info("[Learn] Stopped (reconnect)");
+        }
+
         try
         {
             _sim.Disconnect();
@@ -251,6 +322,182 @@ public sealed class HostSession : IDisposable
         }
 
         StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Start Learn Mode: build watches, register isolated SimConnect learn DEF, begin capture.
+    /// Requires Live SimConnect unless <paramref name="allowOffline"/> is true (tests).
+    /// </summary>
+    public void StartLearnMode(bool allowOffline = false)
+    {
+        if (_sim is null)
+        {
+            Log.Warn("[Learn] Cannot start — SimConnect client not ready.");
+            return;
+        }
+
+        if (!IsLive && !allowOffline)
+        {
+            Log.Warn("[Learn] Cannot start — SimConnect is not Live. Connect Free Flight first.");
+            return;
+        }
+
+        _learnMappingIndex = new CommandMappingIndex(Catalog);
+        var watches = BuildCurrentLearnWatches();
+        try
+        {
+            _sim.SetLearnWatchDefinitions(
+                watches.Select(w => (w.Name, w.Units)).ToList());
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"[Learn] SetLearnWatchDefinitions failed: {ex.Message}");
+        }
+
+        _learnCapture.Start(watches);
+        _learnModeActive = true;
+        Log.Info(
+            $"[Learn] Mode ON — {watches.Count} watches (manual={_manualLearnWatches.Count}, profile={AircraftProfile}, global_defaults={_learnWatchlist.DefaultWatches.Count})");
+        LearnChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    public void StopLearnMode()
+    {
+        if (!_learnModeActive && !_learnCapture.IsActive)
+        {
+            try { _sim?.ClearLearnWatchDefinitions(); } catch { /* ignore */ }
+            return;
+        }
+
+        _learnModeActive = false;
+        _learnCapture.Stop();
+        try { _sim?.ClearLearnWatchDefinitions(); } catch { /* ignore */ }
+        Log.Info("[Learn] Mode OFF");
+        LearnChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>Add a session-only manual watch (e.g. study LVar). Re-registers if Learn is active.</summary>
+    public void AddManualLearnWatch(string name, string units = "number")
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Log.Warn("[Learn] Manual watch ignored — empty name.");
+            return;
+        }
+
+        var entry = new LearnWatchEntry
+        {
+            Name = name.Trim(),
+            Units = string.IsNullOrWhiteSpace(units) ? "number" : units.Trim(),
+            IsManual = true
+        };
+
+        if (_manualLearnWatches.Any(w =>
+                w.Name.Equals(entry.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            Log.Info($"[Learn] Manual watch already present: {entry.Name}");
+            return;
+        }
+
+        _manualLearnWatches.Add(entry);
+        Log.Info($"[Learn] Manual watch added: {entry.Name} ({entry.Units})");
+
+        if (_learnModeActive)
+            RefreshLearnRegistration("manual watch");
+        else
+            LearnChanged?.Invoke();
+    }
+
+    public void ClearLearnDetections()
+    {
+        _learnCapture.ClearRecent();
+        LearnChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Write recent Learn detections as indented JSON. Returns absolute path written.
+    /// </summary>
+    public string ExportLearnDetections(string? path = null)
+    {
+        var target = string.IsNullOrWhiteSpace(path)
+            ? Path.Combine(
+                AppContext.BaseDirectory,
+                $"learn-detections-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json")
+            : path.Trim();
+
+        var dir = Path.GetDirectoryName(Path.GetFullPath(target));
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = _learnCapture.ExportRecentJson();
+        File.WriteAllText(target, json);
+        Log.Info($"[Learn] Exported {_learnCapture.Recent.Count} detections → {target}");
+        return Path.GetFullPath(target);
+    }
+
+    /// <summary>Current learn watch names (for diagnostics / headless dump).</summary>
+    public IReadOnlyList<LearnWatchEntry> PeekLearnWatches() => BuildCurrentLearnWatches();
+
+    /// <summary>Re-build mapping index after catalog changes; re-register watches if Learn is on.</summary>
+    private void OnCatalogChangedForLearn(string reason)
+    {
+        _learnMappingIndex = new CommandMappingIndex(Catalog);
+        if (_learnModeActive)
+            RefreshLearnRegistration(reason);
+    }
+
+    private IReadOnlyList<LearnWatchEntry> BuildCurrentLearnWatches()
+    {
+        IReadOnlyList<LearnWatchEntry>? profileWatches = null;
+        try
+        {
+            var profile = LoadActiveProfileFromDisk();
+            profileWatches = profile.LearnWatch;
+        }
+        catch
+        {
+            profileWatches = null;
+        }
+
+        return LearnWatchBuilder.Build(
+            Catalog,
+            _manualLearnWatches,
+            profileWatches,
+            _learnWatchlist);
+    }
+
+    private void RefreshLearnRegistration(string reason)
+    {
+        if (_sim is null)
+            return;
+
+        var watches = BuildCurrentLearnWatches();
+        try
+        {
+            _sim.SetLearnWatchDefinitions(
+                watches.Select(w => (w.Name, w.Units)).ToList());
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"[Learn] Re-register watches failed ({reason}): {ex.Message}");
+        }
+
+        _learnCapture.Start(watches);
+        _learnModeActive = true;
+        Log.Info($"[Learn] Watches re-registered ({reason}): {watches.Count} — baseline reset");
+        LearnChanged?.Invoke();
+    }
+
+    private void SuppressLearnAfterActions(IReadOnlyList<ActionDefinition>? actions)
+    {
+        if (!_learnModeActive || actions is null || actions.Count == 0)
+            return;
+
+        _learnCapture.SuppressSignals(
+            actions.Where(a => !string.IsNullOrWhiteSpace(a.Name)).Select(a => a.Name),
+            HostConstants.LearnSuppressMs);
     }
 
     public void TestTts(string? text = null)
@@ -485,6 +732,7 @@ public sealed class HostSession : IDisposable
         CatalogRebuildCount++;
         _mergedCatalogProfile = profileName;
         Log.Info($"[Config] Catalog rebuilt from UI sources: {Catalog.Commands.Count} commands (profile '{profileName}')");
+        OnCatalogChangedForLearn("ApplyCommandSources");
 
         // Command edits always change the phrase set — force pipeline + speech refresh.
         RebuildPipelineServices(force: true);
@@ -556,6 +804,15 @@ public sealed class HostSession : IDisposable
                 var armed = _pttArm?.IsArmed == true || _pttArm?.IsKeyCurrentlyDown == true;
                 MicActive = armed;
 
+                // Learn capture: Observe is cheap (dict diffs); snapshot updates ~1 Hz (SECOND).
+                if (_learnModeActive && _sim is not null)
+                {
+                    var index = _learnMappingIndex ??= new CommandMappingIndex(Catalog);
+                    var added = _learnCapture.Observe(_sim.Snapshot, index);
+                    if (added > 0)
+                        LearnChanged?.Invoke();
+                }
+
                 // TITLE/ATC MODEL + flight snapshot arrive on SECOND period — evaluate ~2 Hz.
                 if (_sim is not null && _sim.IsLive)
                 {
@@ -594,6 +851,15 @@ public sealed class HostSession : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        try
+        {
+            StopLearnMode();
+        }
+        catch
+        {
+            // best-effort
+        }
+
         try
         {
             StopSpeechListeningForShutdown();
@@ -693,6 +959,8 @@ public sealed class HostSession : IDisposable
         else
             LastAction = "(no actions)";
 
+        SuppressLearnAfterActions(result.ActionsExecuted);
+
         LogResult(result);
         StatusChanged?.Invoke();
         return result.Allowed ? 0 : 4;
@@ -781,8 +1049,10 @@ public sealed class HostSession : IDisposable
             Settings.AircraftProfile = profileOverride!;
         Catalog = catalog;
         CatalogRebuildCount++;
+        OnCatalogChangedForLearn("ReloadConfig");
 
         _detectionConfig = ConfigLoader.LoadAircraftDetection(ConfigRoot);
+        _learnWatchlist = ConfigLoader.LoadLearnWatchlist(ConfigRoot);
         _lastDetectedIdentityKey = "";
         _lastSeenDisplayIdentityKey = null;
 
@@ -793,6 +1063,8 @@ public sealed class HostSession : IDisposable
             (CliProfileLocked ? " (CLI --profile lock)" : ""));
         Log.Info(
             $"[Config] Detection rules: {_detectionConfig.Rules.Count} fallback='{_detectionConfig.FallbackProfile}'");
+        Log.Info(
+            $"[Config] Learn watchlist: exclude={_learnWatchlist.ExcludeNames.Count} defaults={_learnWatchlist.DefaultWatches.Count}");
         Log.Info($"[Config] Wake word: '{Settings.Speech.WakeWord}' | PTT: {Settings.Speech.PttKey}");
         Log.Info($"[Config] continuous_listen={Settings.Speech.ContinuousListen} ptt_grace_ms={Settings.Speech.PttGraceMs}");
 
@@ -839,6 +1111,7 @@ public sealed class HostSession : IDisposable
         CatalogRebuildCount++;
         _mergedCatalogProfile = profileName;
         Log.Info($"[Config] Catalog rebuilt for profile '{profileName}': {Catalog.Commands.Count} commands");
+        OnCatalogChangedForLearn("RebuildCatalog");
     }
 
     private string EnsureProfileExists(string profileName)

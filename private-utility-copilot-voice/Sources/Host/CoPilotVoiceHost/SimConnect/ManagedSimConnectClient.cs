@@ -272,6 +272,28 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         }
     }
 
+    private bool _loggedLearnNoOp;
+
+    /// <summary>
+    /// Best-effort Learn Mode watches. Managed client leaves full learn DEF to Native (primary Live path).
+    /// No-op with one log so failed LVars never touch DEF_STATUS.
+    /// </summary>
+    public void SetLearnWatchDefinitions(IReadOnlyList<(string Name, string Units)> vars)
+    {
+        if (!_loggedLearnNoOp)
+        {
+            _loggedLearnNoOp = true;
+            var n = vars?.Count ?? 0;
+            Console.WriteLine(
+                $"[SimConnect] Managed client: Learn watch registration is no-op (prefer Native). Requested {n} vars.");
+        }
+    }
+
+    public void ClearLearnWatchDefinitions()
+    {
+        // No-op — managed path does not own a separate learn DEF.
+    }
+
     public void ReceiveMessage()
     {
         if (_simConnect is null) return;

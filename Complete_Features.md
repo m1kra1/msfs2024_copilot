@@ -7,8 +7,8 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-10 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.3.0** |
-| **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec: [Plan_LearnMode.md](Plan_LearnMode.md) |
+| **Baseline** | Package/App **1.4.0** |
+| **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec (shipped): [Plan_LearnMode.md](Plan_LearnMode.md) |
 
 ---
 
@@ -79,6 +79,7 @@ Start ohne `--headless` öffnet ein dunkles Cockpit-UI (`Themes/DarkCockpit.xaml
 |-----|----------|
 | **Status** | SimConnect Connected / IsLive / Fehler; **FLIGHT DATA** (Aircraft TITLE, Airport best-effort, Altitude, IAS, V/S, On Ground) ~2 Hz live; aktives Profil; letzte Phrase/Confidence; letzte Action; Mic; Versionen |
 | **Manual** | Kategorisierte Buttons für den **aktuell geladenen** Katalog (profilabhängig). Klick → `RunCatalogCommand` (bypassed Wake/PTT; Conditions gelten weiter). Refresh nach Profilwechsel |
+| **Learn** | Control Capture (Live): Watches (Status + Katalog + watchlist + profile `learn_watch` + Manual); Debounce/Group; Action-Hints; Export JSON; Create/Edit → Save **aktives Profil**; DEF_LEARN SECOND; Suppress ~750 ms |
 | **Commands** | Browse/Filter des gemergten Katalogs; Phrases/TTS/Actions/Conditions editieren; Add/Delete; **Apply** (Memory) / **Save** (`base_commands.json` + aktives Aircraft-Profil) |
 | **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live-Log (bounded ~2000 Zeilen), Phrase-Inject (+ Force Gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, Continuous-Listen-Toggle |
@@ -145,6 +146,26 @@ Headless schreibt **`copilot-host-headless.log`** neben die EXE.
 - Voice (Default: Microsoft David), Rate, Volume aus `settings.json`
 - Confirm-before-action + `callout_delay_ms` (Default 400)
 - Test-TTS aus Debug-Tab und Session-API
+
+---
+
+## 5b. Learn Mode (L0 — full 1.4.0)
+
+| Aspekt | Umsetzung |
+|--------|-----------|
+| UI | Tab **Learn** (nach Manual): Toggle, Manual Watch, Detection-Liste, Only-unmapped, Create/Edit, Save to profile, **Export JSON** |
+| Core | `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints` (kein WPF) |
+| SimConnect | Isolierte DEF_LEARN / REQ_LEARN (SECOND); Native voll; Recording für Tests; Managed no-op |
+| Watches | Diskrete Status-SimVars + Catalog set_simvar/conditions + **`learn_watchlist.json`** + profile **`learn_watch`** + Manual; Cap 128 |
+| Debounce | Same-signal within 400 ms updates latest row; multi-var same Observe → shared `GroupId` |
+| Mapping | 0 → Unmapped, 1 → Mapped, >1 → Ambiguous |
+| Suggestions | `set_simvar` + optional dual-write **event** via `LearnActionHints` (lights, gear, park brake, anti-ice) |
+| Save | Nur **aktives Aircraft-Profil** (Base unverändert); `ApplyCommandSources` |
+| Self-echo | Suppress ~750 ms nach host-executed Action-Namen |
+| Headless | `--learn-dump` (Watch-Liste), `--learn-export <path>` (Detections JSON) |
+| Non-Goal | Keine magische Discovery unbekannter LVars |
+
+Spec: [Plan_LearnMode.md](Plan_LearnMode.md).
 
 ---
 
@@ -426,6 +447,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.2.0** | WPF GUI, HostSession, Headless-Flag, Settings Apply/Save/Reload |
 | **1.2.1** | Dark Cockpit Theme, ComboBox/Scrollbar-Fixes |
 | **1.3.0** | Auto-Detect, Fenix hybrid LVar P0–P3, Manual/Commands-Tabs, list_commands, live SetSimVar, Flight Data Dashboard, Speech whole-word + alternates, Performance thrift, Docs SSOT (Complete_Features / Backlog) |
+| **1.4.0** | Learn Mode full (MVP + watchlists, profile learn_watch, debounce/group, action hints, export, headless dump) |
 
 ---
 

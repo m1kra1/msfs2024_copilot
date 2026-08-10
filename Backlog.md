@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-10 · Release **1.3.0** |
+| **Stand** | 2026-08-10 · Release **1.4.0** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -18,7 +18,7 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 
 | Prio | Items |
 |------|--------|
-| **P0** | **L0 Learn-Modus** · A1 Live Fenix Cockpit-Verifikation (Human) |
+| **P0** | A1 Live Fenix Cockpit-Verifikation (Human) |
 | **P1** | B2 WAV-Callouts · C1 LVar-Read Conditions · C2 Dynamische Event-Map · C4 `simvar_aliases` · C5 Profile-`extends` |
 | **P2** | A4 Fenix Overhead · B5 Dynamic Info-Commands · B6 Action-Delays · B7 Command-Validierung · D1 HostSession · D2 MainWindow · D4 Config-Sync · D5 Tests |
 | **P3** | B3 Host Auto-Start · B8 SimConnect Reconnect UX · D3 Logging |
@@ -27,27 +27,16 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 
 ---
 
-## P0 — Als Nächstes
+## Done (recent)
 
-### L0. Learn-Modus (Control Capture → Command Mapping)
+### L0 / L0b / L0c. Learn-Modus (full) — **DONE** in **1.4.0**
 
-**Beschreibung:** GUI-Toggle **Learn Mode**. Der Host beobachtet eine Watch-Liste aus diskreten Status-SimVars, LVars/SimVars aus dem aktuellen Command-Katalog, optionalen Watchlists und manuell hinzugefügten Namen. Schalter-Betätigung im Free Flight erscheint als **Detection** (Name, Alt→Neu). Badge **Mapped / Unmapped / Ambiguous** gegen den Live-Katalog. Direkt im UI Command **anlegen oder bearbeiten** (Phrases/STT, TTS, Conditions, Actions) und ins **aktive Aircraft-Profil** speichern.
-
-**Warum:** Flugzeuge nach und nach per Voice mappen, ohne für jeden Schalter blind JSON zu raten. Unterstützt den Mapping-Workflow: betätigen → erkennen → Phrase zuweisen.
-
-**Wichtig (Non-Goal):** SimConnect liefert **keine** magische Liste aller Cockpit-Knöpfe. Unbekannte Study-LVars brauchen Watchlist-Eintrag oder manuelles „Watch hinzufügen“. Kein Busy-Poll; separate Learn-Data-Definition (Status-Dashboard darf nicht brechen).
-
-**Architektur (Kurz):**
-- Core: `LearnWatchBuilder`, `LearnCaptureService`, `CommandMappingIndex` (kein WPF)
-- SimConnect: `SetLearnWatchDefinitions` / SECOND period / eigenes DEF
-- HostSession: Start/Stop, Observe im Poll, Self-Echo-Suppress nach eigenen Actions
-- UI: Tab **Learn** (thin shell) → `ApplyCommandSources` → Profil-JSON
-
-**Plan (verbindlich für Coding Agent):** [Plan_LearnMode.md](Plan_LearnMode.md)
-
-**Prio:** P0
+MVP + Phase G (watchlists, profile `learn_watch`, debounce/group) + Phase H (action hints, export, headless dump).  
+Details: [Complete_Features.md](Complete_Features.md) §5b · [Plan_LearnMode.md](Plan_LearnMode.md) · [CHANGELOG.md](CHANGELOG.md).
 
 ---
+
+## P0 — Als Nächstes
 
 ### A1. Live Fenix A320 Cockpit-Verifikation (Human)
 

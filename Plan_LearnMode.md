@@ -4,7 +4,7 @@
 **Prio:** P0  
 **Backlog:** [Backlog.md](Backlog.md)  
 **Branch:** `dev`  
-**Status:** Spec ready — implement on explicit coding request  
+**Status:** Phases 1–3 **shipped in 1.4.0** (MVP + watchlists/debounce + action hints/export/headless dump).
 
 This document is the **binding coding-agent specification**. Follow [AGENTS.md](AGENTS.md). Do not invent Marketplace packaging, WASM co-pilot logic, or busy SimVar polling.
 

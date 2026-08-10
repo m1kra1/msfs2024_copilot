@@ -10,6 +10,7 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
 {
     private readonly List<(string Name, uint Data)> _events = new();
     private readonly List<(string Name, double Value, string Units)> _sets = new();
+    private readonly List<(string Name, string Units)> _learnWatches = new();
 
     public bool IsConnected { get; private set; }
     /// <summary>Always false — events are not sent to MSFS.</summary>
@@ -22,6 +23,8 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     public bool HasReceivedStatusData => Snapshot.Values.Count > 0;
     public IReadOnlyList<(string Name, uint Data)> TransmittedEvents => _events;
     public IReadOnlyList<(string Name, double Value, string Units)> SetSimVars => _sets;
+    /// <summary>Last Learn Mode watch list registered via <see cref="SetLearnWatchDefinitions"/>.</summary>
+    public IReadOnlyList<(string Name, string Units)> LearnWatches => _learnWatches;
 
     public bool Connect(string appName, int configIndex = 0)
     {
@@ -50,6 +53,24 @@ public sealed class RecordingSimConnectClient : ISimConnectClient
     {
         _sets.Add((name, value, units));
         Snapshot.Set(name, value);
+    }
+
+    public void SetLearnWatchDefinitions(IReadOnlyList<(string Name, string Units)> vars)
+    {
+        _learnWatches.Clear();
+        if (vars is null)
+            return;
+        foreach (var (name, units) in vars)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+            _learnWatches.Add((name.Trim(), string.IsNullOrWhiteSpace(units) ? "number" : units.Trim()));
+        }
+    }
+
+    public void ClearLearnWatchDefinitions()
+    {
+        _learnWatches.Clear();
     }
 
     public void ReceiveMessage()

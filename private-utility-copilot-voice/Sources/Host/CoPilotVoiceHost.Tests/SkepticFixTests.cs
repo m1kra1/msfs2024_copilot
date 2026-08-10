@@ -388,6 +388,8 @@ public class SkepticFixTests
         }
 
         public void SetSimVar(string name, double value, string units) => Snapshot.Set(name, value);
+        public void SetLearnWatchDefinitions(IReadOnlyList<(string Name, string Units)> vars) { }
+        public void ClearLearnWatchDefinitions() { }
         public void ReceiveMessage() { }
         public void Dispose() { }
     }

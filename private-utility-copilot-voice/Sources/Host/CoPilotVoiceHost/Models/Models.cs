@@ -201,6 +201,12 @@ public sealed class AircraftProfile
 
     [JsonPropertyName("event_aliases")]
     public Dictionary<string, string> EventAliases { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Optional Learn Mode watches for this aircraft (Phase G). Merged into the watch set when Learn is on.
+    /// </summary>
+    [JsonPropertyName("learn_watch")]
+    public List<LearnWatchEntry> LearnWatch { get; set; } = new();
 }
 
 /// <summary>Live or fixture snapshot of SimVars used by the condition engine.</summary>

@@ -14,6 +14,7 @@ public static class HostConstants
     public const string SettingsFileName = "settings.json";
     public const string BaseCommandsFileName = "base_commands.json";
     public const string AircraftDetectionFileName = "aircraft_detection.json";
+    public const string LearnWatchlistFileName = "learn_watchlist.json";
     public const string AircraftProfilesDirectoryName = "aircraft";
     public const string ManifestFileName = "manifest.json";
     public const string HeadlessLogFileName = "copilot-host-headless.log";
@@ -27,6 +28,24 @@ public static class HostConstants
     public const double GearUpMinVerticalSpeedFpm = 100;
 
     public const double DefaultOfflineVerticalSpeedFpm = 500;
+
+    // ── Learn Mode ────────────────────────────────────────────────────────────
+    /// <summary>Hard cap on SimConnect learn watch definitions (SECOND period).</summary>
+    public const int LearnMaxWatches = 128;
+
+    /// <summary>Ignore self-echo detections for this long after host-executed actions.</summary>
+    public const int LearnSuppressMs = 750;
+
+    /// <summary>Bounded ring buffer for recent Learn detections (newest first).</summary>
+    public const int LearnRecentCapacity = 100;
+
+    /// <summary>Float epsilon for LearnCaptureService value diffs.</summary>
+    public const double LearnDiffEpsilon = 1e-4;
+
+    /// <summary>
+    /// Same-signal re-fires within this window update the latest detection instead of appending (debounce).
+    /// </summary>
+    public const int LearnDebounceMs = 400;
 
     /// <summary>Whitespace / null → <see cref="DefaultProfileId"/>; otherwise trimmed name.</summary>
     public static string NormalizeProfileId(string? profileName) =>

@@ -24,11 +24,16 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private int _aircraftStringFields;
     private bool _loggedFirstStatus;
     private bool _loggedFirstAircraft;
+    private bool _loggedFirstLearn;
+    /// <summary>Ordered learn field names successfully registered (matches DEF_LEARN payload order).</summary>
+    private readonly List<string> _learnFieldNames = new();
 
     private const uint DEFINITION_STATUS = 0xC0010001;
     private const uint DEFINITION_AIRCRAFT = 0xC0010002;
+    private const uint DEFINITION_LEARN = 0xC0010003;
     private const uint REQUEST_STATUS = 0xC0020001;
     private const uint REQUEST_AIRCRAFT = 0xC0020002;
+    private const uint REQUEST_LEARN = 0xC0020003;
     private const uint OBJECT_USER = 0;
     private const int DATATYPE_FLOAT64 = 4;
     private const int DATATYPE_STRING256 = 9;
@@ -333,6 +338,72 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             Console.WriteLine($"[SimConnect] RequestData aircraft failed hr=0x{unchecked((uint)hr):X8}");
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Isolated from DEF_STATUS so invalid LVar names cannot shorten the flight dashboard payload.
+    /// </remarks>
+    public void SetLearnWatchDefinitions(IReadOnlyList<(string Name, string Units)> vars)
+    {
+        if (!IsConnected)
+        {
+            Console.WriteLine("[SimConnect] SetLearnWatchDefinitions skipped — not connected");
+            return;
+        }
+
+        _learnFieldNames.Clear();
+        _loggedFirstLearn = false;
+        try { SimConnect_ClearDataDefinition(_h, DEFINITION_LEARN); } catch { /* first use */ }
+
+        if (vars is null || vars.Count == 0)
+        {
+            Console.WriteLine("[SimConnect] DEF_LEARN cleared (empty watch list)");
+            return;
+        }
+
+        foreach (var (rawName, rawUnits) in vars)
+        {
+            if (string.IsNullOrWhiteSpace(rawName))
+                continue;
+            var name = rawName.Trim();
+            var units = string.IsNullOrWhiteSpace(rawUnits) ? "number" : rawUnits.Trim();
+            var hr = SimConnect_AddToDataDefinition(
+                _h, DEFINITION_LEARN, name, units, DATATYPE_FLOAT64, 0f, uint.MaxValue);
+            if (hr >= 0)
+            {
+                _learnFieldNames.Add(name);
+            }
+            else
+            {
+                Console.WriteLine(
+                    $"[SimConnect] Learn AddToDataDefinition failed for '{name}' ({units}) hr=0x{unchecked((uint)hr):X8}");
+            }
+        }
+
+        Console.WriteLine(
+            $"[SimConnect] DEF_LEARN registered fields: {_learnFieldNames.Count}/{vars.Count}");
+
+        if (_learnFieldNames.Count <= 0)
+            return;
+
+        var reqHr = SimConnect_RequestDataOnSimObject(
+            _h, REQUEST_LEARN, DEFINITION_LEARN, OBJECT_USER,
+            PERIOD_SECOND, 0, 0, 0, 0);
+        if (reqHr < 0)
+            Console.WriteLine($"[SimConnect] RequestData learn failed hr=0x{unchecked((uint)reqHr):X8}");
+    }
+
+    public void ClearLearnWatchDefinitions()
+    {
+        _learnFieldNames.Clear();
+        _loggedFirstLearn = false;
+        if (!IsConnected)
+            return;
+
+        try { SimConnect_ClearDataDefinition(_h, DEFINITION_LEARN); } catch { /* ignore */ }
+        // Re-request with empty def is unnecessary after clear; stop by not re-registering.
+        Console.WriteLine("[SimConnect] DEF_LEARN cleared");
+    }
+
     private void DispatchLoop()
     {
         while (_run && _h != IntPtr.Zero)
@@ -401,6 +472,12 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             return;
         }
 
+        if (requestId == REQUEST_LEARN)
+        {
+            ApplyLearnPayload(pData, cb, headerSize, defineCount);
+            return;
+        }
+
         if (requestId != REQUEST_STATUS)
             return;
 
@@ -436,6 +513,37 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             Snapshot.TryGet("SIM ON GROUND", out var gnd);
             Console.WriteLine(
                 $"[SimConnect] STATUS data: fields={fieldCount} VS={vs:F0} ALT={alt:F0} IAS={ias:F0} ONGND={gnd} cb={cb}");
+        }
+    }
+
+    private void ApplyLearnPayload(IntPtr pData, uint cb, int headerSize, uint defineCount)
+    {
+        if (_learnFieldNames.Count == 0)
+            return;
+
+        var fieldCount = defineCount > 0
+            ? (int)defineCount
+            : _learnFieldNames.Count;
+        fieldCount = Math.Min(fieldCount, _learnFieldNames.Count);
+
+        var need = headerSize + fieldCount * sizeof(double);
+        if (cb < need)
+        {
+            var fit = (int)((cb - headerSize) / sizeof(double));
+            if (fit <= 0) return;
+            fieldCount = Math.Min(fieldCount, fit);
+        }
+
+        for (var i = 0; i < fieldCount; i++)
+        {
+            var value = Marshal.PtrToStructure<double>(IntPtr.Add(pData, headerSize + i * sizeof(double)));
+            Snapshot.Set(_learnFieldNames[i], value);
+        }
+
+        if (!_loggedFirstLearn)
+        {
+            _loggedFirstLearn = true;
+            Console.WriteLine($"[SimConnect] LEARN data: fields={fieldCount} cb={cb}");
         }
     }
 

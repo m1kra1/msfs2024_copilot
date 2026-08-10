@@ -39,12 +39,20 @@ public partial class MainWindow : Window
     private bool _manualBuilt;
     private int _manualCatalogFingerprint = -1;
 
+    // Learn tab
+    private readonly ObservableCollection<LearnRow> _learnRows = new();
+    private bool _suppressLearnActiveEvent;
+    private LearnDetection? _selectedLearnDetection;
+    private List<ActionDefinition> _learnEditActions = new();
+    private bool _learnEditIsEdit;
+
     public MainWindow(HostSession session, HostOptions _)
     {
         _session = session;
         InitializeComponent();
 
         CmdList.ItemsSource = _commandRows;
+        LearnList.ItemsSource = _learnRows;
 
         _tray = new Forms.NotifyIcon
         {
@@ -64,12 +72,14 @@ public partial class MainWindow : Window
 
         _session.Log.LineAppended += OnLogLine;
         _session.StatusChanged += () => Dispatcher.BeginInvoke(RefreshStatus);
+        _session.LearnChanged += () => Dispatcher.BeginInvoke(RefreshLearnUi);
 
         LoadSettingsToUi();
         foreach (var line in _session.Log.Snapshot())
             AppendLogCore(line);
 
         RefreshStatus();
+        RefreshLearnUi();
         StatusBarVersion.Text = $"App {_session.ApplicationVersion} · pkg {_session.PackageVersion}";
     }
 
@@ -214,6 +224,357 @@ public partial class MainWindow : Window
         // Keep Manual tab buttons aligned with live catalog after profile auto-switch / Apply.
         if (_manualBuilt && ManualCatalogFingerprint() != _manualCatalogFingerprint)
             RebuildManualPanel();
+
+        // Learn toggle enabled only when Live; keep checkbox in sync without re-entrancy.
+        LearnActiveCheck.IsEnabled = live || _session.LearnModeActive;
+        _suppressLearnActiveEvent = true;
+        LearnActiveCheck.IsChecked = _session.LearnModeActive;
+        _suppressLearnActiveEvent = false;
+        UpdateLearnMeta();
+    }
+
+    // ── Learn tab ────────────────────────────────────────────────────────────
+
+    private void LearnTab_GotFocus(object sender, RoutedEventArgs e) => RefreshLearnUi();
+
+    private void RefreshLearnUi()
+    {
+        UpdateLearnMeta();
+
+        var selectedSignal = (_selectedLearnDetection?.SignalName ?? "");
+        var selectedUtc = _selectedLearnDetection?.Utc;
+        _learnRows.Clear();
+
+        IEnumerable<LearnDetection> source = _session.LearnDetections;
+        if (LearnOnlyUnmapped.IsChecked == true)
+            source = source.Where(d => d.MappingStatus == LearnMappingStatus.Unmapped);
+
+        LearnRow? reselect = null;
+        foreach (var d in source)
+        {
+            var row = new LearnRow(d);
+            _learnRows.Add(row);
+            if (selectedUtc.HasValue
+                && d.Utc == selectedUtc
+                && d.SignalName.Equals(selectedSignal, StringComparison.OrdinalIgnoreCase))
+                reselect = row;
+        }
+
+        if (reselect is not null)
+            LearnList.SelectedItem = reselect;
+        else if (_learnRows.Count == 0)
+        {
+            _selectedLearnDetection = null;
+            LearnDetail.Text = "Select a detection.";
+            BtnLearnEdit.IsEnabled = false;
+        }
+
+        LearnStatus.Text = _session.LearnModeActive
+            ? $"Listening for changes · {_session.LearnWatchCount} watches · {_session.LearnDetections.Count} detections"
+            : "Learn Mode off — enable when SimConnect is Live.";
+    }
+
+    private void UpdateLearnMeta()
+    {
+        var live = _session.IsLive ? "Yes" : "No";
+        LearnMeta.Text =
+            $"Watches: {_session.LearnWatchCount} · Profile: {_session.AircraftProfile} · Live: {live}";
+    }
+
+    private void LearnActive_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressLearnActiveEvent)
+            return;
+
+        try
+        {
+            if (LearnActiveCheck.IsChecked == true)
+            {
+                if (!_session.IsLive)
+                {
+                    System.Windows.MessageBox.Show(
+                        this,
+                        "Learn Mode requires a Live SimConnect connection (Free Flight + MSFS SimConnect).",
+                        "Learn Mode",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                    _suppressLearnActiveEvent = true;
+                    LearnActiveCheck.IsChecked = false;
+                    _suppressLearnActiveEvent = false;
+                    return;
+                }
+
+                _session.StartLearnMode();
+            }
+            else
+            {
+                _session.StopLearnMode();
+            }
+        }
+        catch (Exception ex)
+        {
+            LearnEditStatus.Text = ex.Message;
+        }
+
+        RefreshLearnUi();
+    }
+
+    private void BtnLearnAddWatch_Click(object sender, RoutedEventArgs e)
+    {
+        var name = LearnWatchName.Text?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            LearnStatus.Text = "Enter a SimVar / LVar name to watch.";
+            return;
+        }
+
+        var units = LearnWatchUnits.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(units))
+            units = "number";
+        _session.AddManualLearnWatch(name, units);
+        LearnWatchName.Text = "";
+        RefreshLearnUi();
+    }
+
+    private void BtnLearnClear_Click(object sender, RoutedEventArgs e)
+    {
+        _session.ClearLearnDetections();
+        _selectedLearnDetection = null;
+        LearnDetail.Text = "Select a detection.";
+        BtnLearnEdit.IsEnabled = false;
+        RefreshLearnUi();
+    }
+
+    private void BtnLearnExport_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = _session.ExportLearnDetections();
+            LearnEditStatus.Text = $"Exported: {path}";
+            LearnStatus.Text = $"Exported {_session.LearnDetections.Count} detections.";
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "Learn Export", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void LearnFilter_Changed(object sender, RoutedEventArgs e) => RefreshLearnUi();
+
+    private void LearnList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LearnList.SelectedItem is not LearnRow row)
+        {
+            _selectedLearnDetection = null;
+            LearnDetail.Text = "Select a detection.";
+            BtnLearnEdit.IsEnabled = false;
+            return;
+        }
+
+        _selectedLearnDetection = row.Detection;
+        var d = row.Detection;
+        var matched = d.MatchedCommandLabels.Count > 0
+            ? string.Join(", ", d.MatchedCommandLabels)
+            : "—";
+        var actions = d.SuggestedActions.Count > 0
+            ? string.Join("; ", d.SuggestedActions.Select(a =>
+                $"{a.Type}:{a.Name}={a.Value?.ToString(CultureInfo.InvariantCulture)} {a.Units}"))
+            : "—";
+
+        LearnDetail.Text =
+            $"Signal: {d.SignalName} ({d.Kind})\n" +
+            $"Change: {FormatLearnValue(d.OldValue)} → {FormatLearnValue(d.NewValue)} ({d.Units})\n" +
+            $"Status: {d.MappingStatus}\n" +
+            $"Matched: {matched}\n" +
+            $"Suggested id: {d.SuggestedCommandId}\n" +
+            $"Suggested actions: {actions}\n" +
+            (string.IsNullOrEmpty(d.GroupId) ? "" : $"Group: {d.GroupId}\n") +
+            $"UTC: {d.Utc:HH:mm:ss}";
+
+        BtnLearnEdit.IsEnabled = d.MappingStatus is LearnMappingStatus.Mapped or LearnMappingStatus.Ambiguous
+            && d.MatchedCommandIds.Count > 0;
+    }
+
+    private void BtnLearnCreate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedLearnDetection is null)
+        {
+            LearnEditStatus.Text = "Select a detection first.";
+            return;
+        }
+
+        var d = _selectedLearnDetection;
+        _learnEditIsEdit = false;
+        LearnEditId.Text = d.SuggestedCommandId ?? LearnCaptureService.SuggestCommandId(d.SignalName, d.NewValue ?? 0);
+        LearnEditPhrases.Text = "";
+        LearnEditResponse.Text = "Checked.";
+        LearnEditReject.Text = "";
+        _learnEditActions = d.SuggestedActions.Select(CloneAction).ToList();
+        LearnEditActions.Text = FormatLearnActionsSummary(_learnEditActions);
+        LearnEditStatus.Text = "Create mode — enter phrases, then Save to active profile.";
+    }
+
+    private void BtnLearnEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedLearnDetection is null || _selectedLearnDetection.MatchedCommandIds.Count == 0)
+        {
+            LearnEditStatus.Text = "No mapped command to edit.";
+            return;
+        }
+
+        var id = _selectedLearnDetection.MatchedCommandIds[0];
+        var cmd = _session.Catalog.Commands.FirstOrDefault(c =>
+            c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (cmd is null)
+        {
+            LearnEditStatus.Text = $"Command '{id}' not in live catalog.";
+            return;
+        }
+
+        _learnEditIsEdit = true;
+        LearnEditId.Text = cmd.Id;
+        LearnEditPhrases.Text = string.Join(Environment.NewLine, cmd.Phrases);
+        LearnEditResponse.Text = cmd.Response ?? "";
+        LearnEditReject.Text = cmd.RejectResponse ?? "";
+        _learnEditActions = cmd.Actions.Select(CloneAction).ToList();
+        LearnEditActions.Text = FormatLearnActionsSummary(_learnEditActions);
+        LearnEditStatus.Text = $"Edit mode — will write profile override for '{cmd.Id}'.";
+    }
+
+    private void BtnLearnCopyName_Click(object sender, RoutedEventArgs e)
+    {
+        var name = _selectedLearnDetection?.SignalName;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            LearnEditStatus.Text = "Nothing to copy.";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(name);
+            LearnEditStatus.Text = $"Copied: {name}";
+        }
+        catch (Exception ex)
+        {
+            LearnEditStatus.Text = $"Clipboard failed: {ex.Message}";
+        }
+    }
+
+    private void BtnLearnCancelEdit_Click(object sender, RoutedEventArgs e)
+    {
+        LearnEditId.Text = "";
+        LearnEditPhrases.Text = "";
+        LearnEditResponse.Text = "";
+        LearnEditReject.Text = "";
+        LearnEditActions.Text = "";
+        _learnEditActions = new();
+        _learnEditIsEdit = false;
+        LearnEditStatus.Text = "Cancelled.";
+    }
+
+    private void BtnLearnSave_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var id = LearnEditId.Text?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                LearnEditStatus.Text = "Command id is required.";
+                return;
+            }
+
+            var phrases = ParseLines(LearnEditPhrases.Text);
+            if (phrases.Count == 0)
+            {
+                LearnEditStatus.Text = "At least one phrase is required.";
+                return;
+            }
+
+            if (_learnEditActions.Count == 0)
+            {
+                LearnEditStatus.Text = "No actions — create from a detection first.";
+                return;
+            }
+
+            // Base unchanged; vendor LVars go into active profile only.
+            var baseCatalog = _session.LoadBaseCommandsFromDisk();
+            var profile = _session.LoadActiveProfileFromDisk();
+
+            var cmd = new CommandDefinition
+            {
+                Id = id,
+                Phrases = phrases,
+                Response = LearnEditResponse.Text?.Trim() ?? "",
+                RejectResponse = string.IsNullOrWhiteSpace(LearnEditReject.Text)
+                    ? null
+                    : LearnEditReject.Text.Trim(),
+                Conditions = new List<ConditionDefinition>(),
+                Actions = _learnEditActions.Select(CloneAction).ToList()
+            };
+
+            var existing = profile.Commands.FindIndex(c =>
+                c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (existing >= 0)
+                profile.Commands[existing] = cmd;
+            else
+                profile.Commands.Add(cmd);
+
+            _session.ApplyCommandSources(baseCatalog, profile, saveToDisk: true);
+
+            if (_commandsLoaded)
+                ReloadCommandsEditorFromDisk(keepSelectionId: id);
+
+            LearnEditStatus.Text = _learnEditIsEdit
+                ? $"Saved profile override '{id}'."
+                : $"Created profile command '{id}'.";
+            _learnEditIsEdit = false;
+            RefreshLearnUi();
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, ex.Message, "Learn Save", MessageBoxButton.OK, MessageBoxImage.Error);
+            LearnEditStatus.Text = ex.Message;
+        }
+    }
+
+    private static string FormatLearnValue(double? v) =>
+        v.HasValue ? v.Value.ToString("0.####", CultureInfo.InvariantCulture) : "?";
+
+    private static string FormatLearnActionsSummary(IEnumerable<ActionDefinition> actions) =>
+        string.Join("; ", actions.Select(a =>
+        {
+            var val = a.Value.HasValue
+                ? a.Value.Value.ToString(CultureInfo.InvariantCulture)
+                : "";
+            return string.IsNullOrEmpty(val)
+                ? $"{a.Type}:{a.Name}"
+                : $"{a.Type}:{a.Name}={val} {a.Units}";
+        }));
+
+    private static ActionDefinition CloneAction(ActionDefinition a) => new()
+    {
+        Type = a.Type,
+        Name = a.Name,
+        Value = a.Value,
+        Units = a.Units
+    };
+
+    private sealed class LearnRow
+    {
+        public LearnRow(LearnDetection detection) => Detection = detection;
+
+        public LearnDetection Detection { get; }
+        public string SignalName => Detection.SignalName;
+        public string TimeText => Detection.Utc.ToLocalTime().ToString("HH:mm:ss");
+        public string ChangeText =>
+            $"{FormatLearnValue(Detection.OldValue)} → {FormatLearnValue(Detection.NewValue)}";
+        public string StatusText => Detection.MappingStatus.ToString();
+        public string MappedText =>
+            Detection.MatchedCommandIds.Count > 0
+                ? string.Join(", ", Detection.MatchedCommandIds)
+                : "—";
     }
 
     private void ManualTab_GotFocus(object sender, RoutedEventArgs e)

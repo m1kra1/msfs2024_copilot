@@ -8,6 +8,8 @@ public enum PrivateCopilotDefineId : uint
 {
     PRIVATE_COPILOT_DEF_STATUS = 0xC0_01_00_01,
     PRIVATE_COPILOT_DEF_AIRCRAFT = 0xC0_01_00_02,
+    /// <summary>Learn Mode watch vars (isolated from status dashboard).</summary>
+    PRIVATE_COPILOT_DEF_LEARN = 0xC0_01_00_03,
     /// <summary>Ad-hoc single FLOAT64 write definition for SetSimVar (A:/L:).</summary>
     PRIVATE_COPILOT_DEF_SET_VAR = 0xC0_01_02_01
 }
@@ -22,7 +24,9 @@ public struct PrivateCopilotSetVarData
 public enum PrivateCopilotRequestId : uint
 {
     PRIVATE_COPILOT_REQ_STATUS = 0xC0_02_00_01,
-    PRIVATE_COPILOT_REQ_AIRCRAFT = 0xC0_02_00_02
+    PRIVATE_COPILOT_REQ_AIRCRAFT = 0xC0_02_00_02,
+    /// <summary>Learn Mode SECOND-period request (paired with DEF_LEARN).</summary>
+    PRIVATE_COPILOT_REQ_LEARN = 0xC0_02_00_03
 }
 
 public enum PrivateCopilotEventId : uint

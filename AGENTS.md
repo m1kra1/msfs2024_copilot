@@ -2,29 +2,50 @@
 
 ## Project Identity
 Private-use utility mod for Microsoft Flight Simulator 2024.
-Voice-controlled co-pilot (STT → phrase match → conditions → TTS + SimConnect events).
-Package: private-utility-copilot-voice | Creator: Private | Type: MISC (Community only).
+Voice-controlled co-pilot (STT → phrase match → conditions → TTS + SimConnect events/LVars).
+Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Community only — not Marketplace).
 
 ## Architecture (locked)
-- Community package under Community2024 containing WASM marker + extras/ host files.
-- WASM module = marker only (module_init / deinit / update). ZERO co-pilot logic.
-- CoPilotVoiceHost.exe = out-of-process .NET 8 WPF host (default) + headless CLI.
-- Shared core: HostSession (and everything under Config/, Core/, SimConnect/, Speech/, Models/, Diagnostics/) must remain completely free of WPF/UI dependencies.
-- Commands are 100 % JSON-driven: base_commands.json + aircraft/*.json (merge on load). No aircraft-specific C# hardcoding of events.
-- UI (`Ui/`, WPF XAML) is a thin shell over HostSession; do not put recognition, catalog, or SimConnect logic in the UI layer.
-- **Commands tab** edits working copies of base + active profile in the UI, then calls `HostSession.ApplyCommandSources` (merge + optional disk save). Persistence stays in ConfigLoader/JSON — no command tables hardcoded in C#.
-- **Manual tab** builds categorized buttons from the live catalog via Core `CommandCatalogGroups` + `HostSession.RunCatalogCommand` (force-gate inject of first phrase). No command logic in the UI beyond layout/click → session.
+- Community package under Community2024: WASM marker + `extras/` host files.
+- WASM module = marker only (`module_init` / `deinit` / `update`). **ZERO** co-pilot logic.
+- `CoPilotVoiceHost.exe` = out-of-process **.NET 8 WPF** host (GUI default) + headless CLI.
+- Shared core: `HostSession` and everything under `Config/`, `Core/`, `SimConnect/`, `Speech/`, `Models/`, `Diagnostics/` must remain **completely free of WPF/UI** dependencies.
+- Commands are **100 % JSON-driven**: `base_commands.json` + `aircraft/*.json` (merge on load). No aircraft-specific C# hardcoding of events.
+- UI (`Ui/`, WPF XAML) is a **thin shell** over `HostSession`; no recognition, catalog, or SimConnect logic in the UI layer.
+- **Commands tab** edits working copies of base + active profile, then `HostSession.ApplyCommandSources` (merge + optional disk save). Persistence = ConfigLoader/JSON only.
+- **Manual tab** builds categorized buttons from the live catalog via Core `CommandCatalogGroups` + `HostSession.RunCatalogCommand` (force-gate; first phrase). UI = layout/click → session only.
 
 ## Key Paths
 - Host source: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost/`
 - Solution: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.sln`
+- Host project: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost/CoPilotVoiceHost.csproj`
 - Tests: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests/`
 - **Canonical config (edit here):** `private-utility-copilot-voice/PackageSources/extras/config/`
-  - `settings.json`, `base_commands.json`, `aircraft/*.json`
+  - `settings.json`, `base_commands.json`, `aircraft_detection.json`, `aircraft/*.json`
 - Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/`
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
-- Build host: `dotnet publish ... -o ../../PackageSources/extras` (from Host project dir)
-- Docs / backlog: repo-root `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`
+- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`, `Plan_LearnMode.md`
+
+### Build / publish / test (explicit)
+From repo root (or Host dir as noted):
+
+```bat
+dotnet build private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.sln -c Release
+dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c Release
+```
+
+Publish host into extras (from Host project directory):
+
+```bat
+cd private-utility-copilot-voice\Sources\Host\CoPilotVoiceHost
+dotnet publish CoPilotVoiceHost.csproj -c Release -r win-x64 --self-contained false -o ..\..\..\PackageSources\extras
+```
+
+Headless smoke (offline inject; wake word or `--ptt` / `--bypass-gate` as needed):
+
+```bat
+CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
+```
 
 ### Config copy rules
 - **Source of truth = PackageSources/extras/config.** The csproj copies those JSON files into build output (`bin/.../config`) via `CopyToOutputDirectory`.
@@ -69,7 +90,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Catalog rebuild: `ConfigLoader.Merge` via `HostSession.RebuildCatalogFromCurrentSettings` + `RebuildPipelineServices` (matcher/processor rebuilt).
 
 ### Info-only / dynamic responses
-- Pure info commands use `actions: []` (and usually empty `conditions`) so they work Offline and live without SimConnect events.
+- Pure info commands use `actions: []` (and usually empty `conditions`) so they work offline and live without SimConnect events.
 - Static JSON `response` is the default spoken text.
 - Dynamic spoken text (e.g. **`list_commands`**) is built in Core from the **currently loaded merged catalog** (`CommandListBuilder` + special-case in `CommandProcessor`); full detail goes to log via `CommandResult.DetailLogLines` → console / Debug tab.
 - Never hardcode the command list in C# or a fixed TTS string for that feature — always derive from live catalog after profile merge.
@@ -119,19 +140,33 @@ Each command in `base_commands.json` / aircraft profiles:
 ## GUI tabs (thin shell)
 | Tab | Role |
 |-----|------|
-| Status | Live/Offline, detected aircraft, profile, last phrase/action |
+| Status | Live/Offline, **FLIGHT DATA** (~2 Hz), detected aircraft, profile, last phrase/action |
 | Settings | Apply / Save / Reload; auto-detect; profile combo |
 | **Manual** | Categorized fire buttons → `RunCatalogCommand` |
+| **Learn** | Control capture (Live): watches → detections → create/edit → save **active profile only** |
 | Commands | Edit base + profile JSON working copies |
 | Debug | Log, inject, reconnect, test TTS |
 
+### Learn Mode notes (agent-facing)
+- Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints` — **no WPF**.
+- SimConnect: **isolated** `DEF_LEARN` / `REQ_LEARN` (SECOND). Never add experimental LVars to `DEFINITION_STATUS`.
+- Watches: status discrete + catalog + `config/learn_watchlist.json` + profile `learn_watch` + session manual (cap 128).
+- HostSession: `StartLearnMode` / `StopLearnMode` / `AddManualLearnWatch` / `ExportLearnDetections`; Observe on existing poll; suppress ~750 ms after actions.
+- Save path: load base unchanged + upsert profile command → `ApplyCommandSources(..., saveToDisk: true)`.
+- CLI: `--learn-dump`, `--learn-export <path>` (headless).
+- Vendor LVars only in aircraft profile, never `base_commands.json`.
+
 ## Current Version & Branch
-- Package/app baseline **1.3.0** on **`dev`** and **`main`** (WPF GUI + HostSession + headless + Fenix hybrid + Manual/Commands).
-- Check `CHANGELOG.md` / `manifest.json` for the latest package_version; do not invent version bumps without user intent.
-- Learn Mode (L0) is planned in `Plan_LearnMode.md` — not implemented until explicitly requested.
+- Package/app baseline **1.4.0** on **`dev`** (Learn Mode full + prior 1.3.0 stack).
+- Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
+- Do not invent version bumps without user intent.
 
 ## Docs Workflow
-Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change; move done items into `Complete_Features.md` and open work into `Backlog.md`, then push to **`dev`** when the user wants it published.
+Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change.
+- Done features → `Complete_Features.md`
+- Open work → `Backlog.md` (implementation specs may live in `Plan_*.md`, e.g. `Plan_LearnMode.md`)
+- Push to **`dev`** when the user wants it published; releases also go to **`main`** when requested.
+- Do **not** revive `FUTURE.md` — replaced by Complete_Features + Backlog.
 
 ## Testing Expectations
 - Unit tests must stay green:  
@@ -148,6 +183,7 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - Edit config under PackageSources; sync Packages config when needed.
 - Put new command logic in JSON first; add C# only for generic pipeline hooks (conditions, dynamic info, SimConnect client).
 - After host/config changes: run Release tests; smoke headless inject when relevant.
+- Keep a **single** root `AGENTS.md` only — never add nested `AGENTS.md` / `CLAUDE.md` under subdirs.
 
 **Don't**
 - Put co-pilot logic in WASM or aircraft-specific event names in C#.
@@ -155,8 +191,10 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - Re-load settings from disk on Apply (known prior bug).
 - Treat `bin/` config or logs as source of truth.
 - Add public distribution / marketplace packaging assumptions (private utility only).
+- Implement Backlog items without an explicit user request.
 
 ## Related planning
-- **Implemented features (SSOT):** `Complete_Features.md`
-- **Open work / improvements:** `Backlog.md` (Fenix live human re-test open; A350 later; H/B bridge optional; code maintainability items)
-- Fenix hybrid P0–P3 LVar map + checklists + list_commands + Manual tab are **done** (see Complete_Features).
+- **Implemented features (SSOT):** `Complete_Features.md` (incl. Learn Mode §5b)
+- **Open work / improvements:** `Backlog.md` (A1 Fenix live re-test P0; later items)
+- **Learn Mode coding spec:** `Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
+- Fenix hybrid + Manual/Commands + Learn Mode full are **done** (see Complete_Features).

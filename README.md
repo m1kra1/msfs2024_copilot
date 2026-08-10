@@ -5,11 +5,11 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.3.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.4.0 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
-- **Learn Mode plan (P0, not shipped yet):** [Plan_LearnMode.md](Plan_LearnMode.md)
+- **Learn Mode (shipped 1.4.0):** [Plan_LearnMode.md](Plan_LearnMode.md)
 
 **Docs workflow:** every meaningful code change updates **README.md** and **CHANGELOG.md**, then is pushed to **`dev`** (and **`main`** on releases).
 
@@ -41,6 +41,7 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 |-----|----------|
 | **Status** | SimConnect connected/IsLive/errors, **FLIGHT DATA** (aircraft TITLE, airport, altitude, IAS, V/S, on ground), active profile, last phrase + confidence, last action, mic, versions |
 | **Manual** | Categorized buttons for every loaded voice command (active profile). Click to fire (bypasses wake/PTT; conditions still apply). Refresh after profile switch. |
+| **Learn** | Control capture when **Live**: watches from discrete SimVars + catalog + `learn_watchlist.json` + profile `learn_watch` + manual; detections (debounce/group); Mapped/Unmapped; create/edit → **Save to active profile**; Export JSON. Does **not** magically discover unknown LVars. |
 | **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
 | **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
@@ -68,9 +69,11 @@ Use for automation, scripts, and the old console-style host:
 CoPilotVoiceHost.exe --headless
 CoPilotVoiceHost.exe --headless --offline --once
 CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
+CoPilotVoiceHost.exe --offline --learn-dump --profile fenix_a320
+CoPilotVoiceHost.exe --offline --learn-dump --learn-export learn-out.json
 ```
 
-`--once` and `--inject` also force headless (no window). Headless writes **`copilot-host-headless.log`** next to the EXE (WinExe subsystem).
+`--once`, `--inject`, and `--learn-dump` also force headless (no window). Headless writes **`copilot-host-headless.log`** next to the EXE (WinExe subsystem).
 
 ---
 
@@ -146,6 +149,7 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 |------|---------|
 | `settings.json` | SimConnect app name, speech, TTS, behavior flags, aircraft profile name, `auto_detect_aircraft`, `announce_profile_switch` |
 | `aircraft_detection.json` | Auto-detect rules: case-insensitive contains patterns → profile id + `fallback_profile` |
+| `learn_watchlist.json` | Learn Mode global exclude names + default watches (merged with profile `learn_watch`) |
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
@@ -272,6 +276,8 @@ CoPilotVoiceHost.exe --headless --inject "landing lights on" --ptt --offline
 | `--no-tts` / `--no-speech` | Disable Windows TTS / mic recognizer |
 | `--bypass-gate` | Skip wake-word/PTT gate on inject |
 | `--allow-offline-fallback` | Fall back to recording if live connect fails |
+| `--learn-dump` | Print resolved Learn watch list and exit (forces headless; works offline) |
+| `--learn-export <path>` | Write Learn detections JSON after dump/inject/run |
 
 ---
 

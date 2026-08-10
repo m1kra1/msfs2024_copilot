@@ -11,9 +11,22 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
-### Planned
+---
 
-- **Learn Mode (L0):** Control capture → command mapping — see [Plan_LearnMode.md](Plan_LearnMode.md) (not shipped in 1.3.0).
+## [1.4.0] - 2026-08-10
+
+### Added
+
+- **Learn Mode (L0) complete:**
+  - **MVP:** GUI **Learn** tab — watches (status + catalog + manual), detections, Mapped/Unmapped/Ambiguous, create/edit → **Save to active profile**, isolated SimConnect DEF_LEARN (SECOND), self-echo suppress (~750 ms).
+  - **Phase G:** `config/learn_watchlist.json` (exclude + default watches), profile `learn_watch` (Fenix seed), debounce (400 ms same-signal), multi-var `GroupId` per Observe pass.
+  - **Phase H:** `LearnActionHints` dual-write suggestions (event + set_simvar), **Export JSON** (GUI + `ExportLearnDetections`), headless `--learn-dump` / `--learn-export <path>`.
+  - Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints`. Spec: [Plan_LearnMode.md](Plan_LearnMode.md).
+
+### Changed
+
+- **Package/app version 1.4.0** (`manifest.json`, AssetPackage, host csproj).
+- Docs: README / AGENTS / Complete_Features / Backlog aligned to Learn Mode shipped + 1.4.0.
 
 ---
 
