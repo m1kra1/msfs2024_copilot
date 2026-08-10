@@ -5,7 +5,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.5.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.6.0 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
@@ -88,7 +88,33 @@ CoPilotVoiceHost.exe --offline --learn-dump --learn-export learn-out.json
 
 ---
 
-## Install (Community2024)
+## Install
+
+### Setup wizard (recommended)
+
+Build a distribution folder with the WPF installer + package payload:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/pack-installer.ps1
+```
+
+Then run:
+
+```text
+dist/CoPilotVoiceSetup/CoPilotVoiceSetup.exe
+```
+
+The wizard:
+
+- Checks for **.NET 8 Desktop Runtime** (framework-dependent host; [download](https://dotnet.microsoft.com/download/dotnet/8.0) if missing)
+- Finds the MSFS **Community** folder (auto via `UserCfg.opt` + Browse)
+- Copies `private-utility-copilot-voice` into Community
+- Creates **Desktop** and **Start Menu** shortcuts to `CoPilotVoiceHost.exe` (working directory = `extras`)
+- Supports **upgrade** with optional config preserve, **uninstall**, and “Launch host when finished”
+
+Installer source: `private-utility-copilot-voice/Sources/Installer/CoPilotVoiceSetup/`.
+
+### Manual install (Community2024)
 
 1. Build or use the package under  
    `private-utility-copilot-voice/Packages/private-utility-copilot-voice/`  
@@ -101,7 +127,7 @@ CoPilotVoiceHost.exe --offline --learn-dump --learn-export learn-out.json
    run_copilot.bat
    ```
 
-   or start `CoPilotVoiceHost.exe` directly.
+   or start `CoPilotVoiceHost.exe` directly (or use the Desktop shortcut after Setup).
 
 5. Check the GUI status bar / Status tab: **Live**. If **Offline**, speech still works but **nothing in the aircraft will move**.  
    Ensure Free Flight is running and the correct **`SimConnect.dll`** + **`SimConnect.cfg`** sit next to `CoPilotVoiceHost.exe`.

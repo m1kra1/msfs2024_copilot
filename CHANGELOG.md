@@ -13,6 +13,19 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.6.0] - 2026-08-10
+
+### Added
+
+- **WPF Installer (`CoPilotVoiceSetup`):** wizard to install the Community package, auto/manual Community folder detect, .NET 8 Desktop Runtime check, Desktop + Start Menu shortcuts, upgrade with config preserve + backup, uninstall mode (`--uninstall`), optional launch host after install. Pack with `scripts/pack-installer.ps1` → `dist/CoPilotVoiceSetup/`.
+
+### Changed
+
+- **Package/app version 1.6.0** (`manifest.json`, AssetPackage, host + installer csproj).
+- Docs: README / AGENTS / Complete_Features / Backlog aligned to installer + 1.6.0.
+
+---
+
 ## [1.5.0] - 2026-08-10
 
 ### Added

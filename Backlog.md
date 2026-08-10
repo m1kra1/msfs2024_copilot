@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-10 · Release **1.5.0** |
+| **Stand** | 2026-08-10 · Release **1.6.0** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -38,6 +38,11 @@ Details: [Complete_Features.md](Complete_Features.md) §5b · [Plan_LearnMode.md
 
 `tts.engine` Hybrid/Wav/Windows + `tts.voice_pack`; `WavTtsService` / `HybridTtsService` / manifests; Austrian + Lufthansa sample packs under `extras/voices/`.  
 Details: [Complete_Features.md](Complete_Features.md) · [Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
+
+### Installer (WPF Setup) — **DONE** in **1.6.0**
+
+`CoPilotVoiceSetup`: Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade. Pack: `scripts/pack-installer.ps1`.  
+Host auto-start with MSFS remains **B3** (not done).
 
 ---
 

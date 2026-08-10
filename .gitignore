@@ -23,3 +23,6 @@ Thumbs.db
 # private-utility-copilot-voice/PackageSources/extras/*.exe
 # private-utility-copilot-voice/PackageSources/extras/*.dll
 # private-utility-copilot-voice/PackageSources/extras/*.pdb
+
+dist/
+

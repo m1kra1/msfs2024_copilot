@@ -20,6 +20,9 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
 - Solution: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.sln`
 - Host project: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost/CoPilotVoiceHost.csproj`
 - Tests: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests/`
+- **Installer (separate WPF app, no co-pilot Core):** `private-utility-copilot-voice/Sources/Installer/CoPilotVoiceSetup/`
+  - Solution: `…/Sources/Installer/CoPilotVoiceSetup.sln`
+  - Pack distribution: `scripts/pack-installer.ps1` → `dist/CoPilotVoiceSetup/` (Setup + `payload/private-utility-copilot-voice`)
 - **Canonical config (edit here):** `private-utility-copilot-voice/PackageSources/extras/config/`
   - `settings.json`, `base_commands.json`, `aircraft_detection.json`, `aircraft/*.json`
 - **Voice packs (WAV callouts):** `private-utility-copilot-voice/PackageSources/extras/voices/{pack}/` (`manifest.json` + `.wav`)
@@ -46,6 +49,12 @@ Headless smoke (offline inject; wake word or `--ptt` / `--bypass-gate` as needed
 
 ```bat
 CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
+```
+
+Pack installer distribution (from repo root):
+
+```bat
+powershell -ExecutionPolicy Bypass -File scripts/pack-installer.ps1
 ```
 
 ### Config copy rules
@@ -158,7 +167,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.5.0** on **`dev`** (B2 WAV callouts + Learn Mode full stack).
+- Package/app baseline **1.6.0** on **`dev`** (WPF installer + B2 WAV callouts + Learn Mode).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 

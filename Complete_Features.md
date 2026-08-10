@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-10 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.5.0** |
+| **Baseline** | Package/App **1.6.0** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec (shipped): [Plan_LearnMode.md](Plan_LearnMode.md) |
 
 ---
@@ -209,6 +209,15 @@ Jedes Command in `base_commands.json` / Aircraft-Profilen:
 ### 6.5 Manual-Tab Kategorien (`CommandCatalogGroups`)
 
 Gear · Lights · Flaps · Autopilot / FCU · Anti-ice · Brakes / Spoilers · APU / Systems · Overhead · Checklists · Info · Other
+
+### 6.6a Installer (WPF Setup)
+
+| Aspekt | Umsetzung |
+|--------|-----------|
+| App | `CoPilotVoiceSetup` under `Sources/Installer/` (separate from HostSession) |
+| Pack | `scripts/pack-installer.ps1` → `dist/CoPilotVoiceSetup/` + `payload/private-utility-copilot-voice` |
+| Features | Community auto-detect (`UserCfg.opt`) + Browse; copy package; Desktop + Start Menu shortcuts; .NET 8 Desktop Runtime check; upgrade keep-config; uninstall (`--uninstall`); launch after install |
+| State | `%LocalAppData%\PrivateCoPilotVoice\install.json` + config backups under `backup\` |
 
 ### 6.6 TTS / WAV-Callouts (B2)
 
@@ -461,6 +470,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.3.0** | Auto-Detect, Fenix hybrid LVar P0–P3, Manual/Commands-Tabs, list_commands, live SetSimVar, Flight Data Dashboard, Speech whole-word + alternates, Performance thrift, Docs SSOT (Complete_Features / Backlog) |
 | **1.4.0** | Learn Mode full (MVP + watchlists, profile learn_watch, debounce/group, action hints, export, headless dump) |
 | **1.5.0** | B2 WAV callouts: Hybrid/Wav/Windows TTS engines, voice packs + manifests, Austrian Airlines & Lufthansa samples |
+| **1.6.0** | WPF Installer (`CoPilotVoiceSetup`): Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade |
 
 ---
 

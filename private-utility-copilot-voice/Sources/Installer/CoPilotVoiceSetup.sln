@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoPilotVoiceSetup", "CoPilotVoiceSetup\CoPilotVoiceSetup.csproj", "{05A11909-F70B-41AF-BF17-490A19C8AD37}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoPilotVoiceSetup.Tests", "CoPilotVoiceSetup.Tests\CoPilotVoiceSetup.Tests.csproj", "{50053526-3429-472D-BEAB-96C6E796D8F3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{05A11909-F70B-41AF-BF17-490A19C8AD37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05A11909-F70B-41AF-BF17-490A19C8AD37}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05A11909-F70B-41AF-BF17-490A19C8AD37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05A11909-F70B-41AF-BF17-490A19C8AD37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{50053526-3429-472D-BEAB-96C6E796D8F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{50053526-3429-472D-BEAB-96C6E796D8F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{50053526-3429-472D-BEAB-96C6E796D8F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{50053526-3429-472D-BEAB-96C6E796D8F3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
