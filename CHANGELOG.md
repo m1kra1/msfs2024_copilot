@@ -5,43 +5,48 @@ All notable changes to **msfs2024_copilot** / `private-utility-copilot-voice` ar
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versioning follows package `package_version` where applicable.
 
-**Workflow:** every meaningful change is recorded here and pushed to the `dev` branch.
+**Workflow:** every meaningful change is recorded here and pushed to **`dev`**. Releases are also merged/pushed to **`main`**.
 
 ---
 
 ## [Unreleased]
 
-### Fixed
+### Planned
 
-- **Live SimConnect flight data:** Prefer native SimConnect (dispatch thread) so TITLE/status packets actually arrive in the WinExe host; fixed invalid status SimVar `ANTITOCK` → `ANTISKID BRAKES ACTIVE` (bad defs shortened payloads and dropped all status data); robust packet field-count handling + first-data diagnostics.
-- **Close exits fully:** Window close (X) disposes session/SimConnect/speech and shuts down the app instead of only minimizing to the system tray.
-- **Fenix landing lights 3-pos:** Added `landing_lights_retract` (`L:S_OH_EXT_LT_LANDING_*` = 0); ON=2, OFF=1, RETRACT=0.
-- **Fenix A320 gear up / positive rate:** Airbus callouts (`positive rate`, `positive rate gear up`, …). Gear-up conditions use **airborne + positive VS** (`SIM ON GROUND == 0`, `VERTICAL SPEED > 0`) instead of unreliable `GEAR POSITION == 1`. Actions send `GEAR_UP`/`GEAR_DOWN` **and** write Fenix lever LVar `L:S_MIP_GEAR` (0=UP, 1=DOWN) via SimConnect `SetDataOnSimObject` (no third-party software).
-- **Fenix exterior light switches:** landing / taxi (nose) / strobe / beacon / nav also write Fenix overhead LVars (`L:S_OH_EXT_LT_*`) so cockpit switches animate, not only the light effect from standard events.
-- **Speech recognition reliability:** `PhraseMatcher` uses whole-word token sequences (no loose substring `Contains`), re-ranks Windows Speech **alternates** against the catalog (e.g. spoilers vs strobes), snappier end-silence timeouts, more distinct spoiler/strobe phrases, default confidence threshold **0.70**.
-- **Live `SetSimVar`:** Native (and managed best-effort) SimConnect clients write `A:` / `L:` vars via `SetDataOnSimObject` (was local-snapshot-only).
-- **Commands tab ListView readability:** dark `ListView` / `ListViewItem` / `GridViewColumnHeader` styles + forced light cell text (was near-white text on light default WPF list).
+- **Learn Mode (L0):** Control capture → command mapping — see [Plan_LearnMode.md](Plan_LearnMode.md) (not shipped in 1.3.0).
+
+---
+
+## [1.3.0] - 2026-08-10
 
 ### Added
 
 - **Status FLIGHT DATA dashboard:** Aircraft, Airport (best-effort GPS approach id), Altitude, IAS, Vertical speed, On ground — refreshed ~2 Hz while Live.
-- **Fenix P1–P3 LVar map:** parking brake (`L:S_MIP_PARKING_BRAKE`), flaps (`L:S_FC_FLAPS` 0–4), speedbrake/spoilers (`L:A_FC_SPEEDBRAKE` ARM/RETRACT/DETENT), anti-ice / probe heat, APU master/start/bleed, batteries, EXT PWR, fuel pumps, packs, ADIRS NAV, seatbelt signs, wing/logo/dome lights; dual-write with standard events where applicable.
+- **Fenix A320 hybrid profile (`fenix_a320`):** dual-write events + LVars for gear, exterior lights (incl. landing retract 0/1/2), flaps, parking brake, speedbrake, anti-ice/probe, APU, batteries, EXT PWR, fuel, packs, ADIRS, seatbelts, wing/logo/dome; unmapped FCU modes return **Unable**.
 - **Fenix checklists with actions:** `before start` / `before takeoff` / `after landing` run multi-step event + LVar sequences (not TTS-only).
-- **Study-level LVar strategy docs:** hybrid base-events + profile dual-write documented in README / FUTURE.md / AGENTS.md (Fenix now; A350 later with its own map).
-- **Manual tab (GUI):** categorized command buttons for the **currently loaded** catalog (profile-aware). One click runs `HostSession.RunCatalogCommand` (force-gate; conditions still apply). Refresh rebuilds after profile change. Grouping: `CommandCatalogGroups` (Core, no WPF).
-- **Modernized dark app chrome:** updated palette, chip buttons, stronger ComboBox selected-text contrast (`TextElement.Foreground` on selection presenter).
-- **Automatic aircraft profile detection:** when Live, host reads SimConnect `TITLE` / `ATC MODEL`, matches rules from `config/aircraft_detection.json` (first match; else `fallback_profile`), switches profile only on identity change. CLI `--profile` locks auto switching. Status shows detected aircraft + active profile.
-- **Fenix A320 aircraft profile (`fenix_a320`):** hybrid event + LVar map; unmapped FCU modes return **Unable**. Existing `generic` / `a320` / `b737` profiles unchanged.
-- **Commands tab (GUI):** edit merged base + active profile; Apply/Save via `HostSession.ApplyCommandSources`.
-- **Dynamic `list_commands` voice command:** TTS summary + full list in Debug log from live catalog.
-- **`FUTURE.md`** planning backlog (Fenix LVar map expanded; deeper H/B-Event bridge still optional).
+- **Manual tab (GUI):** categorized command buttons for the currently loaded catalog → `HostSession.RunCatalogCommand`.
+- **Commands tab (GUI):** edit base + active profile; Apply/Save via `HostSession.ApplyCommandSources`.
+- **Automatic aircraft profile detection:** `aircraft_detection.json`; default ON; Fenix TITLE → `fenix_a320` before generic A320.
+- **Dynamic `list_commands` voice command:** TTS summary + full Debug list from live merged catalog.
+- **Live `SetSimVar`:** `A:` / `L:` writes via SimConnect `SetDataOnSimObject` (Native + managed best-effort).
+- **Docs SSOT:** `Complete_Features.md` (implemented), `Backlog.md` (open work), `Plan_LearnMode.md` (Learn Mode coding spec); removed `FUTURE.md`.
 
 ### Changed
 
-- **Default aircraft auto-detect ON** (`auto_detect_aircraft: true`, `announce_profile_switch: true`) so Fenix TITLE → `fenix_a320` applies automatically when Live.
-- **Performance / resource pass (CoPilotVoiceHost):** Settings **Apply** rebuilds speech grammar only when grammar inputs change; catalog re-merge only on profile change; identity eval ~2 Hz; bounded Debug log; no duplicate PttArm timer.
-- **Maintainability pass:** `HostConstants`, ConfigLoader path helpers, shared SimConnect open/seed helpers.
-- **Docs:** README + AGENTS.md + CHANGELOG updated for Manual tab, live SetSimVar/LVars, speech matching, auto-detect defaults.
+- **Package/app version 1.3.0** (`manifest.json`, AssetPackage, host csproj assembly version).
+- **Default auto-detect ON** (`auto_detect_aircraft`, `announce_profile_switch`).
+- **Performance thrift:** Apply rebuilds speech grammar only when grammar inputs change; catalog re-merge on profile change; identity ~2 Hz; bounded Debug log.
+- **Maintainability:** `HostConstants`, ConfigLoader path helpers, shared SimConnect open/seed helpers.
+- **Speech matching:** whole-word token sequences + STT alternate re-rank; default confidence **0.70**.
+- **Docs:** README / AGENTS.md / Complete_Features aligned to 1.3.0.
+
+### Fixed
+
+- **Live SimConnect flight data:** Prefer native SimConnect (dispatch thread); fixed invalid status SimVar `ANTITOCK` → `ANTISKID BRAKES ACTIVE`; robust field-count handling.
+- **Close exits fully:** Window close disposes session and shuts down (not tray-only).
+- **Fenix gear-up gate:** airborne + positive VS (not unreliable `GEAR POSITION == 1`); lever LVar dual-write.
+- **Fenix exterior light switch animation** via overhead LVars.
+- **Commands tab ListView** dark theme contrast.
 
 ---
 

@@ -24,7 +24,7 @@ Package: private-utility-copilot-voice | Creator: Private | Type: MISC (Communit
 - Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/`
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
 - Build host: `dotnet publish ... -o ../../PackageSources/extras` (from Host project dir)
-- Docs / backlog: repo-root `README.md`, `CHANGELOG.md`, `FUTURE.md`
+- Docs / backlog: repo-root `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`
 
 ### Config copy rules
 - **Source of truth = PackageSources/extras/config.** The csproj copies those JSON files into build output (`bin/.../config`) via `CopyToOutputDirectory`.
@@ -126,11 +126,12 @@ Each command in `base_commands.json` / aircraft profiles:
 | Debug | Log, inject, reconnect, test TTS |
 
 ## Current Version & Branch
-- Package/app baseline **1.2.x** on **`dev`** (WPF GUI + HostSession + headless). **`main`** = stable baseline.
+- Package/app baseline **1.3.0** on **`dev`** and **`main`** (WPF GUI + HostSession + headless + Fenix hybrid + Manual/Commands).
 - Check `CHANGELOG.md` / `manifest.json` for the latest package_version; do not invent version bumps without user intent.
+- Learn Mode (L0) is planned in `Plan_LearnMode.md` — not implemented until explicitly requested.
 
 ## Docs Workflow
-Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change (and `FUTURE.md` when closing/adding planned items), then push to **`dev`** when the user wants it published.
+Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change; move done items into `Complete_Features.md` and open work into `Backlog.md`, then push to **`dev`** when the user wants it published.
 
 ## Testing Expectations
 - Unit tests must stay green:  
@@ -156,4 +157,6 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - Add public distribution / marketplace packaging assumptions (private utility only).
 
 ## Related planning
-- Near-term ideas and done backlog items: `FUTURE.md` (Fenix hybrid P0–P3 LVar map + checklists + list_commands + Manual tab done; live human cockpit re-test open; A350 profile later; H/B bridge optional).
+- **Implemented features (SSOT):** `Complete_Features.md`
+- **Open work / improvements:** `Backlog.md` (Fenix live human re-test open; A350 later; H/B bridge optional; code maintainability items)
+- Fenix hybrid P0–P3 LVar map + checklists + list_commands + Manual tab are **done** (see Complete_Features).

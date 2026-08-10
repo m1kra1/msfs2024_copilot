@@ -70,7 +70,7 @@ public sealed class HostSession : IDisposable
     public CommandCatalog Catalog { get; private set; } = new();
     public AircraftDetectionConfig DetectionConfig => _detectionConfig;
     public string ApplicationVersion { get; }
-    public string PackageVersion { get; private set; } = "1.2.0";
+    public string PackageVersion { get; private set; } = "1.3.0";
 
     /// <summary>How many times speech listening was (re)started — for tests and diagnostics.</summary>
     public int SpeechStartCount { get; private set; }
@@ -127,7 +127,7 @@ public sealed class HostSession : IDisposable
     public HostSession(HostOptions options)
     {
         _options = options;
-        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.2.0";
+        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.3.0";
     }
 
     /// <summary>Initialize config + SimConnect + speech pipeline (does not block on stdin).</summary>
