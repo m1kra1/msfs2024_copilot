@@ -239,7 +239,19 @@
                 </WrapPanel>
                 <ListView x:Name="CmdList"
                           SelectionChanged="CmdList_SelectionChanged"
-                          BorderThickness="1">
+                          BorderThickness="1"
+                          Background="{StaticResource InputBrush}"
+                          Foreground="{StaticResource FgBrush}"
+                          TextElement.Foreground="{StaticResource FgBrush}">
+                  <ListView.Resources>
+                    <!-- GridView DisplayMemberBinding cells as TextBlock — force readable light text -->
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+                      <Setter Property="FontSize" Value="13.5"/>
+                      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                      <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
+                  </ListView.Resources>
                   <ListView.View>
                     <GridView>
                       <GridViewColumn Header="Id" Width="150" DisplayMemberBinding="{Binding Id}"/>

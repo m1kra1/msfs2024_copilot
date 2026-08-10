@@ -17,6 +17,7 @@ Versioning follows package `package_version` where applicable.
 - **Fenix exterior light switches:** landing / taxi (nose) / strobe / beacon / nav also write Fenix overhead LVars (`L:S_OH_EXT_LT_*`) so cockpit switches animate, not only the light effect from standard events.
 - **Speech recognition reliability:** `PhraseMatcher` uses whole-word token sequences (no loose substring `Contains`), re-ranks Windows Speech **alternates** against the catalog (e.g. spoilers vs strobes), snappier end-silence timeouts, more distinct spoiler/strobe phrases, default confidence threshold **0.70**.
 - **Live `SetSimVar`:** Native (and managed best-effort) SimConnect clients write `A:` / `L:` vars via `SetDataOnSimObject` (was local-snapshot-only).
+- **Commands tab ListView readability:** dark `ListView` / `ListViewItem` / `GridViewColumnHeader` styles + forced light cell text (was near-white text on light default WPF list).
 
 ### Added
 

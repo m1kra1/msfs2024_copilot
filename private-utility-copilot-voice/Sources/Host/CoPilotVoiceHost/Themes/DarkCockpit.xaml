@@ -649,4 +649,136 @@
     <Setter Property="Background" Value="Transparent"/>
   </Style>
 
+  <!-- ========== ListView / GridView (Commands catalog) ========== -->
+  <!-- Default WPF ListView is light-on-white — force dark panel + high-contrast rows. -->
+  <Style TargetType="ListView">
+    <Setter Property="Background" Value="{StaticResource InputBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="TextElement.Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource BorderBrushKey}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="FontSize" Value="13.5"/>
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+    <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+    <Setter Property="AlternationCount" Value="2"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListView">
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="8"
+                  SnapsToDevicePixels="True"
+                  TextElement.Foreground="{TemplateBinding Foreground}">
+            <ScrollViewer Padding="0"
+                          Focusable="False"
+                          Background="{TemplateBinding Background}"
+                          TextElement.Foreground="{TemplateBinding Foreground}">
+              <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+            </ScrollViewer>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="GridViewColumnHeader">
+    <Setter Property="Background" Value="{StaticResource PanelAltBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="BorderBrush" Value="{StaticResource BorderBrushKey}"/>
+    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridViewColumnHeader">
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}"
+                  SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="Center"
+                              RecognizesAccessKey="True"
+                              TextElement.Foreground="{TemplateBinding Foreground}"
+                              TextElement.FontWeight="{TemplateBinding FontWeight}"
+                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}"/>
+            </Trigger>
+            <Trigger Property="Role" Value="Padding">
+              <Setter TargetName="Bd" Property="BorderThickness" Value="0,0,0,1"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="ListViewItem">
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="TextElement.Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="FontSize" Value="13.5"/>
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="MinHeight" Value="36"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListViewItem">
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}"
+                  SnapsToDevicePixels="True"
+                  TextElement.Foreground="{TemplateBinding Foreground}">
+            <!-- GridView cells (DisplayMemberBinding) inherit this light foreground -->
+            <GridViewRowPresenter VerticalAlignment="Center"
+                                  Content="{TemplateBinding Content}"
+                                  Columns="{Binding Path=View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+              <Setter TargetName="Bd" Property="Background" Value="#FF121822"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedBrush}"/>
+              <Setter Property="Foreground" Value="White"/>
+              <Setter Property="TextElement.Foreground" Value="White"/>
+            </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsSelected" Value="True"/>
+                <Condition Property="IsMouseOver" Value="True"/>
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectedHoverBrush}"/>
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
 </ResourceDictionary>
