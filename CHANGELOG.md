@@ -11,6 +11,19 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
+### Added
+
+- **Fenix P1–P3 LVar map:** parking brake (`L:S_MIP_PARKING_BRAKE`), flaps (`L:S_FC_FLAPS` 0–4), speedbrake/spoilers (`L:A_FC_SPEEDBRAKE` ARM/RETRACT/DETENT), anti-ice / probe heat, APU master/start/bleed, batteries, EXT PWR, fuel pumps, packs, ADIRS NAV, seatbelt signs, wing/logo/dome lights; dual-write with standard events where applicable.
+- **Fenix checklists with actions:** `before start` / `before takeoff` / `after landing` run multi-step event + LVar sequences (not TTS-only).
+- **Study-level LVar strategy docs:** hybrid base-events + profile dual-write documented in README / FUTURE.md / AGENTS.md (Fenix now; A350 later with its own map).
+- **Manual tab (GUI):** categorized command buttons for the **currently loaded** catalog (profile-aware). One click runs `HostSession.RunCatalogCommand` (force-gate; conditions still apply). Refresh rebuilds after profile change. Grouping: `CommandCatalogGroups` (Core, no WPF).
+- **Modernized dark app chrome:** updated palette, chip buttons, stronger ComboBox selected-text contrast (`TextElement.Foreground` on selection presenter).
+- **Automatic aircraft profile detection:** when Live, host reads SimConnect `TITLE` / `ATC MODEL`, matches rules from `config/aircraft_detection.json` (first match; else `fallback_profile`), switches profile only on identity change. CLI `--profile` locks auto switching. Status shows detected aircraft + active profile.
+- **Fenix A320 aircraft profile (`fenix_a320`):** hybrid event + LVar map; unmapped FCU modes return **Unable**. Existing `generic` / `a320` / `b737` profiles unchanged.
+- **Commands tab (GUI):** edit merged base + active profile; Apply/Save via `HostSession.ApplyCommandSources`.
+- **Dynamic `list_commands` voice command:** TTS summary + full list in Debug log from live catalog.
+- **`FUTURE.md`** planning backlog (Fenix LVar map expanded; deeper H/B-Event bridge still optional).
+
 ### Fixed
 
 - **Fenix A320 gear up / positive rate:** Airbus callouts (`positive rate`, `positive rate gear up`, …). Gear-up conditions use **airborne + positive VS** (`SIM ON GROUND == 0`, `VERTICAL SPEED > 0`) instead of unreliable `GEAR POSITION == 1`. Actions send `GEAR_UP`/`GEAR_DOWN` **and** write Fenix lever LVar `L:S_MIP_GEAR` (0=UP, 1=DOWN) via SimConnect `SetDataOnSimObject` (no third-party software).
@@ -18,16 +31,6 @@ Versioning follows package `package_version` where applicable.
 - **Speech recognition reliability:** `PhraseMatcher` uses whole-word token sequences (no loose substring `Contains`), re-ranks Windows Speech **alternates** against the catalog (e.g. spoilers vs strobes), snappier end-silence timeouts, more distinct spoiler/strobe phrases, default confidence threshold **0.70**.
 - **Live `SetSimVar`:** Native (and managed best-effort) SimConnect clients write `A:` / `L:` vars via `SetDataOnSimObject` (was local-snapshot-only).
 - **Commands tab ListView readability:** dark `ListView` / `ListViewItem` / `GridViewColumnHeader` styles + forced light cell text (was near-white text on light default WPF list).
-
-### Added
-
-- **Manual tab (GUI):** categorized command buttons for the **currently loaded** catalog (profile-aware). One click runs `HostSession.RunCatalogCommand` (force-gate; conditions still apply). Refresh rebuilds after profile change. Grouping: `CommandCatalogGroups` (Core, no WPF).
-- **Modernized dark app chrome:** updated palette, chip buttons, stronger ComboBox selected-text contrast (`TextElement.Foreground` on selection presenter).
-- **Automatic aircraft profile detection:** when Live, host reads SimConnect `TITLE` / `ATC MODEL`, matches rules from `config/aircraft_detection.json` (first match; else `fallback_profile`), switches profile only on identity change. CLI `--profile` locks auto switching. Status shows detected aircraft + active profile.
-- **Fenix A320 aircraft profile (`fenix_a320`):** gear/lights LVars + standard events; unmapped FCU modes return **Unable**. Existing `generic` / `a320` / `b737` profiles unchanged.
-- **Commands tab (GUI):** edit merged base + active profile; Apply/Save via `HostSession.ApplyCommandSources`.
-- **Dynamic `list_commands` voice command:** TTS summary + full list in Debug log from live catalog.
-- **`FUTURE.md`** planning backlog (Fenix LVar map expanded; deeper H/B-Event bridge still optional).
 
 ### Changed
 

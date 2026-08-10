@@ -113,9 +113,40 @@ public class FenixA320ProfileTests
         Assert.Equal("BEACON_LIGHTS_ON", FirstEventName(catalog, "beacon_lights_on"));
         Assert.Equal("NAV_LIGHTS_ON", FirstEventName(catalog, "nav_lights_on"));
         Assert.Equal("FLAPS_1", FirstEventName(catalog, "flaps_1"));
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "flaps_1").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_FC_FLAPS", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 1);
         Assert.Equal("PARKING_BRAKES", FirstEventName(catalog, "parking_brake_on"));
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "parking_brake_on").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_MIP_PARKING_BRAKE", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 1);
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "spoilers_arm").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:A_FC_SPEEDBRAKE", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 0);
         Assert.Equal("AUTOPILOT_ON", FirstEventName(catalog, "autopilot_on"));
         Assert.Equal("TOGGLE_FLIGHT_DIRECTOR", FirstEventName(catalog, "flight_director_on"));
+
+        // Overhead / systems appends
+        foreach (var id in new[]
+                 {
+                     "apu_master_on", "apu_bleed_on", "fuel_pumps_on", "packs_on",
+                     "adirs_nav", "seatbelt_signs_on", "battery_1_on", "ext_power_on"
+                 })
+        {
+            Assert.Contains(catalog.Commands, c => c.Id == id);
+            Assert.NotEmpty(catalog.Commands.Single(c => c.Id == id).Actions);
+        }
+
+        // Checklists must fire real actions on Fenix (not TTS-only)
+        var beforeStart = catalog.Commands.Single(c => c.Id == "checklist_before_start");
+        Assert.True(beforeStart.Checklist);
+        Assert.NotEmpty(beforeStart.Actions);
+        Assert.Contains(beforeStart.Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_MIP_PARKING_BRAKE", StringComparison.OrdinalIgnoreCase));
 
         // Unmapped FCU modes: empty actions + Unable response
         foreach (var id in new[]
@@ -129,6 +160,76 @@ public class FenixA320ProfileTests
             Assert.Contains("Unable", cmd.Response, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("not available", cmd.Response, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Fact]
+    public void HostSession_Inject_Fenix_P1_And_Overhead_Write_LVars()
+    {
+        var root = FindConfigRoot();
+        using var session = StartOfflineSession(root, ProfileId);
+
+        var cases = new (string Phrase, string ExpectedLvar)[]
+        {
+            ("Co Pilot parking brake set", "L:S_MIP_PARKING_BRAKE"),
+            ("Co Pilot flaps one", "L:S_FC_FLAPS"),
+            ("Co Pilot arm spoilers", "L:A_FC_SPEEDBRAKE"),
+            ("Co Pilot anti ice on", "L:S_OH_PNEUMATIC_ENG1_ANTI_ICE"),
+            ("Co Pilot a p u start", "L:S_OH_ELEC_APU_MASTER"),
+            ("Co Pilot fuel pumps on", "L:S_OH_FUEL_LEFT_1"),
+            ("Co Pilot a dirs nav", "L:S_OH_NAV_IR1_MODE"),
+            ("Co Pilot seatbelt signs on", "L:S_OH_SIGNS"),
+        };
+
+        foreach (var (phrase, lvar) in cases)
+        {
+            session.Log.Clear();
+            Assert.Equal(0, session.InjectPhrase(phrase));
+            Assert.Contains(lvar, session.LastAction, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void HostSession_Inject_Fenix_Checklists_Execute_Actions()
+    {
+        var root = FindConfigRoot();
+        using var session = StartOfflineSession(root, ProfileId);
+
+        session.Log.Clear();
+        Assert.Equal(0, session.InjectPhrase("Co Pilot before start checklist"));
+        Assert.Contains("L:S_MIP_PARKING_BRAKE", session.LastAction, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("L:S_OH_EXT_LT_BEACON", session.LastAction, StringComparison.OrdinalIgnoreCase);
+
+        session.Log.Clear();
+        Assert.Equal(0, session.InjectPhrase("Co Pilot before takeoff checklist"));
+        Assert.Contains("L:S_FC_FLAPS", session.LastAction, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("L:A_FC_SPEEDBRAKE", session.LastAction, StringComparison.OrdinalIgnoreCase);
+
+        session.Log.Clear();
+        Assert.Equal(0, session.InjectPhrase("Co Pilot after landing checklist"));
+        Assert.Contains("L:S_FC_FLAPS", session.LastAction, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("L:S_OH_EXT_LT_NOSE", session.LastAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CommandCatalogGroups_Places_Fenix_Overhead_And_Checklists()
+    {
+        var root = FindConfigRoot();
+        var (_, catalog) = ConfigLoader.LoadAll(root, ProfileId);
+
+        Assert.Equal("Overhead", CommandCatalogGroups.Categorize(
+            catalog.Commands.Single(c => c.Id == "fuel_pumps_on")));
+        Assert.Equal("Overhead", CommandCatalogGroups.Categorize(
+            catalog.Commands.Single(c => c.Id == "adirs_nav")));
+        Assert.Equal("Checklists", CommandCatalogGroups.Categorize(
+            catalog.Commands.Single(c => c.Id == "checklist_before_start")));
+        Assert.Equal("Anti-ice", CommandCatalogGroups.Categorize(
+            catalog.Commands.Single(c => c.Id == "anti_ice_on")));
+        Assert.Equal("APU / Systems", CommandCatalogGroups.Categorize(
+            catalog.Commands.Single(c => c.Id == "apu_master_on")));
+
+        var groups = CommandCatalogGroups.Group(catalog.Commands);
+        Assert.Contains(groups, g => g.Category == "Overhead" && g.Commands.Count > 0);
+        Assert.Contains(groups, g => g.Category == "Checklists" && g.Commands.Count >= 3);
     }
 
     [Fact]

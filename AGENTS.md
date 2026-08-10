@@ -101,11 +101,20 @@ Each command in `base_commands.json` / aircraft profiles:
 - CLI `--profile` locks auto **switching** (title still shown). Offline → title Unknown, no crash.
 - Pure matcher: `AircraftProfileMatcher` (no WPF / no Sim I/O).
 
+## Study-level LVar strategy (agent-facing)
+- **Base = events.** Never put vendor LVars in `base_commands.json`.
+- **Study profiles = dual-write overrides** (`event` + `set_simvar`) by same command `id`; new ids append.
+- **Per-aircraft maps only** (Fenix ≠ iniBuilds A350). No C# `if (Fenix)`.
+- Prefer **Unable** for unmapped FCU modes; H/B-Event bridge only if live `SetDataOnSimObject` fails.
+
 ## Fenix profile notes (agent-facing)
-- Lever: `L:S_MIP_GEAR` (0=UP, 1=DOWN) from Fenix `Cockpit_Behavior.xml`.
-- Exterior lights: `L:S_OH_EXT_LT_LANDING_L/R` (0=RETRACT,1=OFF,2=ON), `NOSE`, `STROBE`, `BEACON`, `NAV_LOGO`.
-- Gear-up gate on Fenix: positive VS + not on ground (not `GEAR POSITION == 1`).
-- Prefer JSON profile overrides over C# aircraft branches. H-Event / B-Event bridge still optional backlog (`FUTURE.md`).
+- Gear: `L:S_MIP_GEAR` (0=UP, 1=DOWN). Gate: positive VS + airborne (not `GEAR POSITION == 1`).
+- Lights: `L:S_OH_EXT_LT_*` (landing 0/1/2, nose, strobe, beacon, nav/logo, wing).
+- Flaps: `L:S_FC_FLAPS` 0–4; incr/decr event-only.
+- Park brake: `L:S_MIP_PARKING_BRAKE` 0/1. Speedbrake: `L:A_FC_SPEEDBRAKE` 0=ARM, 1=RETRACT, 2=DETENT.
+- Overhead: anti-ice / probe / APU master-start-bleed / BAT / EXT PWR / fuel / packs / ADIRS / seatbelts / dome.
+- Checklists (`checklist_*`) include real multi-action sequences on Fenix.
+- Prefer JSON profile overrides over C# aircraft branches.
 
 ## GUI tabs (thin shell)
 | Tab | Role |
@@ -147,4 +156,4 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - Add public distribution / marketplace packaging assumptions (private utility only).
 
 ## Related planning
-- Near-term ideas and done backlog items: `FUTURE.md` (Fenix profile + LVar set_simvar + list_commands + Manual tab done; broader overhead LVars / H-B bridge optional).
+- Near-term ideas and done backlog items: `FUTURE.md` (Fenix hybrid P0–P3 LVar map + checklists + list_commands + Manual tab done; live human cockpit re-test open; A350 profile later; H/B bridge optional).

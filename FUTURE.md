@@ -3,87 +3,107 @@
 Ideen und geplante Erweiterungen für den Private Voice Co-Pilot  
 (`private-utility-copilot-voice` / MSFS 2024).
 
-Stand: 2026-08-09 · Branch: `dev`
+Stand: 2026-08-10 · Branch: `dev`
 
 ---
 
-## 1. Fenix A320 Anpassung — **DONE (profile)** / partial (LVar bridge)
+## Study-Level LVar strategy (locked)
 
-**Status:** Profile `config/aircraft/fenix_a320.json` implemented and selectable (`aircraft_profile: fenix_a320`).  
-Gear lever uses Fenix LVar **`L:S_MIP_GEAR`** (from package `Cockpit_Behavior.xml`) plus `GEAR_UP`/`GEAR_DOWN`. Positive-rate phrases + airborne/VS gates. Other core groups still use standard events (lights partially — switch animation needs LVars). Unmapped Airbus FCU mode holds return **Unable**.
+**Ja zum LVar-System — nein zu „alles generisch auf LVars“.**
 
-**Tested Fenix version:** package LVars verified from installed `fnx-aircraft-320`; live cockpit re-test recommended after host publish.
+| Layer | Policy |
+|-------|--------|
+| `base_commands.json` | **Event-first** (Asobo / generic). Never put vendor LVars here. |
+| Study profiles (`fenix_a320`, later `inibuilds_a350`, …) | **Override by command id** with dual-write: `event` + `set_simvar` (`L:` / `A:`). New ids append. |
+| Host | `set_simvar` → SimConnect `SetDataOnSimObject`. No SPAD/AAO. H/B-Events only if LVar write fails live. |
+| Cross-vendor | **Separate LVar maps** per aircraft. Same *mechanism*, not shared names (Fenix ≠ A350). |
+| Gaps | Prefer **Unable** TTS over guessed mappings (FCU modes). |
 
-### Known limitations
+### Priority order (per profile)
 
-- Host can `TransmitEvent` + SimConnect **SetDataOnSimObject** for `L:` / `A:` names (no SPAD/AAO). H-Events/B-Events still not bridged.
-- Exterior light **switch** animation still needs `S_OH_EXT_LT_*` LVars (next fix).
-- Automatic aircraft detection: **default on** (`auto_detect_aircraft: true`); rules in `aircraft_detection.json` (Fenix → `fenix_a320`).
+1. **P0** Gear + exterior lights (switch animation)
+2. **P1** Parking brake, spoilers/speedbrake, flaps discrete
+3. **P2** Overhead / systems voice commands (anti-ice, APU, fuel, packs, ADIRS, signs, …)
+4. **P3** Checklists with real multi-action sequences
+5. Optional: H/B-Event bridge; LVar *read* conditions
 
-### Original goal (reference)
+### Anti-patterns
 
-- Fenix nutzt oft **eigene LVars / H-Events** statt (oder zusätzlich zu) reinen Standard-SimConnect-Events.
-- Fallback Unable TTS: implemented for unmapped FCU modes.
+- LVars in base catalog  
+- One shared “Airbus LVar” profile for Fenix + iniBuilds  
+- Aircraft-specific `if` branches in C#  
+- Dropping events before dual-write is live-verified  
+
+---
+
+## 1. Fenix A320 — **DONE (expanded LVar map)** / live human re-test open
+
+**Status:** Profile `config/aircraft/fenix_a320.json` is the study-level hybrid map.
+
+| Area | Mapping |
+|------|---------|
+| Gear | `GEAR_*` + `L:S_MIP_GEAR` (0=UP, 1=DOWN); airborne + VS gate |
+| Exterior lights | Events + `L:S_OH_EXT_LT_*` (landing 0/1/2, nose, strobe, beacon, nav/logo, wing) |
+| Flaps | Events + `L:S_FC_FLAPS` (0–4); incr/decr event-only |
+| Parking brake | Event + `L:S_MIP_PARKING_BRAKE` (0/1) |
+| Speedbrake / spoilers | Events + `L:A_FC_SPEEDBRAKE` (0=ARM, 1=RETRACT, 2=DETENT) |
+| Anti-ice / probe | Events + `L:S_OH_PNEUMATIC_*_ANTI_ICE`, `L:S_OH_PROBE_HEAT` |
+| APU | Events + MASTER/START/BLEED LVars; extra `apu_master_*` / `apu_bleed_*` |
+| Overhead extras | Batteries, EXT PWR, fuel pumps, packs, ADIRS NAV, seatbelt signs, dome |
+| Checklists | `checklist_*` fire real multi-action sequences (not TTS-only) |
+| FCU mode holds | Unable (empty actions) |
+
+**Sources for LVar names/enums:** Fenix `Cockpit_Behavior.xml` naming + community AAO/YourControls maps. Live cockpit re-test after each Fenix package update.
 
 ### Abnahmekriterien
 
-- [x] Profil wählbar über `settings.json` → `aircraft_profile` (`fenix_a320`) und GUI.
-- [x] Mindestens: Gear, Lights (Landing/Taxi/Strobe/Beacon/Nav), Flaps, AP Master, Parking Brake (+ FD) mapped as events.
-- [x] Gear lever LVar `S_MIP_GEAR` + positive-rate phraseology.
-- [x] FCU mode holds: Unable; bug/var inc/dec best-effort.
-- [ ] Live-Test in Free Flight mit Fenix A320 und Host-Log `LIVE event sent` / `LIVE SetSimVar` + sichtbare Cockpit-Reaktion (human).
+- [x] Profile selectable + auto-detect (`fenix` → `fenix_a320`)
+- [x] P0 gear + exterior lights dual-write
+- [x] P1 parking / spoilers / flaps dual-write
+- [x] P2 overhead + P3 checklists with actions
+- [ ] Human Live Free Flight: `LIVE event` / `LIVE SetSimVar` + visible switches
 
 ### Optional backlog
 
-- Broader Fenix LVar map for overhead (anti-ice, APU, …).
-- H-Event / B-Event bridge if SetDataOnSimObject is insufficient on a future Fenix build.
+- More overhead (IDG, hyd pumps, fire test, …)
+- H/B-Event bridge if SetDataOnSimObject insufficient on a future build
+- LVar-backed conditions (read switch state)
 
 ---
 
-## 2. Anweisungsliste ausgeben — **DONE** (Unreleased / `list_commands`)
+## 2. Anweisungsliste — **DONE** (`list_commands`)
 
-**Status:** Implemented. Voice command `list_commands` builds the list from the live merged catalog; TTS short summary + full `[CommandList]` lines in console/Debug log. File export / clipboard remain optional backlog.
-
-### Use Cases
-
-- Pilot fragt: *„Co Pilot, what can you do?“* / *„list commands“* / *„command list“*.
-- Debugging: vollständige Phrasenliste aus geladenem Base- + Aircraft-Profil.
-- Dokumentation: Export der aktuellen Grammar für README oder Training (optional, not yet).
-
-### Implemented
-
-- `base_commands.json` → `id: list_commands` with required phrases; `actions: []`.
-- `CommandListBuilder` + `CommandProcessor` dynamic response from current catalog.
-- Profile Apply/Reload updates subsequent list output.
-- Optional later: `docs/commands_export.txt` or Clipboard.
-
-### Abnahmekriterien
-
-- [x] Sprachtrigger lädt die Liste aus dem echten geladenen Katalog (kein Hardcode).
-- [x] Konsole zeigt alle Command-IDs und mindestens eine Phrase pro Command.
-- [x] TTS liefert eine nutzbare Kurzfassung (count + example phrases).
-- [x] Aircraft-Profile-Zusatzbefehle erscheinen in der Liste, wenn das Profil aktiv ist.
+Live catalog → TTS summary + Debug/console full list. File export / clipboard optional.
 
 ---
 
-## Weitere Ideen (Backlog, ungeordnet)
+## 3. iniBuilds A350 (planned)
 
-- Weitere Aircraft-Profile (z. B. PMDG 737, iniBuilds A3xx) analog zu Fenix.
-- Checklisten-Sequenzen mit echten Schalter-Aktionen pro Aircraft.
-- Deutschsprachige Phraseology (`culture` / zusätzliche JSON-Packs).
-- Optionaler Auto-Start des Hosts (externer Launcher / EXE.xml – nur wenn gewünscht).
-- WAV-Callouts statt/zusätzlich zu Windows-TTS.
-- Fenix LVar/H-Event bridge for systems that ignore standard events.
+- New profile (e.g. `inibuilds_a350.json`) with **its own** LVars — do not copy Fenix names.
+- Auto-detect rule **before** generic A3xx patterns.
+- Same hybrid dual-write + Unable for unmapped FCU.
+- Start with P0/P1 groups after A350 LVar discovery.
 
 ---
 
-## Priorität (Vorschlag)
+## Weitere Ideen (Backlog)
 
-| Prio | Thema              | Abhängigkeit        |
-|------|--------------------|---------------------|
-| —    | ~~Fenix A320 Profil~~ | Done (`fenix_a320`; live cockpit check still human) |
-| —    | ~~Anweisungsliste~~ | Done (`list_commands`) |
-| next | Fenix LVar bridge (optional) | Architecture extension |
+- PMDG 737 / other study profiles  
+- Deutschsprachige Phraseology  
+- Optional host auto-start (EXE.xml / external launcher)  
+- WAV callouts vs Windows TTS  
+
+---
+
+## Priorität
+
+| Prio | Thema | Status |
+|------|--------|--------|
+| — | Fenix hybrid LVar map (P0–P3) | Done (JSON); live human check open |
+| — | `list_commands` | Done |
+| next | Live Fenix cockpit verification | Human |
+| later | iniBuilds A350 profile | When flying the aircraft |
+| optional | H/B-Event bridge | Only if LVar write fails |
 
 ---
 

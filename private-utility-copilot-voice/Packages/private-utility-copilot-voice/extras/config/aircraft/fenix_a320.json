@@ -1,16 +1,17 @@
 {
   "profile_id": "fenix_a320",
-  "title": "Fenix A320 family (SimConnect events + Unable for unmapped FCU)",
+  "title": "Fenix A320 family (events + LVars; Unable for unmapped FCU)",
   "extends": "generic",
-  "notes": "Fenix-oriented profile for Private Voice Co-Pilot. Gear lever is L:S_MIP_GEAR (0=UP, 1=DOWN) from Fenix Cockpit_Behavior.xml — profile sends GEAR_UP/DOWN plus set_simvar on that LVar (no third-party bridge). Positive-rate callouts use Airbus phraseology. Landing/exterior light switches use S_OH_EXT_LT_* LVars (3-pos). Unmapped FCU modes return Unable TTS. Live Free Flight verification recommended.",
+  "notes": "Hybrid study-level profile: base_commands keep standard events; this profile dual-writes Event + Fenix LVars (Cockpit_Behavior.xml / S_* and A_* names) via set_simvar. LVar enums from community AAO/YourControls maps (S_FC_FLAPS 0–4, A_FC_SPEEDBRAKE 0=ARM/1=RETRACT/2=DETENT, S_MIP_PARKING_BRAKE 0/1, overhead S_OH_*). New overhead/system command ids are Fenix-only (merge append). Checklists fire real dual-write actions. Unmapped FCU mode holds return Unable. Live Free Flight verification recommended after Fenix updates.",
   "limitations": [
     "Select fenix_a320 via settings, GUI, or auto-detect (TITLE contains 'fenix').",
-    "LVar writes use SimConnect SetDataOnSimObject (L: name). If a future Fenix build ignores external LVar sets, cockpit switches may not animate even when systems respond to events.",
-    "Airbus FCU mode engages (HDG/ALT/SPD/VS hold, NAV, APP, LOC) are overridden to Unable.",
-    "FCU bug/var knobs (heading/alt/spd/vs inc/dec) keep standard events best-effort.",
-    "Anti-ice, APU, cabin/wing/logo lights remain base mappings unless overridden.",
-    "Parking brake on/off both use PARKING_BRAKES toggle (sim limitation).",
-    "Gear-up gate: airborne (SIM ON GROUND == 0) and VERTICAL SPEED > 0 (positive rate) — not GEAR POSITION == 1 (unreliable on Fenix custom gear)."
+    "LVar writes use SimConnect SetDataOnSimObject (L: name). If a Fenix build ignores external LVar sets, switches may not animate; H/B-Events not bridged.",
+    "Base remains event-first for generic aircraft — never put Fenix LVars in base_commands.json.",
+    "Airbus FCU mode engages (HDG/ALT/SPD/VS hold, NAV, APP, LOC) are Unable; bug/var knobs best-effort events.",
+    "Flaps incr/decr keep standard events only (no discrete LVar step without reading current position).",
+    "APU START is a momentary LVar write (S_OH_ELEC_APU_START=1); MASTER is separate.",
+    "Checklists are simplified voice sequences, not full airline SOPs.",
+    "Gear-up gate: airborne (SIM ON GROUND == 0) and VERTICAL SPEED > 0 — not GEAR POSITION == 1."
   ],
   "commands": [
     {
@@ -141,19 +142,57 @@
       ]
     },
     {
+      "id": "wing_lights_on",
+      "phrases": ["wing lights on"],
+      "response": "Wing lights on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_WING_LIGHTS" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_WING", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "wing_lights_off",
+      "phrases": ["wing lights off"],
+      "response": "Wing lights off.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_WING_LIGHTS" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_WING", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "logo_lights_on",
+      "phrases": ["logo lights on", "logo light on"],
+      "response": "Logo lights on.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_LOGO_LIGHTS" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_NAV_LOGO", "value": 2, "units": "number" }
+      ]
+    },
+    {
+      "id": "logo_lights_off",
+      "phrases": ["logo lights off", "logo light off"],
+      "response": "Logo lights off.",
+      "actions": [
+        { "type": "event", "name": "TOGGLE_LOGO_LIGHTS" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_NAV_LOGO", "value": 1, "units": "number" }
+      ]
+    },
+    {
       "id": "flaps_up",
       "phrases": ["flaps up", "flaps zero", "flaps retract"],
       "response": "Flaps up.",
       "actions": [
-        { "type": "event", "name": "FLAPS_UP" }
+        { "type": "event", "name": "FLAPS_UP" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 0, "units": "number" }
       ]
     },
     {
       "id": "flaps_down",
       "phrases": ["flaps down", "flaps full"],
-      "response": "Flaps down.",
+      "response": "Flaps full.",
       "actions": [
-        { "type": "event", "name": "FLAPS_DOWN" }
+        { "type": "event", "name": "FLAPS_DOWN" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 4, "units": "number" }
       ]
     },
     {
@@ -161,7 +200,8 @@
       "phrases": ["flaps one", "flaps one please", "set flaps one"],
       "response": "Flaps one.",
       "actions": [
-        { "type": "event", "name": "FLAPS_1" }
+        { "type": "event", "name": "FLAPS_1" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 1, "units": "number" }
       ]
     },
     {
@@ -169,7 +209,8 @@
       "phrases": ["flaps two", "set flaps two"],
       "response": "Flaps two.",
       "actions": [
-        { "type": "event", "name": "FLAPS_2" }
+        { "type": "event", "name": "FLAPS_2" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 2, "units": "number" }
       ]
     },
     {
@@ -177,7 +218,8 @@
       "phrases": ["flaps three", "set flaps three"],
       "response": "Flaps three.",
       "actions": [
-        { "type": "event", "name": "FLAPS_3" }
+        { "type": "event", "name": "FLAPS_3" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 3, "units": "number" }
       ]
     },
     {
@@ -201,7 +243,8 @@
       "phrases": ["parking brake set", "parking brake on", "set parking brake"],
       "response": "Parking brake set.",
       "actions": [
-        { "type": "event", "name": "PARKING_BRAKES" }
+        { "type": "event", "name": "PARKING_BRAKES" },
+        { "type": "set_simvar", "name": "L:S_MIP_PARKING_BRAKE", "value": 1, "units": "number" }
       ]
     },
     {
@@ -209,7 +252,284 @@
       "phrases": ["parking brake release", "parking brake off", "release parking brake"],
       "response": "Parking brake released.",
       "actions": [
-        { "type": "event", "name": "PARKING_BRAKES" }
+        { "type": "event", "name": "PARKING_BRAKES" },
+        { "type": "set_simvar", "name": "L:S_MIP_PARKING_BRAKE", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "spoilers_arm",
+      "phrases": [
+        "arm spoilers",
+        "arm the spoilers",
+        "spoilers arm",
+        "spoilers armed",
+        "arm speedbrake",
+        "arm speed brakes",
+        "speedbrake arm",
+        "speed brake arm"
+      ],
+      "response": "Spoilers armed.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ARM_ON" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "spoilers_disarm",
+      "phrases": [
+        "disarm spoilers",
+        "disarm the spoilers",
+        "spoilers disarm",
+        "spoilers disarmed",
+        "disarm speedbrake",
+        "speedbrake disarm",
+        "speed brake disarm"
+      ],
+      "response": "Spoilers disarmed.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ARM_OFF" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "spoilers_on",
+      "phrases": ["speedbrake full", "spoilers full", "speed brakes out", "speedbrake out"],
+      "response": "Speedbrake full.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_ON" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 2, "units": "number" }
+      ]
+    },
+    {
+      "id": "spoilers_off",
+      "phrases": ["speedbrake retract", "spoilers retract", "speed brakes in", "speedbrake in"],
+      "response": "Speedbrake retract.",
+      "actions": [
+        { "type": "event", "name": "SPOILERS_OFF" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "anti_ice_on",
+      "phrases": ["anti ice on", "anti-ice on", "engine anti ice on", "wing anti ice on"],
+      "response": "Anti-ice on.",
+      "actions": [
+        { "type": "event", "name": "ANTI_ICE_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_ENG1_ANTI_ICE", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_ENG2_ANTI_ICE", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_WING_ANTI_ICE", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "anti_ice_off",
+      "phrases": ["anti ice off", "anti-ice off", "engine anti ice off", "wing anti ice off"],
+      "response": "Anti-ice off.",
+      "actions": [
+        { "type": "event", "name": "ANTI_ICE_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_ENG1_ANTI_ICE", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_ENG2_ANTI_ICE", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_WING_ANTI_ICE", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "pitot_heat_on",
+      "phrases": ["pitot heat on", "pitot on", "probe heat on"],
+      "response": "Probe heat on.",
+      "actions": [
+        { "type": "event", "name": "PITOT_HEAT_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_PROBE_HEAT", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "pitot_heat_off",
+      "phrases": ["pitot heat off", "pitot off", "probe heat auto", "probe heat off"],
+      "response": "Probe heat auto.",
+      "actions": [
+        { "type": "event", "name": "PITOT_HEAT_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_PROBE_HEAT", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_start",
+      "phrases": ["a p u start", "start a p u", "apu start"],
+      "response": "A P U start.",
+      "actions": [
+        { "type": "event", "name": "APU_STARTER" },
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_APU_MASTER", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_APU_START", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_off",
+      "phrases": ["a p u off", "apu off", "shut down a p u"],
+      "response": "A P U off.",
+      "actions": [
+        { "type": "event", "name": "APU_OFF_SWITCH" },
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_APU_MASTER", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_APU_BLEED", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_master_on",
+      "phrases": ["a p u master on", "apu master on", "a p u master switch on"],
+      "response": "A P U master on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_APU_MASTER", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_master_off",
+      "phrases": ["a p u master off", "apu master off"],
+      "response": "A P U master off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_APU_MASTER", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_bleed_on",
+      "phrases": ["a p u bleed on", "apu bleed on"],
+      "response": "A P U bleed on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_APU_BLEED", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "apu_bleed_off",
+      "phrases": ["a p u bleed off", "apu bleed off"],
+      "response": "A P U bleed off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_APU_BLEED", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "battery_1_on",
+      "phrases": ["battery one on", "bat one on", "batteries on"],
+      "response": "Battery one on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_BAT1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_BAT2", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "battery_1_off",
+      "phrases": ["battery one off", "bat one off", "batteries off"],
+      "response": "Batteries off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_BAT1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_BAT2", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "ext_power_on",
+      "phrases": ["external power on", "ext power on", "ground power on"],
+      "response": "External power on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_EXT_PWR", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "ext_power_off",
+      "phrases": ["external power off", "ext power off", "ground power off"],
+      "response": "External power off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_ELEC_EXT_PWR", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "fuel_pumps_on",
+      "phrases": ["fuel pumps on", "tank pumps on", "fuel pump on"],
+      "response": "Fuel pumps on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_2", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_2", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_MODE_SEL", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "fuel_pumps_off",
+      "phrases": ["fuel pumps off", "tank pumps off", "fuel pump off"],
+      "response": "Fuel pumps off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_2", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_2", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_CENTER_1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_CENTER_2", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "packs_on",
+      "phrases": ["packs on", "pack one and two on", "air conditioning packs on"],
+      "response": "Packs on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_PACK_1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_PACK_2", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "packs_off",
+      "phrases": ["packs off", "pack one and two off", "air conditioning packs off"],
+      "response": "Packs off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_PACK_1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_PNEUMATIC_PACK_2", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "adirs_nav",
+      "phrases": ["a dirs nav", "adirs nav", "i r s nav", "align adirs", "adirs on"],
+      "response": "A D I R S to nav.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR1_MODE", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR2_MODE", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR3_MODE", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "adirs_off",
+      "phrases": ["a dirs off", "adirs off", "i r s off"],
+      "response": "A D I R S off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR1_MODE", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR2_MODE", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_NAV_IR3_MODE", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "seatbelt_signs_on",
+      "phrases": ["seatbelt signs on", "seat belt signs on", "belts on", "fasten seatbelts on"],
+      "response": "Seatbelt signs on.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 1, "units": "number" }
+      ]
+    },
+    {
+      "id": "seatbelt_signs_off",
+      "phrases": ["seatbelt signs off", "seat belt signs off", "belts off"],
+      "response": "Seatbelt signs off.",
+      "actions": [
+        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 0, "units": "number" }
+      ]
+    },
+    {
+      "id": "cabin_lights_on",
+      "phrases": ["cabin lights on", "panel lights on", "dome light on", "dome lights on"],
+      "response": "Dome light bright.",
+      "actions": [
+        { "type": "event", "name": "CABIN_LIGHTS_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_INT_LT_DOME", "value": 2, "units": "number" }
+      ]
+    },
+    {
+      "id": "cabin_lights_off",
+      "phrases": ["cabin lights off", "panel lights off", "dome light off", "dome lights off"],
+      "response": "Dome light off.",
+      "actions": [
+        { "type": "event", "name": "CABIN_LIGHTS_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_INT_LT_DOME", "value": 0, "units": "number" }
       ]
     },
     {
@@ -217,7 +537,8 @@
       "phrases": ["autopilot on", "engage autopilot", "a p on", "auto pilot on"],
       "response": "Autopilot on.",
       "actions": [
-        { "type": "event", "name": "AUTOPILOT_ON" }
+        { "type": "event", "name": "AUTOPILOT_ON" },
+        { "type": "set_simvar", "name": "L:S_FCU_AP1", "value": 1, "units": "number" }
       ]
     },
     {
@@ -225,7 +546,9 @@
       "phrases": ["autopilot off", "disengage autopilot", "a p off", "auto pilot off"],
       "response": "Autopilot off.",
       "actions": [
-        { "type": "event", "name": "AUTOPILOT_OFF" }
+        { "type": "event", "name": "AUTOPILOT_OFF" },
+        { "type": "set_simvar", "name": "L:S_FCU_AP1", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_FCU_AP2", "value": 0, "units": "number" }
       ]
     },
     {
@@ -233,7 +556,8 @@
       "phrases": ["flight director on", "f d on"],
       "response": "Flight director on.",
       "actions": [
-        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" }
+        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" },
+        { "type": "set_simvar", "name": "L:S_FCU_EFIS1_FD", "value": 1, "units": "number" }
       ]
     },
     {
@@ -241,7 +565,8 @@
       "phrases": ["flight director off", "f d off"],
       "response": "Flight director off.",
       "actions": [
-        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" }
+        { "type": "event", "name": "TOGGLE_FLIGHT_DIRECTOR" },
+        { "type": "set_simvar", "name": "L:S_FCU_EFIS1_FD", "value": 0, "units": "number" }
       ]
     },
     {
@@ -356,6 +681,63 @@
       "actions": [
         { "type": "event", "name": "AP_VS_VAR_DEC" }
       ]
+    },
+    {
+      "id": "checklist_before_start",
+      "phrases": ["before start checklist", "run before start"],
+      "response": "Before start. Parking brake set. Beacon on. Seatbelts on. Fuel pumps on.",
+      "actions": [
+        { "type": "event", "name": "PARKING_BRAKES" },
+        { "type": "set_simvar", "name": "L:S_MIP_PARKING_BRAKE", "value": 1, "units": "number" },
+        { "type": "event", "name": "BEACON_LIGHTS_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_BEACON", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_2", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_1", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_2", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_FUEL_MODE_SEL", "value": 1, "units": "number" }
+      ],
+      "checklist": true
+    },
+    {
+      "id": "checklist_before_takeoff",
+      "phrases": ["before takeoff checklist", "run before takeoff"],
+      "response": "Before takeoff. Flaps one. Spoilers armed. Seatbelts on. Landing lights on. Strobe on.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_1" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 1, "units": "number" },
+        { "type": "event", "name": "SPOILERS_ARM_ON" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 0, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 1, "units": "number" },
+        { "type": "event", "name": "LANDING_LIGHTS_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 2, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 2, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 2, "units": "number" },
+        { "type": "event", "name": "STROBES_ON" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_STROBE", "value": 2, "units": "number" }
+      ],
+      "checklist": true
+    },
+    {
+      "id": "checklist_after_landing",
+      "phrases": ["after landing checklist", "run after landing"],
+      "response": "After landing. Flaps up. Spoilers retract. Landing lights off. Taxi lights on. Strobe off.",
+      "actions": [
+        { "type": "event", "name": "FLAPS_UP" },
+        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 0, "units": "number" },
+        { "type": "event", "name": "SPOILERS_OFF" },
+        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 1, "units": "number" },
+        { "type": "event", "name": "LANDING_LIGHTS_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 1, "units": "number" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 1, "units": "number" },
+        { "type": "event", "name": "TOGGLE_TAXI_LIGHTS" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_NOSE", "value": 1, "units": "number" },
+        { "type": "event", "name": "STROBES_OFF" },
+        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_STROBE", "value": 0, "units": "number" }
+      ],
+      "checklist": true
     }
   ],
   "simvar_aliases": {},

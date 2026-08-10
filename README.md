@@ -147,11 +147,23 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
-| `aircraft/fenix_a320.json` | **Fenix A320** — SimConnect events **+** Fenix LVars (`L:S_MIP_GEAR`, `L:S_OH_EXT_LT_*`); unmapped FCU modes speak Unable |
+| `aircraft/fenix_a320.json` | **Fenix A320** — hybrid dual-write (events + Fenix LVars): gear, lights, flaps, park brake, spoilers, anti-ice/APU/overhead, checklists; unmapped FCU modes speak Unable |
 
 **Auto aircraft detection (default on):** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json` (e.g. title contains `fenix` → `fenix_a320`). Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
 
-**Fenix A320 profile:** selected manually via Settings / `aircraft_profile`, or **auto** when TITLE matches. Gear and exterior light commands send standard events **and** write documented Fenix LVars through SimConnect `SetDataOnSimObject` (no third-party tools). H-Events / B-Events are not bridged. Live Free Flight re-test recommended after each Fenix update.
+### Study-level LVar strategy
+
+Study aircraft (Fenix A320 today; iniBuilds A350 later) use **profile overrides**, not a global LVar rewrite of `base_commands.json`:
+
+| Rule | Detail |
+|------|--------|
+| Base catalog | Standard SimConnect **events** for generic / Asobo |
+| Study profile | Same command `id` **replaces** base with dual-write: `event` + `set_simvar` (`L:` / `A:`) |
+| New profile-only ids | Append (e.g. Fenix `fuel_pumps_on`, `adirs_nav`, `seatbelt_signs_on`) |
+| Gaps | Prefer **Unable** TTS over guessed mappings (FCU modes) |
+| Cross-vendor | Separate LVar maps per aircraft — Fenix names must not be reused for A350 |
+
+**Fenix A320 profile:** auto when TITLE matches `fenix`, or select in Settings. Mapped groups include gear (`L:S_MIP_GEAR`), exterior lights (`L:S_OH_EXT_LT_*`), flaps (`L:S_FC_FLAPS` 0–4), parking brake (`L:S_MIP_PARKING_BRAKE`), speedbrake (`L:A_FC_SPEEDBRAKE`), anti-ice / probe / APU / batteries / fuel / packs / ADIRS / seatbelts, and **checklists with real actions**. Writes go through SimConnect `SetDataOnSimObject` (no SPAD/AAO). H/B-Events are not bridged. Live Free Flight re-test after Fenix updates.
 
 **Action types in JSON:**
 

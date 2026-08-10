@@ -17,6 +17,7 @@ public static class CommandCatalogGroups
         "Anti-ice",
         "Brakes / Spoilers",
         "APU / Systems",
+        "Overhead",
         "Checklists",
         "Info",
         "Other"
@@ -33,7 +34,7 @@ public static class CommandCatalogGroups
         if (id.Contains("light", StringComparison.Ordinal) || id.Contains("strobe", StringComparison.Ordinal)
             || id.Contains("beacon", StringComparison.Ordinal) || id.Contains("nav_", StringComparison.Ordinal)
             || id.Contains("logo", StringComparison.Ordinal) || id.Contains("wing_light", StringComparison.Ordinal)
-            || id.Contains("cabin", StringComparison.Ordinal))
+            || id.Contains("cabin", StringComparison.Ordinal) || id.Contains("dome", StringComparison.Ordinal))
             return "Lights";
         if (id.StartsWith("flaps", StringComparison.Ordinal) || id.Contains("flap", StringComparison.Ordinal))
             return "Flaps";
@@ -42,13 +43,20 @@ public static class CommandCatalogGroups
             || id.Contains("altitude", StringComparison.Ordinal) || id.Contains("managed", StringComparison.Ordinal))
             return "Autopilot / FCU";
         if (id.Contains("anti_ice", StringComparison.Ordinal) || id.Contains("pitot", StringComparison.Ordinal)
-            || id.Contains("ice", StringComparison.Ordinal))
+            || id.Contains("probe_heat", StringComparison.Ordinal)
+            || (id.Contains("ice", StringComparison.Ordinal) && !id.Contains("service", StringComparison.Ordinal)))
             return "Anti-ice";
         if (id.Contains("brake", StringComparison.Ordinal) || id.Contains("spoiler", StringComparison.Ordinal)
             || id.Contains("speedbrake", StringComparison.Ordinal))
             return "Brakes / Spoilers";
         if (id.Contains("apu", StringComparison.Ordinal))
             return "APU / Systems";
+        if (id.Contains("fuel", StringComparison.Ordinal) || id.Contains("battery", StringComparison.Ordinal)
+            || id.Contains("pack", StringComparison.Ordinal) || id.Contains("adirs", StringComparison.Ordinal)
+            || id.Contains("seatbelt", StringComparison.Ordinal) || id.Contains("signs", StringComparison.Ordinal)
+            || id.Contains("ext_power", StringComparison.Ordinal) || id.Contains("bleed", StringComparison.Ordinal)
+            || id.Contains("overhead", StringComparison.Ordinal))
+            return "Overhead";
         if (id.Contains("checklist", StringComparison.Ordinal) || command!.Checklist)
             return "Checklists";
         if (id.Contains("list_command", StringComparison.Ordinal) || id.Contains("what_can", StringComparison.Ordinal))
