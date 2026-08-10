@@ -4,6 +4,10 @@
       "id": "gear_up",
       "phrases": [
         "gear up",
+        "positive rate",
+        "positive rate gear up",
+        "positive rate gear up please",
+        "positive climb",
         "positive climb gear up",
         "positive climb rate gear up",
         "gear up please"
@@ -61,7 +65,7 @@
     },
     {
       "id": "strobe_lights_on",
-      "phrases": ["strobe lights on", "strobes on"],
+      "phrases": ["strobe lights on", "strobe light on", "set strobe lights on", "strobes on"],
       "response": "Strobe lights on.",
       "actions": [
         { "type": "event", "name": "STROBES_ON" }
@@ -69,7 +73,7 @@
     },
     {
       "id": "strobe_lights_off",
-      "phrases": ["strobe lights off", "strobes off"],
+      "phrases": ["strobe lights off", "strobe light off", "set strobe lights off", "strobes off"],
       "response": "Strobe lights off.",
       "actions": [
         { "type": "event", "name": "STROBES_OFF" }
@@ -365,7 +369,16 @@
     },
     {
       "id": "spoilers_arm",
-      "phrases": ["speedbrake arm", "spoilers arm", "arm spoilers"],
+      "phrases": [
+        "arm spoilers",
+        "arm the spoilers",
+        "spoilers arm",
+        "spoilers armed",
+        "arm speedbrake",
+        "arm speed brakes",
+        "speedbrake arm",
+        "speed brake arm"
+      ],
       "response": "Spoilers armed.",
       "actions": [
         { "type": "event", "name": "SPOILERS_ARM_ON" }
@@ -373,7 +386,15 @@
     },
     {
       "id": "spoilers_disarm",
-      "phrases": ["speedbrake disarm", "spoilers disarm", "disarm spoilers"],
+      "phrases": [
+        "disarm spoilers",
+        "disarm the spoilers",
+        "spoilers disarm",
+        "spoilers disarmed",
+        "disarm speedbrake",
+        "speedbrake disarm",
+        "speed brake disarm"
+      ],
       "response": "Spoilers disarmed.",
       "actions": [
         { "type": "event", "name": "SPOILERS_ARM_OFF" }
@@ -381,7 +402,7 @@
     },
     {
       "id": "spoilers_on",
-      "phrases": ["speedbrake full", "spoilers full", "speed brakes out"],
+      "phrases": ["speedbrake full", "spoilers full", "speed brakes out", "speedbrake out"],
       "response": "Speedbrake full.",
       "actions": [
         { "type": "event", "name": "SPOILERS_ON" }
@@ -389,7 +410,7 @@
     },
     {
       "id": "spoilers_off",
-      "phrases": ["speedbrake retract", "spoilers retract", "speed brakes in"],
+      "phrases": ["speedbrake retract", "spoilers retract", "speed brakes in", "speedbrake in"],
       "response": "Speedbrake retract.",
       "actions": [
         { "type": "event", "name": "SPOILERS_OFF" }

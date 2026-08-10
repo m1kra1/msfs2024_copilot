@@ -82,6 +82,11 @@ public class CommandPipelineTests
         var (cmd1, phrase1, _) = matcher.Match("positive climb gear up", "Co Pilot");
         Assert.NotNull(cmd1);
         Assert.Equal("gear_up", cmd1!.Id);
+
+        var (cmdRate, phraseRate, _) = matcher.Match("positive rate gear up", "Co Pilot");
+        Assert.NotNull(cmdRate);
+        Assert.Equal("gear_up", cmdRate!.Id);
+        Assert.Contains("positive rate", phraseRate, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("gear up", phrase1);
 
         var (cmd2, _, _) = matcher.Match("landing lights on");
@@ -91,6 +96,69 @@ public class CommandPipelineTests
         var (cmd3, _, _) = matcher.Match("Co Pilot gear down", "Co Pilot");
         Assert.NotNull(cmd3);
         Assert.Equal("gear_down", cmd3!.Id);
+    }
+
+    [Fact]
+    public void PhraseMatcher_Prefers_Spoilers_Over_Strobes_When_Alternate_Fits()
+    {
+        var (_, catalog, _, _) = CreatePipeline();
+        var matcher = new PhraseMatcher(catalog.Commands);
+
+        // Direct match
+        var (spoilers, _, _) = matcher.Match("arm spoilers", "Co Pilot");
+        Assert.NotNull(spoilers);
+        Assert.Equal("spoilers_arm", spoilers!.Id);
+
+        // Primary is high-confidence garbage / non-command; alternate is spoilers → re-rank wins
+        var (cmd, phrase, chosen, _) = matcher.MatchBestHypothesis(
+            new (string, float)[]
+            {
+                ("Co Pilot check weather radar", 0.91f),
+                ("Co Pilot arm spoilers", 0.78f),
+                ("Co Pilot strobe lights on", 0.60f)
+            },
+            "Co Pilot");
+
+        Assert.NotNull(cmd);
+        Assert.Equal("spoilers_arm", cmd!.Id);
+        Assert.Contains("spoiler", chosen, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("spoiler", phrase, StringComparison.OrdinalIgnoreCase);
+
+        // When both command hyps match, higher match quality + conf: exact spoilers beats weak partial
+        var (cmd2, _, chosen2, _) = matcher.MatchBestHypothesis(
+            new (string, float)[]
+            {
+                ("Co Pilot strobes", 0.88f), // incomplete — should not map to strobe_lights_on
+                ("Co Pilot arm spoilers", 0.80f)
+            },
+            "Co Pilot");
+        Assert.NotNull(cmd2);
+        Assert.Equal("spoilers_arm", cmd2!.Id);
+        Assert.Contains("spoiler", chosen2, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PhraseMatcher_Does_Not_Loose_Substring_Match_Unrelated_Noise()
+    {
+        var (_, catalog, _, _) = CreatePipeline();
+        var matcher = new PhraseMatcher(catalog.Commands);
+
+        // Incomplete / unrelated tokens must not latch onto a random short phrase via Contains
+        var (cmd, _, _) = matcher.Match("please check the weather please", "Co Pilot");
+        Assert.Null(cmd);
+    }
+
+    [Fact]
+    public void CommandCatalogGroups_Categorizes_Core_Ids()
+    {
+        var (_, catalog, _, _) = CreatePipeline();
+        var groups = CommandCatalogGroups.Group(catalog.Commands);
+        Assert.Contains(groups, g => g.Category == "Gear" && g.Commands.Any(c => c.Id == "gear_up"));
+        Assert.Contains(groups, g => g.Category == "Lights" && g.Commands.Any(c => c.Id == "landing_lights_on"));
+        Assert.Contains(groups, g => g.Category == "Flaps");
+        Assert.Equal("Gear", CommandCatalogGroups.Categorize(catalog.Commands.First(c => c.Id == "gear_down")));
+        Assert.Equal("landing lights on", CommandCatalogGroups.DisplayLabel(
+            catalog.Commands.First(c => c.Id == "landing_lights_on")), ignoreCase: true);
     }
 
     [Fact]

@@ -9,7 +9,7 @@
     "wake_word": "Co Pilot",
     "ptt_key": "F12",
     "continuous_listen": false,
-    "confidence_threshold": 0.75,
+    "confidence_threshold": 0.70,
     "ptt_grace_ms": 3000
   },
   "tts": {
@@ -23,6 +23,6 @@
     "callout_delay_ms": 400
   },
   "aircraft_profile": "generic",
-  "auto_detect_aircraft": false,
-  "announce_profile_switch": false
+  "auto_detect_aircraft": true,
+  "announce_profile_switch": true
 }

@@ -1,23 +1,24 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- ========== Palette (modern dark cockpit) ========== -->
-  <Color x:Key="Color.Bg">#FF0F1218</Color>
-  <Color x:Key="Color.Panel">#FF1A1F2A</Color>
-  <Color x:Key="Color.PanelAlt">#FF222834</Color>
-  <Color x:Key="Color.Input">#FF121722</Color>
-  <Color x:Key="Color.Border">#FF3A4458</Color>
-  <Color x:Key="Color.BorderFocus">#FF5B8DEF</Color>
-  <Color x:Key="Color.Fg">#FFF0F3F8</Color>
-  <Color x:Key="Color.Muted">#FFA8B0C0</Color>
-  <Color x:Key="Color.Accent">#FF4C8DFF</Color>
-  <Color x:Key="Color.AccentHover">#FF6BA0FF</Color>
-  <Color x:Key="Color.Good">#FF3DDB8A</Color>
-  <Color x:Key="Color.Bad">#FFFF5C5C</Color>
-  <Color x:Key="Color.Warn">#FFFFB020</Color>
-  <Color x:Key="Color.Hover">#FF2A3344</Color>
-  <Color x:Key="Color.Selected">#FF2B4A7A</Color>
-  <Color x:Key="Color.SelectedHover">#FF345A90</Color>
+  <!-- ========== Palette (modern app / dark cockpit) ========== -->
+  <Color x:Key="Color.Bg">#FF0B0E14</Color>
+  <Color x:Key="Color.Panel">#FF151A24</Color>
+  <Color x:Key="Color.PanelAlt">#FF1C2330</Color>
+  <Color x:Key="Color.Input">#FF0E131C</Color>
+  <Color x:Key="Color.Border">#FF2E384C</Color>
+  <Color x:Key="Color.BorderFocus">#FF5B9DFF</Color>
+  <Color x:Key="Color.Fg">#FFF5F7FC</Color>
+  <Color x:Key="Color.Muted">#FF9AA6BA</Color>
+  <Color x:Key="Color.Accent">#FF3D8BFF</Color>
+  <Color x:Key="Color.AccentHover">#FF5C9FFF</Color>
+  <Color x:Key="Color.Good">#FF34D399</Color>
+  <Color x:Key="Color.Bad">#FFF87171</Color>
+  <Color x:Key="Color.Warn">#FFFBBF24</Color>
+  <Color x:Key="Color.Hover">#FF243044</Color>
+  <Color x:Key="Color.Selected">#FF1E3A5F</Color>
+  <Color x:Key="Color.SelectedHover">#FF274B78</Color>
+  <Color x:Key="Color.Chip">#FF1A2740</Color>
 
   <SolidColorBrush x:Key="BgBrush" Color="{StaticResource Color.Bg}"/>
   <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Color.Panel}"/>
@@ -35,6 +36,7 @@
   <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource Color.Hover}"/>
   <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Color.Selected}"/>
   <SolidColorBrush x:Key="SelectedHoverBrush" Color="{StaticResource Color.SelectedHover}"/>
+  <SolidColorBrush x:Key="ChipBrush" Color="{StaticResource Color.Chip}"/>
 
   <!-- Aliases used by code-behind / existing keys -->
   <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Color.Border}"/>
@@ -144,7 +146,7 @@
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Padding" Value="14,8"/>
     <Setter Property="Margin" Value="0,0,10,8"/>
-    <Setter Property="MinHeight" Value="34"/>
+    <Setter Property="MinHeight" Value="36"/>
     <Setter Property="FontSize" Value="13.5"/>
     <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
     <Setter Property="Cursor" Value="Hand"/>
@@ -156,12 +158,13 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="6"
+                  CornerRadius="8"
                   Padding="{TemplateBinding Padding}"
                   SnapsToDevicePixels="True">
             <ContentPresenter HorizontalAlignment="Center"
                               VerticalAlignment="Center"
-                              RecognizesAccessKey="True"/>
+                              RecognizesAccessKey="True"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
@@ -187,7 +190,7 @@
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Padding" Value="14,8"/>
     <Setter Property="Margin" Value="0,0,10,8"/>
-    <Setter Property="MinHeight" Value="34"/>
+    <Setter Property="MinHeight" Value="36"/>
     <Setter Property="FontSize" Value="13.5"/>
     <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
     <Setter Property="Cursor" Value="Hand"/>
@@ -198,9 +201,10 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
-                  CornerRadius="6"
+                  CornerRadius="8"
                   Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
@@ -217,6 +221,19 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+
+  <!-- Compact chip-style buttons for Manual command grid -->
+  <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="{StaticResource ChipBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource BorderBrushKey}"/>
+    <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="Margin" Value="0,0,8,8"/>
+    <Setter Property="MinHeight" Value="40"/>
+    <Setter Property="MinWidth" Value="128"/>
+    <Setter Property="FontSize" Value="12.5"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
   </Style>
 
   <!-- ========== CheckBox ========== -->
@@ -538,7 +555,7 @@
                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                           ClickMode="Press"/>
 
-            <!-- Closed-state content (selected item) -->
+            <!-- Closed-state content (selected item) — force light text for string items -->
             <ContentPresenter x:Name="ContentSite"
                               IsHitTestVisible="False"
                               Content="{TemplateBinding SelectionBoxItem}"
@@ -546,7 +563,10 @@
                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                               Margin="12,6,40,6"
                               VerticalAlignment="Center"
-                              HorizontalAlignment="Left">
+                              HorizontalAlignment="Left"
+                              TextElement.Foreground="{StaticResource FgBrush}"
+                              TextElement.FontSize="14"
+                              TextElement.FontFamily="{StaticResource UiFont}">
               <ContentPresenter.Resources>
                 <Style TargetType="TextBlock">
                   <Setter Property="Foreground" Value="{StaticResource FgBrush}"/>

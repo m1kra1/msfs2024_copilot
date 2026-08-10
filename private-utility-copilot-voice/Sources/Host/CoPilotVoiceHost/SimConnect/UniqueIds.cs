@@ -7,7 +7,16 @@ namespace CoPilotVoiceHost.SimConnect;
 public enum PrivateCopilotDefineId : uint
 {
     PRIVATE_COPILOT_DEF_STATUS = 0xC0_01_00_01,
-    PRIVATE_COPILOT_DEF_AIRCRAFT = 0xC0_01_00_02
+    PRIVATE_COPILOT_DEF_AIRCRAFT = 0xC0_01_00_02,
+    /// <summary>Ad-hoc single FLOAT64 write definition for SetSimVar (A:/L:).</summary>
+    PRIVATE_COPILOT_DEF_SET_VAR = 0xC0_01_02_01
+}
+
+/// <summary>Single double payload for managed SetDataOnSimObject writes.</summary>
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 1)]
+public struct PrivateCopilotSetVarData
+{
+    public double Value;
 }
 
 public enum PrivateCopilotRequestId : uint

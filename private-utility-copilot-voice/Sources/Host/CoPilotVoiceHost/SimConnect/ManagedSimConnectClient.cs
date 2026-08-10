@@ -191,8 +191,84 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
 
     public void SetSimVar(string name, double value, string units)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("SimVar name required", nameof(name));
+
         Snapshot.Set(name, value);
-        StatusMessage = $"SetSimVar requested: {name}={value} {units} (event-preferred architecture)";
+
+        if (_simConnect is null || _simConnectType is null || !IsConnected)
+        {
+            StatusMessage = $"SetSimVar offline snapshot only: {name}={value} {units}";
+            return;
+        }
+
+        // Best-effort live write via reflection (A: and L: vars). Native client is the primary path.
+        try
+        {
+            var datumName = name.Trim();
+            var unitName = string.IsNullOrWhiteSpace(units) ? "number" : units.Trim();
+            var defineId = PrivateCopilotDefineId.PRIVATE_COPILOT_DEF_SET_VAR;
+
+            var clear = _simConnectType.GetMethod("ClearDataDefinition",
+                BindingFlags.Instance | BindingFlags.Public);
+            try { clear?.Invoke(_simConnect, new object[] { defineId }); } catch { /* first use */ }
+
+            var datatype = _simConnectType.Assembly.GetType(
+                "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_DATATYPE");
+            object float64 = datatype is not null ? Enum.Parse(datatype, "FLOAT64") : 0;
+
+            var addToDataDef = _simConnectType.GetMethod("AddToDataDefinition",
+                BindingFlags.Instance | BindingFlags.Public);
+            addToDataDef?.Invoke(_simConnect, new object?[]
+            {
+                defineId, datumName, unitName, float64, 0f, 0xffffffffu
+            });
+
+            // Register single-double struct if the managed API requires it.
+            foreach (var method in _simConnectType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                         .Where(m => m.Name == "RegisterDataDefineStruct" && m.IsGenericMethodDefinition))
+            {
+                try
+                {
+                    var closed = method.MakeGenericMethod(typeof(PrivateCopilotSetVarData));
+                    if (closed.GetParameters().Length == 1)
+                    {
+                        closed.Invoke(_simConnect, new object[] { defineId });
+                        break;
+                    }
+                }
+                catch { /* try next */ }
+            }
+
+            var setFlagsType = _simConnectType.Assembly.GetType(
+                "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_DATA_SET_FLAG");
+            object flags = setFlagsType is not null ? Enum.Parse(setFlagsType, "DEFAULT") : 0;
+            var payload = new PrivateCopilotSetVarData { Value = value };
+
+            var setData = _simConnectType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(x => x.Name == "SetDataOnSimObject")
+                .OrderByDescending(x => x.GetParameters().Length)
+                .FirstOrDefault();
+            if (setData is null)
+            {
+                StatusMessage = $"SetSimVar local-only (no SetDataOnSimObject): {datumName}";
+                return;
+            }
+
+            var ps = setData.GetParameters();
+            if (ps.Length >= 4)
+                setData.Invoke(_simConnect, new object?[] { defineId, 0u, flags, payload });
+            else
+                setData.Invoke(_simConnect, new object?[] { defineId, payload });
+
+            Console.WriteLine($"[SimConnect] LIVE SetSimVar (managed): {datumName}={value} {unitName}");
+            StatusMessage = $"SetSimVar: {datumName}={value} {unitName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SimConnect] SetSimVar managed failed ({name}): {ex.InnerException?.Message ?? ex.Message}");
+            StatusMessage = $"SetSimVar local+failed live: {name}={value} ({ex.InnerException?.Message ?? ex.Message})";
+        }
     }
 
     public void ReceiveMessage()

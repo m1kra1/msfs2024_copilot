@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using MediaColor = System.Windows.Media.Color;
 using CoPilotVoiceHost.Config;
+using CoPilotVoiceHost.Core;
 using CoPilotVoiceHost.Diagnostics;
 using CoPilotVoiceHost.Host;
 using CoPilotVoiceHost.Models;
@@ -35,6 +36,8 @@ public partial class MainWindow : Window
     private bool _commandsLoaded;
     private bool _suppressCmdSelection;
     private bool _cmdDirty;
+    private bool _manualBuilt;
+    private int _manualCatalogFingerprint = -1;
 
     public MainWindow(HostSession session, HostOptions _)
     {
@@ -176,6 +179,111 @@ public partial class MainWindow : Window
 
         if (_commandsLoaded)
             UpdateCmdStatusBar();
+
+        // Keep Manual tab buttons aligned with live catalog after profile auto-switch / Apply.
+        if (_manualBuilt && ManualCatalogFingerprint() != _manualCatalogFingerprint)
+            RebuildManualPanel();
+    }
+
+    private void ManualTab_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (!_manualBuilt || ManualCatalogFingerprint() != _manualCatalogFingerprint)
+            RebuildManualPanel();
+    }
+
+    private void BtnManualRefresh_Click(object sender, RoutedEventArgs e) => RebuildManualPanel();
+
+    private int ManualCatalogFingerprint() =>
+        HashCode.Combine(
+            _session.AircraftProfile?.ToLowerInvariant() ?? "",
+            _session.Catalog.Commands.Count,
+            _session.CatalogRebuildCount);
+
+    private void RebuildManualPanel()
+    {
+        ManualPanel.Children.Clear();
+        var groups = CommandCatalogGroups.Group(_session.Catalog.Commands);
+        var total = 0;
+
+        foreach (var (category, commands) in groups)
+        {
+            var header = new TextBlock
+            {
+                Text = category.ToUpperInvariant(),
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 12.5,
+                Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"),
+                Margin = new Thickness(0, 4, 0, 8)
+            };
+            ManualPanel.Children.Add(header);
+
+            var wrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 12) };
+            foreach (var cmd in commands)
+            {
+                total++;
+                var label = CommandCatalogGroups.DisplayLabel(cmd);
+                var tip = new StringBuilder();
+                tip.AppendLine($"id: {cmd.Id}");
+                if (cmd.Phrases.Count > 0)
+                    tip.AppendLine("phrases: " + string.Join(", ", cmd.Phrases.Take(4)));
+                if (cmd.Actions.Count == 0)
+                    tip.Append("info / no sim events");
+                else
+                    tip.Append("actions: " + string.Join(", ", cmd.Actions.Select(a => a.Name).Take(4)));
+
+                var btn = new System.Windows.Controls.Button
+                {
+                    Content = label,
+                    ToolTip = tip.ToString().TrimEnd(),
+                    Tag = cmd.Id,
+                    Style = (Style)FindResource("ChipButton")
+                };
+                btn.Click += ManualCommand_Click;
+                wrap.Children.Add(btn);
+            }
+
+            ManualPanel.Children.Add(wrap);
+        }
+
+        if (total == 0)
+        {
+            ManualPanel.Children.Add(new TextBlock
+            {
+                Text = "No commands loaded.",
+                Style = (Style)FindResource("LabelMuted")
+            });
+        }
+
+        ManualHint.Text =
+            $"Active profile: {_session.AircraftProfile} · {total} commands (wake/PTT bypassed; conditions still apply).";
+        ManualStatus.Text = $"Ready · {total} buttons";
+        _manualBuilt = true;
+        _manualCatalogFingerprint = ManualCatalogFingerprint();
+    }
+
+    private void ManualCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string id } || string.IsNullOrWhiteSpace(id))
+            return;
+
+        try
+        {
+            ManualStatus.Text = $"Running {id}…";
+            var code = _session.RunCatalogCommand(id);
+            ManualStatus.Text = code switch
+            {
+                0 => $"OK · {id} · {_session.LastAction}",
+                4 => $"Denied · {id} · {_session.LastAction}",
+                3 => $"Unrecognized · {id}",
+                5 => $"Gate rejected · {id}",
+                _ => $"Exit {code} · {id} · {_session.LastAction}"
+            };
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            ManualStatus.Text = $"Error · {id}: {ex.Message}";
+        }
     }
 
     private void LoadSettingsToUi()

@@ -92,15 +92,30 @@ public class FenixA320ProfileTests
         }
 
         // Mapped minimum-group events (from fenix profile / merge)
-        Assert.Equal("GEAR_DOWN", EventName(catalog, "gear_down"));
-        Assert.Equal("LANDING_LIGHTS_ON", EventName(catalog, "landing_lights_on"));
-        Assert.Equal("STROBES_ON", EventName(catalog, "strobe_lights_on"));
-        Assert.Equal("BEACON_LIGHTS_ON", EventName(catalog, "beacon_lights_on"));
-        Assert.Equal("NAV_LIGHTS_ON", EventName(catalog, "nav_lights_on"));
-        Assert.Equal("FLAPS_1", EventName(catalog, "flaps_1"));
-        Assert.Equal("PARKING_BRAKES", EventName(catalog, "parking_brake_on"));
-        Assert.Equal("AUTOPILOT_ON", EventName(catalog, "autopilot_on"));
-        Assert.Equal("TOGGLE_FLIGHT_DIRECTOR", EventName(catalog, "flight_director_on"));
+        Assert.Equal("GEAR_DOWN", FirstEventName(catalog, "gear_down"));
+        Assert.Equal("GEAR_UP", FirstEventName(catalog, "gear_up"));
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "gear_up").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_MIP_GEAR", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 0);
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "gear_down").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_MIP_GEAR", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 1);
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "gear_up").Phrases,
+            p => p.Contains("positive rate", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("LANDING_LIGHTS_ON", FirstEventName(catalog, "landing_lights_on"));
+        Assert.Contains(catalog.Commands.Single(c => c.Id == "landing_lights_on").Actions,
+            a => a.Type.Equals("set_simvar", StringComparison.OrdinalIgnoreCase)
+                 && a.Name.Equals("L:S_OH_EXT_LT_LANDING_L", StringComparison.OrdinalIgnoreCase)
+                 && a.Value == 2);
+        Assert.Equal("STROBES_ON", FirstEventName(catalog, "strobe_lights_on"));
+        Assert.Equal("BEACON_LIGHTS_ON", FirstEventName(catalog, "beacon_lights_on"));
+        Assert.Equal("NAV_LIGHTS_ON", FirstEventName(catalog, "nav_lights_on"));
+        Assert.Equal("FLAPS_1", FirstEventName(catalog, "flaps_1"));
+        Assert.Equal("PARKING_BRAKES", FirstEventName(catalog, "parking_brake_on"));
+        Assert.Equal("AUTOPILOT_ON", FirstEventName(catalog, "autopilot_on"));
+        Assert.Equal("TOGGLE_FLIGHT_DIRECTOR", FirstEventName(catalog, "flight_director_on"));
 
         // Unmapped FCU modes: empty actions + Unable response
         foreach (var id in new[]
@@ -143,6 +158,7 @@ public class FenixA320ProfileTests
         var cases = new (string Phrase, string ExpectedEvent)[]
         {
             ("Co Pilot gear down", "GEAR_DOWN"),
+            ("Co Pilot positive rate gear up", "GEAR_UP"),
             ("Co Pilot landing lights on", "LANDING_LIGHTS_ON"),
             ("Co Pilot landing lights off", "LANDING_LIGHTS_OFF"),
             ("Co Pilot taxi lights on", "TOGGLE_TAXI_LIGHTS"),
@@ -167,6 +183,52 @@ public class FenixA320ProfileTests
             var log = string.Join("\n", session.Log.Snapshot().Select(e => e.Message));
             Assert.Contains($"event:{expected}", log, StringComparison.OrdinalIgnoreCase);
         }
+
+        // Fenix gear lever LVar write accompanies event actions
+        session.Log.Clear();
+        Assert.Equal(0, session.InjectPhrase("Co Pilot positive rate"));
+        Assert.Contains("GEAR_UP", session.LastAction, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("L:S_MIP_GEAR", session.LastAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void HostSession_RunCatalogCommand_Fenix_LandingLights()
+    {
+        var root = FindConfigRoot();
+        using var session = StartOfflineSession(root, ProfileId);
+        session.Log.Clear();
+        var code = session.RunCatalogCommand("landing_lights_on");
+        Assert.Equal(0, code);
+        Assert.Contains("LANDING_LIGHTS_ON", session.LastAction, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("S_OH_EXT_LT_LANDING_L", session.LastAction, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void HostSession_Inject_Fenix_GearUp_Denied_On_Ground()
+    {
+        var root = FindConfigRoot();
+        using var session = StartOfflineSession(root, ProfileId);
+
+        // Force on-ground (seeded airborne by default)
+        // Access snapshot via inject path: re-seed through recording client is not public —
+        // use processor path with explicit snapshot instead.
+        var (settings, catalog) = ConfigLoader.LoadAll(root, ProfileId);
+        var sim = new RecordingSimConnectClient();
+        sim.Connect(settings.SimConnect.AppName, 0);
+        sim.Snapshot.Set("VERTICAL SPEED", 500);
+        sim.Snapshot.Set("SIM ON GROUND", 1);
+
+        var processor = new CommandProcessor(
+            new PhraseMatcher(catalog.Commands),
+            new ConditionEngine(),
+            new ActionExecutor(sim),
+            settings.Behavior,
+            catalog.Commands);
+
+        var result = processor.Process("positive rate gear up", sim.Snapshot, "Co Pilot");
+        Assert.NotNull(result);
+        Assert.False(result!.Allowed);
+        Assert.Empty(sim.TransmittedEvents);
     }
 
     [Fact]
@@ -292,11 +354,11 @@ public class FenixA320ProfileTests
         Assert.Contains(a320Catalog.Commands, c => c.Id == "a320_managed_speed");
     }
 
-    private static string EventName(CommandCatalog catalog, string id)
+    private static string FirstEventName(CommandCatalog catalog, string id)
     {
         var cmd = catalog.Commands.Single(c => c.Id == id);
-        var action = Assert.Single(cmd.Actions);
-        Assert.Equal("event", action.Type, ignoreCase: true);
+        var action = Assert.Single(cmd.Actions, a =>
+            a.Type.Equals("event", StringComparison.OrdinalIgnoreCase));
         return action.Name;
     }
 }

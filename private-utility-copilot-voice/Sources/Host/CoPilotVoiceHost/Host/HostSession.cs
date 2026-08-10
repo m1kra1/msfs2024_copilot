@@ -188,6 +188,34 @@ public sealed class HostSession : IDisposable
         return code;
     }
 
+    /// <summary>
+    /// Manually run a catalog command by id (GUI Manual tab). Uses the first phrase and
+    /// force-gates the speech gate so wake word / PTT is not required.
+    /// </summary>
+    public int RunCatalogCommand(string commandId)
+    {
+        if (string.IsNullOrWhiteSpace(commandId))
+            return 3;
+
+        var cmd = Catalog.Commands.FirstOrDefault(c =>
+            c.Id.Equals(commandId.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (cmd is null)
+        {
+            Log.Warn($"[Manual] Unknown command id '{commandId}'");
+            return 3;
+        }
+
+        var phrase = cmd.Phrases.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p))?.Trim();
+        if (string.IsNullOrWhiteSpace(phrase))
+            phrase = cmd.Id.Replace('_', ' ');
+
+        // Include wake word for matcher residual strip; forceGate skips speech gate.
+        var wake = Settings.Speech.WakeWord?.Trim() ?? "";
+        var text = string.IsNullOrWhiteSpace(wake) ? phrase : $"{wake} {phrase}";
+        Log.Info($"[Manual] id={cmd.Id} → \"{text}\"");
+        return InjectPhrase(text, forceGate: true);
+    }
+
     public void ForceReconnect()
     {
         if (_sim is null || _options.ForceOffline)
@@ -482,6 +510,7 @@ public sealed class HostSession : IDisposable
                     _pttArm?.Poll();
                     return _pttArm?.IsArmed ?? false;
                 };
+                win.Matcher = _matcher;
                 win.LoadGrammar(_matcher!.AllPhrases, Settings.Speech.WakeWord);
                 _speech = win;
             }
@@ -968,12 +997,14 @@ public sealed class HostSession : IDisposable
         var vs = _options.FixtureVerticalSpeed ?? HostConstants.DefaultOfflineVerticalSpeedFpm;
         recording.Snapshot.Set("GEAR POSITION", 1);
         recording.Snapshot.Set(HostConstants.VerticalSpeedSimVar, vs);
+        // Airborne default so fenix gear_up (SIM ON GROUND == 0) works offline with inject/--vs.
+        recording.Snapshot.Set("SIM ON GROUND", 0);
         recording.Snapshot.Set("FLAPS HANDLE INDEX", 0);
         recording.Snapshot.Set("AUTOPILOT MASTER", 0);
         recording.Snapshot.Set("LIGHT LANDING", 0);
         recording.Snapshot.Set("BRAKE PARKING POSITION", 0);
         recording.Snapshot.Set("ENG ANTI ICE", 0);
-        Log.Info($"[SimConnect] Offline snapshot seeded (VS={vs} fpm).");
+        Log.Info($"[SimConnect] Offline snapshot seeded (VS={vs} fpm, SIM ON GROUND=0).");
     }
 
     private static void CopyEditableSettings(AppSettings from, AppSettings to)

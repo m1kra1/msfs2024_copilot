@@ -167,6 +167,35 @@
           </ScrollViewer>
         </TabItem>
 
+        <!-- MANUAL TRIGGER -->
+        <TabItem Header="Manual" GotFocus="ManualTab_GotFocus">
+          <Grid Margin="12,10">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" Margin="0,0,0,10">
+              <Button DockPanel.Dock="Right" Content="Refresh" Click="BtnManualRefresh_Click"
+                      ToolTip="Rebuild buttons from the currently loaded catalog"/>
+              <StackPanel>
+                <TextBlock Text="Manual commands"
+                           FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <TextBlock x:Name="ManualHint"
+                           Style="{StaticResource LabelMuted}"
+                           TextWrapping="Wrap"
+                           Text="Fire any loaded command for the active aircraft profile (bypasses wake word / PTT). Conditions still apply."/>
+              </StackPanel>
+            </DockPanel>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,0,4,0">
+              <StackPanel x:Name="ManualPanel"/>
+            </ScrollViewer>
+            <TextBlock Grid.Row="2" x:Name="ManualStatus" Style="{StaticResource LabelMuted}"
+                       Margin="0,10,0,0" TextWrapping="Wrap" Text=""/>
+          </Grid>
+        </TabItem>
+
         <!-- COMMANDS -->
         <TabItem Header="Commands" GotFocus="CommandsTab_GotFocus">
           <Grid Margin="12,10">

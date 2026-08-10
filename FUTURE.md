@@ -10,15 +10,15 @@ Stand: 2026-08-09 · Branch: `dev`
 ## 1. Fenix A320 Anpassung — **DONE (profile)** / partial (LVar bridge)
 
 **Status:** Profile `config/aircraft/fenix_a320.json` implemented and selectable (`aircraft_profile: fenix_a320`).  
-Core groups map via standard SimConnect **events** (gear, external lights, flaps, parking brake, AP master, flight director toggle). Unmapped Airbus FCU mode holds return **Unable – not available on this aircraft**. FCU bug/var knobs kept best-effort.
+Gear lever uses Fenix LVar **`L:S_MIP_GEAR`** (from package `Cockpit_Behavior.xml`) plus `GEAR_UP`/`GEAR_DOWN`. Positive-rate phrases + airborne/VS gates. Other core groups still use standard events (lights partially — switch animation needs LVars). Unmapped Airbus FCU mode holds return **Unable**.
 
-**Tested Fenix version:** *unverified in this development/CI environment* (no Free Flight + Fenix available for agent verification). Live Free Flight with a current Fenix A320 MSFS 2024 build is still recommended once.
+**Tested Fenix version:** package LVars verified from installed `fnx-aircraft-320`; live cockpit re-test recommended after host publish.
 
 ### Known limitations
 
-- Host action pipeline = SimConnect `TransmitEvent` / local SetSimVar only — **no LVar / H-Event / B-Event write bridge**.
-- True Fenix-only overhead/FCU systems that require custom variables remain Unable or base best-effort until a future bridge exists.
-- Automatic aircraft detection: **done** (`auto_detect_aircraft` + `aircraft_detection.json`; live TITLE/ATC MODEL).
+- Host can `TransmitEvent` + SimConnect **SetDataOnSimObject** for `L:` / `A:` names (no SPAD/AAO). H-Events/B-Events still not bridged.
+- Exterior light **switch** animation still needs `S_OH_EXT_LT_*` LVars (next fix).
+- Automatic aircraft detection: **default on** (`auto_detect_aircraft: true`); rules in `aircraft_detection.json` (Fenix → `fenix_a320`).
 
 ### Original goal (reference)
 
@@ -29,13 +29,14 @@ Core groups map via standard SimConnect **events** (gear, external lights, flaps
 
 - [x] Profil wählbar über `settings.json` → `aircraft_profile` (`fenix_a320`) und GUI.
 - [x] Mindestens: Gear, Lights (Landing/Taxi/Strobe/Beacon/Nav), Flaps, AP Master, Parking Brake (+ FD) mapped as events.
+- [x] Gear lever LVar `S_MIP_GEAR` + positive-rate phraseology.
 - [x] FCU mode holds: Unable; bug/var inc/dec best-effort.
-- [ ] Live-Test in Free Flight mit Fenix A320 und Host-Log `LIVE event sent` + sichtbare Cockpit-Reaktion (human / sim environment).
+- [ ] Live-Test in Free Flight mit Fenix A320 und Host-Log `LIVE event sent` / `LIVE SetSimVar` + sichtbare Cockpit-Reaktion (human).
 
 ### Optional backlog
 
-- LVar/H-Event bridge (architecture extension — out of current non-goals).
-- Auto profile switch by aircraft title.
+- Broader Fenix LVar map for overhead (anti-ice, APU, …).
+- H-Event / B-Event bridge if SetDataOnSimObject is insufficient on a future Fenix build.
 
 ---
 

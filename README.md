@@ -38,8 +38,9 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 | Tab | Contents |
 |-----|----------|
 | **Status** | SimConnect connected/IsLive/errors, **detected aircraft** (TITLE or Unknown), active aircraft profile, last phrase + confidence, last action, mic indicator, versions |
+| **Manual** | Categorized buttons for every loaded voice command (active profile). Click to fire (bypasses wake/PTT; conditions still apply). Refresh after profile switch. |
 | **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
-| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft**, **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
+| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
 
 Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
@@ -114,20 +115,24 @@ Default settings (`config/settings.json`):
 | PTT key | `F12` |
 | Continuous listen | `false` (wake word **or** PTT required) |
 | PTT grace | `ptt_grace_ms` = 3000 (bare phrases OK for ~3 s after releasing PTT) |
-| Confidence threshold | `0.75` |
+| Confidence threshold | `0.70` |
 | TTS voice | Microsoft David (if installed) |
-| Gear-up gate | Positive climb required (`require_positive_climb_for_gear_up`) |
+| Gear-up gate | Positive climb required (`require_positive_climb_for_gear_up`); Fenix: airborne + VS &gt; 0 |
+| Auto aircraft detect | **on** (`auto_detect_aircraft`) |
 | Live SimConnect | Requires MSFS `SimConnect.dll` + Free Flight; GUI must show **Live** |
 
 **Examples**
 
-- `Co Pilot positive climb gear up` → checks VS & gear → “Checked. Gear up.” → `GEAR_UP`
+- `Co Pilot positive rate gear up` / `positive climb gear up` → conditions → “Checked. Gear up.” → event (+ Fenix lever LVar)
 - Hold **F12** and say `landing lights on` → no wake word needed while PTT is held (plus grace after release)
-- `Co Pilot flaps up` / `autopilot on` / `anti ice on` / `parking brake set` / …
+- `Co Pilot arm spoilers` / `flaps up` / `autopilot on` / `parking brake set` / …
 
 Bare phrases without wake word or PTT are **ignored** when `continuous_listen` is false.
 
-In the GUI **Debug** tab you can inject phrases (optional **Force** bypasses the wake/PTT gate).
+Phrase matching uses **whole words** (not loose substrings) and may re-rank Windows Speech **alternates** against the loaded catalog.
+
+In the GUI **Manual** tab you can fire any loaded command by button (bypasses wake/PTT; conditions still apply).  
+In the **Debug** tab you can inject phrases (optional **Force** bypasses the wake/PTT gate).
 
 ---
 
@@ -142,11 +147,18 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
-| `aircraft/fenix_a320.json` | **Fenix A320** — core gear/lights/flaps/brake/AP/FD via SimConnect events; unmapped FCU modes speak Unable |
+| `aircraft/fenix_a320.json` | **Fenix A320** — SimConnect events **+** Fenix LVars (`L:S_MIP_GEAR`, `L:S_OH_EXT_LT_*`); unmapped FCU modes speak Unable |
 
-**Auto aircraft detection:** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json`. Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
+**Auto aircraft detection (default on):** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json` (e.g. title contains `fenix` → `fenix_a320`). Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
 
-**Fenix A320 profile:** set `aircraft_profile` to `fenix_a320` in `settings.json`, or pick it in the GUI Settings profile list, then **Apply** / **Save** / **Reload**. No app restart required. Live cockpit effect requires Free Flight with Fenix loaded and status **Live**. Notes and limitations (including that this host cannot write Fenix-only LVars/H-Events) live in the profile JSON. Fenix build verification in this repo environment: **unverified** (no Free Flight + Fenix in CI).
+**Fenix A320 profile:** selected manually via Settings / `aircraft_profile`, or **auto** when TITLE matches. Gear and exterior light commands send standard events **and** write documented Fenix LVars through SimConnect `SetDataOnSimObject` (no third-party tools). H-Events / B-Events are not bridged. Live Free Flight re-test recommended after each Fenix update.
+
+**Action types in JSON:**
+
+| `type` | Meaning |
+|--------|---------|
+| `event` | `TransmitClientEvent` (e.g. `GEAR_UP`, `LANDING_LIGHTS_ON`) |
+| `set_simvar` / `simvar` | Live write of `A:` or `L:` name when connected (`SetDataOnSimObject`) |
 
 Next to the host EXE (also under `extras/`):
 
@@ -188,8 +200,10 @@ CO_Pilot_msfs2024/
 
 Host source highlights:
 
-- `Host/HostSession.cs` — session shared by GUI and headless (settings, speech, SimConnect, inject)
-- `Ui/MainWindow.xaml` — Status / Settings / Debug
+- `Host/HostSession.cs` — session shared by GUI and headless (settings, speech, SimConnect, inject, `RunCatalogCommand`)
+- `Ui/MainWindow.xaml` — Status / Manual / Settings / Commands / Debug
+- `Core/CommandCatalogGroups.cs` — Manual-tab categories (no WPF)
+- `Core/PhraseMatcher.cs` — whole-word match + STT alternate re-rank
 - `Config/`, `Core/`, `SimConnect/`, `Speech/` — no WPF dependencies
 
 ---

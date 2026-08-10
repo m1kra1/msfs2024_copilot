@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Speech.Recognition;
 using System.Speech.Synthesis;
+using CoPilotVoiceHost.Core;
 using CoPilotVoiceHost.Models;
 
 namespace CoPilotVoiceHost.Speech;
@@ -106,6 +107,12 @@ public sealed class WindowsSpeechRecognitionService : ISpeechRecognitionService
     /// <summary>Optional override for tests; default polls <see cref="PttKeyboard"/> for settings.PttKey.</summary>
     public Func<bool>? IsPttActive { get; set; }
 
+    /// <summary>
+    /// Optional phrase matcher used to re-rank STT alternates (reduces spoiler↔strobe style confusions).
+    /// Set by HostSession after catalog rebuild.
+    /// </summary>
+    public PhraseMatcher? Matcher { get; set; }
+
     public WindowsSpeechRecognitionService(SpeechSettings settings)
     {
         _settings = settings;
@@ -143,6 +150,20 @@ public sealed class WindowsSpeechRecognitionService : ISpeechRecognitionService
         var grammar = new Grammar(gb) { Name = HostConstants.SpeechGrammarName };
         _engine.LoadGrammar(grammar);
         _engine.SpeechRecognized += OnRecognized;
+
+        // Snappier turn-taking: less trailing silence required before a result is committed.
+        try
+        {
+            _engine.InitialSilenceTimeout = TimeSpan.FromSeconds(5);
+            _engine.BabbleTimeout = TimeSpan.FromSeconds(0);
+            _engine.EndSilenceTimeout = TimeSpan.FromMilliseconds(700);
+            _engine.EndSilenceTimeoutAmbiguous = TimeSpan.FromMilliseconds(1100);
+        }
+        catch
+        {
+            // Some runtimes ignore timeout setters
+        }
+
         try
         {
             _engine.SetInputToDefaultAudioDevice();
@@ -189,18 +210,57 @@ public sealed class WindowsSpeechRecognitionService : ISpeechRecognitionService
             return;
         }
 
+        var text = e.Result.Text;
+        var chosenConf = conf;
+
+        // Re-rank primary + alternates against the command catalog when available.
+        try
+        {
+            var hyps = new List<(string Text, float Confidence)> { (e.Result.Text, conf) };
+            if (e.Result.Alternates is { Count: > 0 })
+            {
+                foreach (var alt in e.Result.Alternates.Take(6))
+                {
+                    if (string.IsNullOrWhiteSpace(alt.Text))
+                        continue;
+                    if (hyps.Any(h => h.Text.Equals(alt.Text, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    hyps.Add((alt.Text, alt.Confidence));
+                }
+
+                if (hyps.Count > 1)
+                    Console.WriteLine($"[Speech] Alternates: {string.Join(" | ", hyps.Select(h => $"{h.Confidence:F2}:{h.Text}"))}");
+            }
+
+            if (Matcher is not null && hyps.Count > 0)
+            {
+                var (cmd, phrase, chosen, c) = Matcher.MatchBestHypothesis(hyps, _settings.WakeWord);
+                if (cmd is not null && !string.IsNullOrWhiteSpace(chosen))
+                {
+                    if (!chosen.Equals(text, StringComparison.OrdinalIgnoreCase))
+                        Console.WriteLine($"[Speech] Re-ranked '{text}' → '{chosen}' (phrase '{phrase}', id={cmd.Id})");
+                    text = chosen;
+                    chosenConf = c > 0 ? c : conf;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Speech] Alternate re-rank skipped: {ex.Message}");
+        }
+
         // Refresh PTT state on every recognition when not continuous
         var ptt = IsPttActive?.Invoke()
                   ?? PttKeyboard.IsKeyDown(_settings.PttKey);
         _gate.SetPtt(ptt);
 
-        if (!_gate.TryAccept(e.Result.Text, out var commandText, out var reason))
+        if (!_gate.TryAccept(text, out var commandText, out var reason))
         {
-            Console.WriteLine($"[Speech] {reason}: {e.Result.Text}");
+            Console.WriteLine($"[Speech] {reason}: {text}");
             return;
         }
 
-        PhraseRecognized?.Invoke(commandText, conf);
+        PhraseRecognized?.Invoke(commandText, chosenConf);
     }
 
     private static CultureInfo SafeCulture(string name)

@@ -13,6 +13,7 @@ Package: private-utility-copilot-voice | Creator: Private | Type: MISC (Communit
 - Commands are 100 % JSON-driven: base_commands.json + aircraft/*.json (merge on load). No aircraft-specific C# hardcoding of events.
 - UI (`Ui/`, WPF XAML) is a thin shell over HostSession; do not put recognition, catalog, or SimConnect logic in the UI layer.
 - **Commands tab** edits working copies of base + active profile in the UI, then calls `HostSession.ApplyCommandSources` (merge + optional disk save). Persistence stays in ConfigLoader/JSON — no command tables hardcoded in C#.
+- **Manual tab** builds categorized buttons from the live catalog via Core `CommandCatalogGroups` + `HostSession.RunCatalogCommand` (force-gate inject of first phrase). No command logic in the UI beyond layout/click → session.
 
 ## Key Paths
 - Host source: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost/`
@@ -34,27 +35,32 @@ Package: private-utility-copilot-voice | Creator: Private | Type: MISC (Communit
 1. Utility mod only.
 2. Out-of-process host for STT/TTS/SimConnect.
 3. No core logic in WASM.
-4. SimConnect only (standard events/SimVars; LVars only via JSON profiles).
-5. Context-aware actions (e.g. gear-up positive-climb gate).
+4. SimConnect only (standard events/SimVars; **LVars via JSON** `set_simvar` actions — host writes live with `SetDataOnSimObject`; no SPAD/AAO).
+5. Context-aware actions (e.g. gear-up positive-climb / airborne gate; Fenix uses VS + `SIM ON GROUND`).
 6. Modular JSON profiles; unique SimConnect app name `"PrivateCoPilotVoice"`.
 7. No busy SimVar polling.
 8. Private use only.
 9. Core free of WPF.
 
 ## Runtime pipeline (do not reorder)
-1. Speech gate (wake word / PTT / continuous_listen) → phrase text
-2. `PhraseMatcher` (longer phrases win)
+1. Speech gate (wake word / PTT / continuous_listen) → phrase text  
+   (Windows STT may re-rank **alternates** via `PhraseMatcher.MatchBestHypothesis` before gate)
+2. `PhraseMatcher` — **whole-word token sequences** (exact / end / contiguous tokens; no loose substring `Contains`); longer phrases win on ties
 3. `ConditionEngine` (SimVars + behavior flags)
 4. TTS response (confirm delay when enabled)
-5. `ActionExecutor` → SimConnect events (skipped when `actions: []`)
+5. `ActionExecutor` → SimConnect `event` and/or `set_simvar` / `simvar` (skipped when `actions: []`)
 
-Shared entry points: `HostSession.InjectPhrase` / `HandlePhrase` → `CommandProcessor.Process` (GUI Debug inject and headless `--inject` use the same path).
+Shared entry points:
+- `HostSession.InjectPhrase` / `HandlePhrase` → `CommandProcessor.Process` (GUI Debug inject and headless `--inject`)
+- `HostSession.RunCatalogCommand(id)` → Manual tab (force-gate + first phrase / wake-prefixed text)
 
 ## Command Schema (current)
 Each command in `base_commands.json` / aircraft profiles:
 - `id`, `phrases[]`, `response`, `reject_response` (optional)
 - `conditions[]` (`simvar` / `op` / `value` / `units`)
-- `actions[]` (`type=event`, `name=...`)
+- `actions[]`:
+  - `{ "type": "event", "name": "GEAR_UP" }`
+  - `{ "type": "set_simvar", "name": "L:S_MIP_GEAR", "value": 0, "units": "number" }` (live write when SimConnect IsLive)
 - optional flags: `require_positive_climb_flag`, `checklist`
 
 ### Merge rules
@@ -88,20 +94,34 @@ Each command in `base_commands.json` / aircraft profiles:
 - `continuous_listen=true` accepts bare phrases.
 - Inject in tests/GUI: include wake word (e.g. `"Co Pilot …"`) or use force-gate / `--ptt` as appropriate.
 
-## Aircraft auto-detect (optional)
-- Settings: `auto_detect_aircraft`, `announce_profile_switch` in `settings.json` / GUI Settings.
-- Rules: `config/aircraft_detection.json` (case-insensitive contains; first match; `fallback_profile`).
+## Aircraft auto-detect
+- **Default ON** in shipped `settings.json`: `auto_detect_aircraft: true`, `announce_profile_switch: true`.
+- Rules: `config/aircraft_detection.json` (case-insensitive contains; first match; `fallback_profile`). Fenix rule (`pattern: fenix`) → `fenix_a320` before generic A320.
 - Live only: SimConnect TITLE + ATC MODEL (SECOND period). Identity change → `RebuildCatalogFromCurrentSettings` + pipeline/speech rebuild.
 - CLI `--profile` locks auto **switching** (title still shown). Offline → title Unknown, no crash.
 - Pure matcher: `AircraftProfileMatcher` (no WPF / no Sim I/O).
+
+## Fenix profile notes (agent-facing)
+- Lever: `L:S_MIP_GEAR` (0=UP, 1=DOWN) from Fenix `Cockpit_Behavior.xml`.
+- Exterior lights: `L:S_OH_EXT_LT_LANDING_L/R` (0=RETRACT,1=OFF,2=ON), `NOSE`, `STROBE`, `BEACON`, `NAV_LOGO`.
+- Gear-up gate on Fenix: positive VS + not on ground (not `GEAR POSITION == 1`).
+- Prefer JSON profile overrides over C# aircraft branches. H-Event / B-Event bridge still optional backlog (`FUTURE.md`).
+
+## GUI tabs (thin shell)
+| Tab | Role |
+|-----|------|
+| Status | Live/Offline, detected aircraft, profile, last phrase/action |
+| Settings | Apply / Save / Reload; auto-detect; profile combo |
+| **Manual** | Categorized fire buttons → `RunCatalogCommand` |
+| Commands | Edit base + profile JSON working copies |
+| Debug | Log, inject, reconnect, test TTS |
 
 ## Current Version & Branch
 - Package/app baseline **1.2.x** on **`dev`** (WPF GUI + HostSession + headless). **`main`** = stable baseline.
 - Check `CHANGELOG.md` / `manifest.json` for the latest package_version; do not invent version bumps without user intent.
 
 ## Docs Workflow
-Every meaningful change → update `README.md` + `CHANGELOG.md` (and `FUTURE.md` when closing/adding planned items), then push to **`dev`** when the user wants it published.
-Keep `AGENTS.md` accurate when architecture or agent-facing conventions change.
+Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change (and `FUTURE.md` when closing/adding planned items), then push to **`dev`** when the user wants it published.
 
 ## Testing Expectations
 - Unit tests must stay green:  
@@ -127,4 +147,4 @@ Keep `AGENTS.md` accurate when architecture or agent-facing conventions change.
 - Add public distribution / marketplace packaging assumptions (private utility only).
 
 ## Related planning
-- Near-term ideas and done backlog items: `FUTURE.md` (e.g. Fenix A320 profile next; `list_commands` done).
+- Near-term ideas and done backlog items: `FUTURE.md` (Fenix profile + LVar set_simvar + list_commands + Manual tab done; broader overhead LVars / H-B bridge optional).

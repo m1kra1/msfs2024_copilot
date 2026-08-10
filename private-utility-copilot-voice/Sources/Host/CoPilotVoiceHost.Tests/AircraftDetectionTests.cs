@@ -239,6 +239,8 @@ public class AircraftDetectionTests
             });
             session.Start();
 
+            // Explicitly disable auto (default settings may enable it)
+            session.Settings.AutoDetectAircraft = false;
             Assert.False(session.Settings.AutoDetectAircraft);
             session.Log.Clear();
 
@@ -409,6 +411,8 @@ public class AircraftDetectionTests
             session.Start();
 
             // Auto off: observe Fenix identity (display only — must not stamp switch key)
+            session.Settings.AutoDetectAircraft = false;
+            session.Settings.AircraftProfile = "generic";
             Assert.False(session.Settings.AutoDetectAircraft);
             session.ProcessAircraftIdentity("Fenix A320-214 CFM", "A320");
             Assert.Equal("Fenix A320-214 CFM", session.DetectedAircraftTitle);

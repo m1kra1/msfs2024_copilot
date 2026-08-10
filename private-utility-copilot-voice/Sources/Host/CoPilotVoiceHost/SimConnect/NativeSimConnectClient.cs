@@ -16,7 +16,10 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private volatile bool _run;
     private bool _disposed;
     private readonly Dictionary<string, uint> _eventMap = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Write definitions for SetSimVar (A:/L: vars), keyed by name|units.</summary>
+    private readonly Dictionary<string, uint> _setVarDefs = new(StringComparer.OrdinalIgnoreCase);
     private uint _nextEventId = 0xC0030001;
+    private uint _nextSetDefId = 0xC0010100;
     private bool _defsRegistered;
 
     private const uint DEFINITION_STATUS = 0xC0010001;
@@ -34,6 +37,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private const uint RECV_SIMOBJECT_DATA = 8;
     private const uint GROUP_PRIORITY_HIGHEST = 1;
     private const uint EVENT_FLAG_DEFAULT = 0;
+    /// <summary>SIMCONNECT_DATA_SET_FLAG_DEFAULT</summary>
+    private const uint DATA_SET_FLAG_DEFAULT = 0;
     /// <summary>SIMCONNECT_OPEN_CONFIGINDEX_LOCAL — use local sim without remote cfg.</summary>
     private const uint CONFIGINDEX_LOCAL = 0xFFFFFFFFu;
 
@@ -170,8 +175,54 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
     public void SetSimVar(string name, double value, string units)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("SimVar name required", nameof(name));
+
+        // Always mirror into local snapshot (offline conditions / diagnostics).
         Snapshot.Set(name, value);
-        StatusMessage = $"SetSimVar local-only: {name}={value} {units}";
+
+        if (!IsConnected)
+        {
+            StatusMessage = $"SetSimVar offline snapshot only: {name}={value} {units}";
+            return;
+        }
+
+        var datumName = name.Trim();
+        var unitName = string.IsNullOrWhiteSpace(units) ? "number" : units.Trim();
+        var key = datumName + "|" + unitName;
+
+        if (!_setVarDefs.TryGetValue(key, out var defId))
+        {
+            defId = _nextSetDefId++;
+            // Clear leftover definition id then register single FLOAT64 field.
+            try { SimConnect_ClearDataDefinition(_h, defId); } catch { /* first use */ }
+
+            var hrDef = SimConnect_AddToDataDefinition(
+                _h, defId, datumName, unitName, DATATYPE_FLOAT64, 0f, uint.MaxValue);
+            if (hrDef < 0)
+                throw new InvalidOperationException(
+                    $"AddToDataDefinition({datumName}) failed 0x{unchecked((uint)hrDef):X8}");
+
+            _setVarDefs[key] = defId;
+        }
+
+        var ptr = Marshal.AllocHGlobal(sizeof(double));
+        try
+        {
+            Marshal.StructureToPtr(value, ptr, false);
+            var hr = SimConnect_SetDataOnSimObject(
+                _h, defId, OBJECT_USER, DATA_SET_FLAG_DEFAULT, 0, sizeof(double), ptr);
+            if (hr < 0)
+                throw new InvalidOperationException(
+                    $"SetDataOnSimObject({datumName}={value}) failed 0x{unchecked((uint)hr):X8}");
+
+            Console.WriteLine($"[SimConnect] LIVE SetSimVar: {datumName}={value} {unitName}");
+            StatusMessage = $"SetSimVar: {datumName}={value} {unitName}";
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(ptr);
+        }
     }
 
     public void ReceiveMessage()
@@ -606,6 +657,21 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         uint dwData,
         uint GroupID,
         uint Flags);
+
+    [DllImport("SimConnect.dll", CallingConvention = CallingConvention.StdCall)]
+    private static extern int SimConnect_ClearDataDefinition(
+        IntPtr hSimConnect,
+        uint DefineID);
+
+    [DllImport("SimConnect.dll", CallingConvention = CallingConvention.StdCall)]
+    private static extern int SimConnect_SetDataOnSimObject(
+        IntPtr hSimConnect,
+        uint DefineID,
+        uint ObjectID,
+        uint Flags,
+        uint ArrayCount,
+        uint cbUnitSize,
+        IntPtr pDataSet);
 
     #endregion
 }
