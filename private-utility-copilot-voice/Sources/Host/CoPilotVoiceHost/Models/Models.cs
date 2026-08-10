@@ -97,6 +97,10 @@ public sealed class SpeechSettings
 
 public sealed class TtsSettings
 {
+    /// <summary>Windows | Wav | Hybrid (default Hybrid).</summary>
+    [JsonPropertyName("engine")]
+    public string Engine { get; set; } = "Hybrid";
+
     [JsonPropertyName("voice")]
     public string Voice { get; set; } = "Microsoft David";
 
@@ -105,6 +109,25 @@ public sealed class TtsSettings
 
     [JsonPropertyName("volume")]
     public int Volume { get; set; } = 100;
+
+    /// <summary>Folder name under extras/voices/ (default austrian_airlines_en_us).</summary>
+    [JsonPropertyName("voice_pack")]
+    public string VoicePack { get; set; } = "austrian_airlines_en_us";
+}
+
+/// <summary>Response kind keys used by voice-pack manifests and TTS context.</summary>
+public static class TtsResponseKind
+{
+    public const string Success = "success";
+    public const string Reject = "reject";
+}
+
+/// <summary>Known TTS engine names (settings tts.engine).</summary>
+public static class TtsEngineKind
+{
+    public const string Windows = "Windows";
+    public const string Wav = "Wav";
+    public const string Hybrid = "Hybrid";
 }
 
 public sealed class BehaviorSettings

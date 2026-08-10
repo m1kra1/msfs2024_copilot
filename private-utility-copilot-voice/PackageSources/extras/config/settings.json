@@ -13,9 +13,11 @@
     "ptt_grace_ms": 3000
   },
   "tts": {
+    "engine": "Hybrid",
     "voice": "Microsoft David",
     "rate": 0,
-    "volume": 100
+    "volume": 100,
+    "voice_pack": "austrian_airlines_en_us"
   },
   "behavior": {
     "confirm_before_action": true,

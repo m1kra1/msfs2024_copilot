@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-10 · Release **1.4.0** |
+| **Stand** | 2026-08-10 · Release **1.5.0** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -19,7 +19,7 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 | Prio | Items |
 |------|--------|
 | **P0** | A1 Live Fenix Cockpit-Verifikation (Human) |
-| **P1** | B2 WAV-Callouts · C1 LVar-Read Conditions · C2 Dynamische Event-Map · C4 `simvar_aliases` · C5 Profile-`extends` |
+| **P1** | C1 LVar-Read Conditions · C2 Dynamische Event-Map · C4 `simvar_aliases` · C5 Profile-`extends` |
 | **P2** | A4 Fenix Overhead · B5 Dynamic Info-Commands · B6 Action-Delays · B7 Command-Validierung · D1 HostSession · D2 MainWindow · D4 Config-Sync · D5 Tests |
 | **P3** | B3 Host Auto-Start · B8 SimConnect Reconnect UX · D3 Logging |
 | **Optional** | A2 iniBuilds A350 · B4 list_commands Export · C3 H/B-Event Bridge |
@@ -33,6 +33,11 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 
 MVP + Phase G (watchlists, profile `learn_watch`, debounce/group) + Phase H (action hints, export, headless dump).  
 Details: [Complete_Features.md](Complete_Features.md) §5b · [Plan_LearnMode.md](Plan_LearnMode.md) · [CHANGELOG.md](CHANGELOG.md).
+
+### B2. WAV-Callouts — **DONE** in **1.5.0**
+
+`tts.engine` Hybrid/Wav/Windows + `tts.voice_pack`; `WavTtsService` / `HybridTtsService` / manifests; Austrian + Lufthansa sample packs under `extras/voices/`.  
+Details: [Complete_Features.md](Complete_Features.md) · [Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -63,23 +68,6 @@ Details: [Complete_Features.md](Complete_Features.md) §5b · [Plan_LearnMode.md
 ---
 
 ## P1 — Hohe Priorität
-
-### B2. WAV-Callouts statt / zusätzlich zu Windows TTS
-
-**Beschreibung:** Kurze WAV-Antworten (Airline-Style) aus `extras/voices/…` statt synthetischer Stimme.
-
-**Warum:** Authentischerer Co-Pilot; Ordner `voices/copilot_en_us/` ist bereits Platzhalter.
-
-**Architektur / Implementierung:**
-1. Neue `ITtsService`-Implementierung `WavTtsService` (oder Hybrid: WAV wenn Datei existiert, sonst Windows TTS).
-2. Mapping `command_id` oder response-key → relativer WAV-Pfad (JSON in settings oder `voices/manifest.json`).
-3. Settings: `tts.engine = "Windows" | "Wav" | "Hybrid"`.
-4. Core bleibt UI-frei; HostSession wählt Service beim Pipeline-Build.
-5. Keine WASM-Beteiligung.
-
-**Prio:** P1
-
----
 
 ### C1. LVar-Read Conditions
 

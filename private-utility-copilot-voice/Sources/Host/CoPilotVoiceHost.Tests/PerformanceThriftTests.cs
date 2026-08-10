@@ -162,9 +162,11 @@ public class PerformanceThriftTests
         },
         Tts = new TtsSettings
         {
+            Engine = s.Tts.Engine,
             Voice = s.Tts.Voice,
             Rate = s.Tts.Rate,
-            Volume = s.Tts.Volume
+            Volume = s.Tts.Volume,
+            VoicePack = s.Tts.VoicePack
         },
         Behavior = new BehaviorSettings
         {

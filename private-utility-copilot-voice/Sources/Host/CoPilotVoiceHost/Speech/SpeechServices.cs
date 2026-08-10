@@ -8,8 +8,16 @@ namespace CoPilotVoiceHost.Speech;
 
 public interface ITtsService : IDisposable
 {
-    void Speak(string text, int delayMs = 0);
+    /// <param name="commandId">Optional catalog command id for WAV/Hybrid lookup.</param>
+    /// <param name="responseKind">Optional <see cref="TtsResponseKind"/> (success/reject).</param>
+    void Speak(string text, int delayMs = 0, string? commandId = null, string? responseKind = null);
     void ApplySettings(TtsSettings settings);
+}
+
+/// <summary>Plays a WAV file; cancel previous when a new play starts.</summary>
+public interface IWavPlayer : IDisposable
+{
+    void Play(string absoluteWavPath);
 }
 
 public interface ISpeechRecognitionService : IDisposable
@@ -46,7 +54,7 @@ public sealed class WindowsTtsService : ITtsService
         }
     }
 
-    public void Speak(string text, int delayMs = 0)
+    public void Speak(string text, int delayMs = 0, string? commandId = null, string? responseKind = null)
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
@@ -75,15 +83,15 @@ public sealed class WindowsTtsService : ITtsService
 /// <summary>Console-only TTS for headless / test environments. Logs [TTS] before returning.</summary>
 public sealed class ConsoleTtsService : ITtsService
 {
-    public List<(string Text, int DelayMs, long Ticks)> SpeakLog { get; } = new();
+    public List<(string Text, int DelayMs, string? CommandId, string? ResponseKind, long Ticks)> SpeakLog { get; } = new();
 
     public void ApplySettings(TtsSettings settings) { }
 
-    public void Speak(string text, int delayMs = 0)
+    public void Speak(string text, int delayMs = 0, string? commandId = null, string? responseKind = null)
     {
         if (delayMs > 0)
             Thread.Sleep(delayMs);
-        SpeakLog.Add((text, delayMs, Environment.TickCount64));
+        SpeakLog.Add((text, delayMs, commandId, responseKind, Environment.TickCount64));
         Console.WriteLine($"[TTS] {text}");
     }
 

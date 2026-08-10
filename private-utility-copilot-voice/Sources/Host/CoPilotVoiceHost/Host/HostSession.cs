@@ -502,7 +502,34 @@ public sealed class HostSession : IDisposable
 
     public void TestTts(string? text = null)
     {
-        _tts?.Speak(text ?? "Co Pilot voice check.", Settings.Behavior.CalloutDelayMs);
+        // Prefer a known pack sample so Wav/Hybrid exercise the selected voice pack when present.
+        _tts?.Speak(
+            text ?? "Co Pilot voice check.",
+            Settings.Behavior.CalloutDelayMs,
+            commandId: "gear_up",
+            responseKind: TtsResponseKind.Success);
+    }
+
+    /// <summary>Voice pack folder names under extras/voices that contain manifest.json.</summary>
+    public IReadOnlyList<string> ListAvailableVoicePacks()
+    {
+        try
+        {
+            var voicesRoot = Path.Combine(ConfigLoader.ResolveExtrasRoot(ConfigRoot), "voices");
+            if (!Directory.Exists(voicesRoot))
+                return Array.Empty<string>();
+
+            return Directory.GetDirectories(voicesRoot)
+                .Where(d => File.Exists(Path.Combine(d, "manifest.json")))
+                .Select(Path.GetFileName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .ToList()!;
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
     }
 
     public void SetContinuousListen(bool value)
@@ -943,7 +970,7 @@ public sealed class HostSession : IDisposable
             text,
             _sim.Snapshot,
             Settings.Speech.WakeWord,
-            speakWithDelay: _tts.Speak);
+            speakWithDelay: (t, d, id, kind) => _tts.Speak(t, d, id, kind));
 
         if (result is null)
         {
@@ -1236,9 +1263,11 @@ public sealed class HostSession : IDisposable
         sb.Append(Settings.Speech.ContinuousListen).Append('\u001f');
         sb.Append(Settings.Speech.ConfidenceThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture))
             .Append('\u001f');
+        sb.Append(Settings.Tts.Engine ?? "").Append('\u001f');
         sb.Append(Settings.Tts.Voice ?? "").Append('\u001f');
         sb.Append(Settings.Tts.Rate).Append('\u001f');
         sb.Append(Settings.Tts.Volume).Append('\u001f');
+        sb.Append(Settings.Tts.VoicePack ?? "").Append('\u001f');
         sb.Append(Settings.Behavior.RequirePositiveClimbForGearUp).Append('\u001f');
         sb.Append(Settings.Behavior.ConfirmBeforeAction).Append('\u001f');
         sb.Append(Settings.Behavior.CalloutDelayMs);
@@ -1308,9 +1337,11 @@ public sealed class HostSession : IDisposable
         to.Speech.ConfidenceThreshold = from.Speech.ConfidenceThreshold;
         to.Speech.ContinuousListen = from.Speech.ContinuousListen;
         to.Speech.PttGraceMs = from.Speech.PttGraceMs;
+        to.Tts.Engine = from.Tts.Engine;
         to.Tts.Voice = from.Tts.Voice;
         to.Tts.Rate = from.Tts.Rate;
         to.Tts.Volume = from.Tts.Volume;
+        to.Tts.VoicePack = from.Tts.VoicePack;
         to.Behavior.RequirePositiveClimbForGearUp = from.Behavior.RequirePositiveClimbForGearUp;
         to.Behavior.ConfirmBeforeAction = from.Behavior.ConfirmBeforeAction;
         to.Behavior.CalloutDelayMs = from.Behavior.CalloutDelayMs;
@@ -1349,17 +1380,64 @@ public sealed class HostSession : IDisposable
         }
     }
 
-    private static ITtsService CreateTts(TtsSettings settings)
+    private ITtsService CreateTts(TtsSettings settings)
     {
+        var engine = NormalizeTtsEngine(settings.Engine);
+        var extrasRoot = ConfigLoader.ResolveExtrasRoot(ConfigRoot);
+        var pack = string.IsNullOrWhiteSpace(settings.VoicePack)
+            ? "austrian_airlines_en_us"
+            : settings.VoicePack.Trim();
+
         try
         {
+            if (string.Equals(engine, TtsEngineKind.Wav, StringComparison.OrdinalIgnoreCase))
+            {
+                var wav = new WavTtsService(extrasRoot, pack);
+                wav.ApplySettings(settings);
+                Log.Info($"[TTS] engine=Wav voice_pack={pack}");
+                return wav;
+            }
+
+            if (string.Equals(engine, TtsEngineKind.Hybrid, StringComparison.OrdinalIgnoreCase))
+            {
+                var wav = new WavTtsService(extrasRoot, pack);
+                ITtsService windows;
+                try
+                {
+                    windows = new WindowsTtsService();
+                    windows.ApplySettings(settings);
+                }
+                catch
+                {
+                    windows = new ConsoleTtsService();
+                }
+
+                var hybrid = new HybridTtsService(wav, windows, ownsFallback: true);
+                hybrid.ApplySettings(settings);
+                Log.Info($"[TTS] engine=Hybrid voice_pack={pack}");
+                return hybrid;
+            }
+
+            // Windows (default / unknown)
+            if (!string.Equals(engine, TtsEngineKind.Windows, StringComparison.OrdinalIgnoreCase))
+                Log.Warn($"[TTS] Unknown engine '{settings.Engine}' — using Windows.");
+
             var tts = new WindowsTtsService();
             tts.ApplySettings(settings);
+            Log.Info("[TTS] engine=Windows");
             return tts;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warn($"[TTS] CreateTts failed ({ex.Message}) — console fallback.");
             return new ConsoleTtsService();
         }
+    }
+
+    private static string NormalizeTtsEngine(string? engine)
+    {
+        if (string.IsNullOrWhiteSpace(engine))
+            return TtsEngineKind.Hybrid;
+        return engine.Trim();
     }
 }

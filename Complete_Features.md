@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-10 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.4.0** |
+| **Baseline** | Package/App **1.5.0** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec (shipped): [Plan_LearnMode.md](Plan_LearnMode.md) |
 
 ---
@@ -57,7 +57,7 @@ Feste Reihenfolge (nicht umordnen):
    (Windows STT kann Hypothesen über `PhraseMatcher.MatchBestHypothesis` re-ranken)
 2. **PhraseMatcher** — Whole-Word-Token-Sequenzen (exact / end / contiguous; **kein** loses `Contains`); längere Phrasen gewinnen bei Gleichstand
 3. **ConditionEngine** — SimVars + Behavior-Flags
-4. **TTS-Response** — optional Confirm-Delay (`callout_delay_ms`)
+4. **TTS-Response** — optional Confirm-Delay (`callout_delay_ms`); engine **Windows** / **Wav** / **Hybrid** with optional voice-pack WAV by `command_id` + kind
 5. **ActionExecutor** — `event` und/oder `set_simvar` (übersprungen bei `actions: []`)
 
 ### Einstiegspunkte
@@ -81,7 +81,7 @@ Start ohne `--headless` öffnet ein dunkles Cockpit-UI (`Themes/DarkCockpit.xaml
 | **Manual** | Kategorisierte Buttons für den **aktuell geladenen** Katalog (profilabhängig). Klick → `RunCatalogCommand` (bypassed Wake/PTT; Conditions gelten weiter). Refresh nach Profilwechsel |
 | **Learn** | Control Capture (Live): Watches (Status + Katalog + watchlist + profile `learn_watch` + Manual); Debounce/Group; Action-Hints; Export JSON; Create/Edit → Save **aktives Profil**; DEF_LEARN SECOND; Suppress ~750 ms |
 | **Commands** | Browse/Filter des gemergten Katalogs; Phrases/TTS/Actions/Conditions editieren; Add/Delete; **Apply** (Memory) / **Save** (`base_commands.json` + aktives Aircraft-Profil) |
-| **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder** |
+| **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, **TTS engine** (Windows/Wav/Hybrid), **voice pack**, Windows TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live-Log (bounded ~2000 Zeilen), Phrase-Inject (+ Force Gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, Continuous-Listen-Toggle |
 
 **Weitere UI-Features**
@@ -209,6 +209,18 @@ Jedes Command in `base_commands.json` / Aircraft-Profilen:
 ### 6.5 Manual-Tab Kategorien (`CommandCatalogGroups`)
 
 Gear · Lights · Flaps · Autopilot / FCU · Anti-ice · Brakes / Spoilers · APU / Systems · Overhead · Checklists · Info · Other
+
+### 6.6 TTS / WAV-Callouts (B2)
+
+| Aspekt | Umsetzung |
+|--------|-----------|
+| Settings | `tts.engine` = `Windows` \| `Wav` \| `Hybrid` (Default **Hybrid**); `tts.voice_pack` (Default `austrian_airlines_en_us`) |
+| Services | `WindowsTtsService`, `WavTtsService`, `HybridTtsService` (WAV first → Windows fallback); `--no-tts` → `ConsoleTtsService` |
+| Mapping | `extras/voices/{pack}/manifest.json`: `command_id` + `kind` (`success`/`reject`); `*` wildcard for reject |
+| Playback | Built-in `System.Media.SoundPlayer` via `IWavPlayer` — no extra NuGet |
+| Context | `CommandProcessor` passes command id + response kind into `ITtsService.Speak` |
+| Sample packs | `austrian_airlines_en_us`, `lufthansa_en_us` (core gear/lights/flaps/park brake/AP/anti-ice + unable) |
+| UI | Settings: Engine + Voice Pack ComboBoxes; Debug Test TTS uses `gear_up` success sample when pack maps it |
 
 ---
 
@@ -448,6 +460,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.2.1** | Dark Cockpit Theme, ComboBox/Scrollbar-Fixes |
 | **1.3.0** | Auto-Detect, Fenix hybrid LVar P0–P3, Manual/Commands-Tabs, list_commands, live SetSimVar, Flight Data Dashboard, Speech whole-word + alternates, Performance thrift, Docs SSOT (Complete_Features / Backlog) |
 | **1.4.0** | Learn Mode full (MVP + watchlists, profile learn_watch, debounce/group, action hints, export, headless dump) |
+| **1.5.0** | B2 WAV callouts: Hybrid/Wav/Windows TTS engines, voice packs + manifests, Austrian Airlines & Lufthansa samples |
 
 ---
 

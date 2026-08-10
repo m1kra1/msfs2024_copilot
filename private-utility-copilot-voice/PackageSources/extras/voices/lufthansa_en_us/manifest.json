@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "culture": "en-US",
+  "airline": "Lufthansa",
+  "entries": [
+    { "command_id": "gear_up", "kind": "success", "file": "gear_up_checked.wav" },
+    { "command_id": "gear_down", "kind": "success", "file": "gear_down_checked.wav" },
+    { "command_id": "landing_lights_on", "kind": "success", "file": "landing_lights_on.wav" },
+    { "command_id": "flaps_up", "kind": "success", "file": "flaps_up.wav" },
+    { "command_id": "parking_brake_on", "kind": "success", "file": "parking_brake_set.wav" },
+    { "command_id": "autopilot_on", "kind": "success", "file": "autopilot_on.wav" },
+    { "command_id": "anti_ice_on", "kind": "success", "file": "anti_ice_on.wav" },
+    { "command_id": "gear_up", "kind": "reject", "file": "unable.wav" },
+    { "command_id": "*", "kind": "reject", "file": "unable.wav" }
+  ]
+}

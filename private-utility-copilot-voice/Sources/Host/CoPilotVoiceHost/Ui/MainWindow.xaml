@@ -159,26 +159,43 @@
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Text="TTS voice" Style="{StaticResource LabelMuted}" Grid.Row="0" VerticalAlignment="Center"/>
-                  <TextBox x:Name="SetTtsVoice" Grid.Row="0" Grid.Column="1" Margin="0,5"/>
-                  <CheckBox x:Name="SetPositiveClimb" Content="Require positive climb for gear up" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10"/>
-                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="2" VerticalAlignment="Center"/>
+                  <TextBlock Text="TTS engine" Style="{StaticResource LabelMuted}" Grid.Row="0" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="SetTtsEngine"
+                            Grid.Row="0" Grid.Column="1"
+                            Margin="0,5"
+                            MaxDropDownHeight="200"
+                            ToolTip="Windows = SAPI only; Wav = pre-recorded pack only; Hybrid = WAV then Windows fallback"/>
+                  <TextBlock Text="Voice pack" Style="{StaticResource LabelMuted}" Grid.Row="1" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="SetTtsVoicePack"
+                            Grid.Row="1" Grid.Column="1"
+                            Margin="0,5"
+                            IsEditable="True"
+                            MaxDropDownHeight="240"
+                            ToolTip="Folder under extras/voices/ with manifest.json"/>
+                  <TextBlock Text="TTS voice (Windows)" Style="{StaticResource LabelMuted}" Grid.Row="2" VerticalAlignment="Center"/>
+                  <TextBox x:Name="SetTtsVoice" Grid.Row="2" Grid.Column="1" Margin="0,5"
+                           ToolTip="Windows SAPI voice name (used by Windows and Hybrid fallback)"/>
+                  <TextBlock Text="WAV callouts need matching files under extras/voices/. Hybrid falls back to Windows TTS. Sample packs: Austrian Airlines &amp; Lufthansa."
+                             Style="{StaticResource LabelMuted}" Grid.Row="3" Grid.ColumnSpan="2" TextWrapping="Wrap" Margin="0,4,0,4"/>
+                  <CheckBox x:Name="SetPositiveClimb" Content="Require positive climb for gear up" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,6,0,0"/>
+                  <TextBlock Text="Aircraft profile" Style="{StaticResource LabelMuted}" Grid.Row="5" VerticalAlignment="Center"/>
                   <!-- Full ComboBox template from theme; editable text stays high-contrast -->
                   <ComboBox x:Name="SetProfile"
-                            Grid.Row="2" Grid.Column="1"
+                            Grid.Row="5" Grid.Column="1"
                             Margin="0,5"
                             IsEditable="True"
                             MaxDropDownHeight="320"
                             ToolTip="Select aircraft command profile (manual; auto-detect can override when enabled)"/>
                   <CheckBox x:Name="SetAutoDetect"
                             Content="Auto-detect aircraft profile from SimConnect (TITLE / ATC MODEL)"
-                            Grid.Row="3" Grid.ColumnSpan="2" Margin="0,10,0,0"
+                            Grid.Row="6" Grid.ColumnSpan="2" Margin="0,10,0,0"
                             ToolTip="When Live and enabled, switches profile via config/aircraft_detection.json. CLI --profile locks auto switch."/>
                   <CheckBox x:Name="SetAnnounceProfile"
                             Content="Announce profile switch (TTS)"
-                            Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0"/>
+                            Grid.Row="7" Grid.ColumnSpan="2" Margin="0,8,0,0"/>
                 </Grid>
               </GroupBox>
               <WrapPanel Margin="0,4,0,0">

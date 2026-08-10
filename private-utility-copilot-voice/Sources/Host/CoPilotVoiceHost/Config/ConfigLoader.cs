@@ -28,6 +28,12 @@ public static class ConfigLoader
     public static string SettingsPath(string configRoot) =>
         Path.Combine(configRoot, HostConstants.SettingsFileName);
 
+    /// <summary>
+    /// Parent of config root is the extras package root (config + voices sit side-by-side).
+    /// </summary>
+    public static string ResolveExtrasRoot(string configRoot) =>
+        Path.GetFullPath(Path.Combine(configRoot, ".."));
+
     public static string BaseCommandsPath(string configRoot) =>
         Path.Combine(configRoot, HostConstants.BaseCommandsFileName);
 

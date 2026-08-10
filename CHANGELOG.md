@@ -13,6 +13,24 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.5.0] - 2026-08-10
+
+### Added
+
+- **B2 WAV callouts:** `tts.engine` = `Windows` | `Wav` | `Hybrid` (default **Hybrid**) and `tts.voice_pack` (default `austrian_airlines_en_us`).
+  - `WavTtsService` + `HybridTtsService` + `VoicePackManifest` under `Speech/`; playback via built-in `System.Media.SoundPlayer` (no new NuGet).
+  - Mapping by `command_id` + kind (`success`/`reject`) from `extras/voices/{pack}/manifest.json`, with `*` reject wildcard.
+  - Sample packs: **Austrian Airlines** and **Lufthansa** (`en_us`) with core callouts (gear, lights, flaps, park brake, AP, anti-ice, unable).
+  - Settings UI: TTS engine + voice pack ComboBoxes; Debug **Test TTS** exercises pack sample (`gear_up` success) with Windows fallback in Hybrid.
+  - `CommandProcessor` passes command id + response kind into TTS; pipeline fingerprint includes engine + pack.
+
+### Changed
+
+- **Package/app version 1.5.0** (`manifest.json`, AssetPackage, host csproj).
+- Docs: README / AGENTS / Complete_Features / Backlog aligned to B2 WAV callouts + 1.5.0.
+
+---
+
 ## [1.4.0] - 2026-08-10
 
 ### Added

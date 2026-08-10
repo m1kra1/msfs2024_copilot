@@ -686,6 +686,25 @@ public partial class MainWindow : Window
         SetConfidence.Text = s.Speech.ConfidenceThreshold.ToString(CultureInfo.InvariantCulture);
         SetPttGrace.Text = s.Speech.PttGraceMs.ToString(CultureInfo.InvariantCulture);
         SetContinuous.IsChecked = s.Speech.ContinuousListen;
+        SetTtsEngine.Items.Clear();
+        foreach (var eng in new[] { TtsEngineKind.Hybrid, TtsEngineKind.Wav, TtsEngineKind.Windows })
+            SetTtsEngine.Items.Add(eng);
+        var engine = string.IsNullOrWhiteSpace(s.Tts.Engine) ? TtsEngineKind.Hybrid : s.Tts.Engine.Trim();
+        if (!SetTtsEngine.Items.Contains(engine))
+            SetTtsEngine.Items.Add(engine);
+        SetTtsEngine.SelectedItem = engine;
+        SetTtsVoicePack.Items.Clear();
+        foreach (var pack in _session.ListAvailableVoicePacks())
+            SetTtsVoicePack.Items.Add(pack);
+        // Always offer known sample packs even if scan is empty (e.g. wrong cwd)
+        foreach (var known in new[] { "austrian_airlines_en_us", "lufthansa_en_us", "copilot_en_us" })
+        {
+            if (!SetTtsVoicePack.Items.Contains(known))
+                SetTtsVoicePack.Items.Add(known);
+        }
+        SetTtsVoicePack.Text = string.IsNullOrWhiteSpace(s.Tts.VoicePack)
+            ? "austrian_airlines_en_us"
+            : s.Tts.VoicePack;
         SetTtsVoice.Text = s.Tts.Voice;
         SetPositiveClimb.IsChecked = s.Behavior.RequirePositiveClimbForGearUp;
         SetAutoDetect.IsChecked = s.AutoDetectAircraft;
@@ -726,9 +745,16 @@ public partial class MainWindow : Window
             },
             Tts = new TtsSettings
             {
+                Engine = (SetTtsEngine.SelectedItem as string)
+                         ?? SetTtsEngine.Text?.Trim()
+                         ?? cur.Tts.Engine
+                         ?? TtsEngineKind.Hybrid,
                 Voice = SetTtsVoice.Text.Trim(),
                 Rate = cur.Tts.Rate,
-                Volume = cur.Tts.Volume
+                Volume = cur.Tts.Volume,
+                VoicePack = string.IsNullOrWhiteSpace(SetTtsVoicePack.Text)
+                    ? cur.Tts.VoicePack
+                    : SetTtsVoicePack.Text.Trim()
             },
             Behavior = new BehaviorSettings
             {

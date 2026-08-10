@@ -22,9 +22,10 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
 - Tests: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests/`
 - **Canonical config (edit here):** `private-utility-copilot-voice/PackageSources/extras/config/`
   - `settings.json`, `base_commands.json`, `aircraft_detection.json`, `aircraft/*.json`
-- Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/`
+- **Voice packs (WAV callouts):** `private-utility-copilot-voice/PackageSources/extras/voices/{pack}/` (`manifest.json` + `.wav`)
+- Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/` (+ `extras/voices/`)
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
-- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`, `Plan_LearnMode.md`
+- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`, `Plan_LearnMode.md`, `Plan_B2_WavCallouts_with_samples/`
 
 ### Build / publish / test (explicit)
 From repo root (or Host dir as noted):
@@ -68,7 +69,7 @@ CoPilotVoiceHost.exe --headless --offline --inject "Co Pilot landing lights on"
    (Windows STT may re-rank **alternates** via `PhraseMatcher.MatchBestHypothesis` before gate)
 2. `PhraseMatcher` — **whole-word token sequences** (exact / end / contiguous tokens; no loose substring `Contains`); longer phrases win on ties
 3. `ConditionEngine` (SimVars + behavior flags)
-4. TTS response (confirm delay when enabled)
+4. TTS response (confirm delay when enabled) — engine **Windows** / **Wav** / **Hybrid**; Hybrid plays `extras/voices/{voice_pack}` WAV by command id + kind, else Windows SAPI
 5. `ActionExecutor` → SimConnect `event` and/or `set_simvar` / `simvar` (skipped when `actions: []`)
 
 Shared entry points:
@@ -157,7 +158,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.4.0** on **`dev`** (Learn Mode full + prior 1.3.0 stack).
+- Package/app baseline **1.5.0** on **`dev`** (B2 WAV callouts + Learn Mode full stack).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 
@@ -197,4 +198,5 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - **Implemented features (SSOT):** `Complete_Features.md` (incl. Learn Mode §5b)
 - **Open work / improvements:** `Backlog.md` (A1 Fenix live re-test P0; later items)
 - **Learn Mode coding spec:** `Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
-- Fenix hybrid + Manual/Commands + Learn Mode full are **done** (see Complete_Features).
+- **WAV callouts (B2) coding spec:** `Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
+- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts are **done** (see Complete_Features).

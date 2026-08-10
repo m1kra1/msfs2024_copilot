@@ -161,7 +161,7 @@ public class SkepticFixTests
             new ActionExecutor(sim),
             settings.Behavior);
 
-        Action<string, int> speak = (text, delay) =>
+        Action<string, int, string?, string?> speak = (text, delay, _, _) =>
         {
             order.Add($"tts:{delay}");
             tts.Speak(text, delay);
@@ -201,7 +201,7 @@ public class SkepticFixTests
             new ActionExecutor(sim),
             settings.Behavior);
 
-        processor.Process("gear up", sim.Snapshot, speakWithDelay: (text, delay) =>
+        processor.Process("gear up", sim.Snapshot, speakWithDelay: (text, delay, _, _) =>
         {
             if (delay > 0) Thread.Sleep(delay);
             timeline.Add(("tts", Environment.TickCount64));

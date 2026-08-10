@@ -430,7 +430,7 @@ public class FenixA320ProfileTests
             "gear down",
             sim.Snapshot,
             "Co Pilot",
-            speakWithDelay: (t, _) => spoken = t);
+            speakWithDelay: (t, _, _, _) => spoken = t);
         Assert.NotNull(gear);
         Assert.True(gear!.Allowed);
         Assert.Equal("gear_down", gear.CommandId);
@@ -443,7 +443,7 @@ public class FenixA320ProfileTests
             "heading hold",
             sim.Snapshot,
             "Co Pilot",
-            speakWithDelay: (t, _) => spoken = t);
+            speakWithDelay: (t, _, _, _) => spoken = t);
         Assert.NotNull(unable);
         Assert.True(unable!.Allowed);
         Assert.Equal("ap_heading_hold", unable.CommandId);

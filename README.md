@@ -5,7 +5,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.4.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.5.0 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
@@ -43,7 +43,7 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 | **Manual** | Categorized buttons for every loaded voice command (active profile). Click to fire (bypasses wake/PTT; conditions still apply). Refresh after profile switch. |
 | **Learn** | Control capture when **Live**: watches from discrete SimVars + catalog + `learn_watchlist.json` + profile `learn_watch` + manual; detections (debounce/group); Mapped/Unmapped; create/edit → **Save to active profile**; Export JSON. Does **not** magically discover unknown LVars. |
 | **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
-| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
+| **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, **TTS engine** (Windows / Wav / Hybrid), **voice pack**, Windows TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
 | **Debug** | Live log, phrase inject (+ force gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, continuous-listen toggle |
 
 Also: **system tray** (minimize hides to tray; right-click Show / Hide / Reconnect / Exit), **Always on Top**, bottom **status bar** (green/red + Live/Offline), window title `CoPilot Voice Host – [Live|Offline]`.
@@ -121,7 +121,9 @@ Default settings (`config/settings.json`):
 | Continuous listen | `false` (wake word **or** PTT required) |
 | PTT grace | `ptt_grace_ms` = 3000 (bare phrases OK for ~3 s after releasing PTT) |
 | Confidence threshold | `0.70` |
-| TTS voice | Microsoft David (if installed) |
+| TTS engine | **Hybrid** (`Windows` \| `Wav` \| `Hybrid`) — WAV when mapped, else Windows SAPI |
+| Voice pack | `austrian_airlines_en_us` (also `lufthansa_en_us`; packs under `extras/voices/`) |
+| TTS voice (Windows) | Microsoft David (if installed); used by Windows engine and Hybrid fallback |
 | Gear-up gate | Positive climb required (`require_positive_climb_for_gear_up`); Fenix: airborne + VS &gt; 0 |
 | Auto aircraft detect | **on** (`auto_detect_aircraft`) |
 | Live SimConnect | Requires MSFS `SimConnect.dll` + Free Flight; GUI must show **Live** |
@@ -147,7 +149,8 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 
 | File | Purpose |
 |------|---------|
-| `settings.json` | SimConnect app name, speech, TTS, behavior flags, aircraft profile name, `auto_detect_aircraft`, `announce_profile_switch` |
+| `settings.json` | SimConnect app name, speech, TTS (`engine`, `voice`, `voice_pack`, rate/volume), behavior flags, aircraft profile name, `auto_detect_aircraft`, `announce_profile_switch` |
+| `../voices/{pack}/` | WAV callout packs: `manifest.json` maps `command_id` + kind → file; samples: `austrian_airlines_en_us`, `lufthansa_en_us` |
 | `aircraft_detection.json` | Auto-detect rules: case-insensitive contains patterns → profile id + `fallback_profile` |
 | `learn_watchlist.json` | Learn Mode global exclude names + default watches (merged with profile `learn_watch`) |
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |

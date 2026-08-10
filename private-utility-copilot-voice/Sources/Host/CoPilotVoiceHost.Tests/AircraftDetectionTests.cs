@@ -376,9 +376,11 @@ public class AircraftDetectionTests
             },
             Tts = new TtsSettings
             {
+                Engine = src.Tts.Engine,
                 Voice = src.Tts.Voice,
                 Rate = src.Tts.Rate,
-                Volume = src.Tts.Volume
+                Volume = src.Tts.Volume,
+                VoicePack = src.Tts.VoicePack
             },
             Behavior = new BehaviorSettings
             {

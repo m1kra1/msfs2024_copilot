@@ -73,7 +73,7 @@ public class ListCommandsTests
             "what can you do",
             sim.Snapshot,
             "Co Pilot",
-            speakWithDelay: (text, _) => spoken = text);
+            speakWithDelay: (text, _, _, _) => spoken = text);
 
         Assert.NotNull(result);
         Assert.True(result!.Allowed);

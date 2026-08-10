@@ -30,13 +30,13 @@ public sealed class CommandProcessor
 
     /// <param name="speakWithDelay">
     /// Invoked before actions on allow, and on deny for reject response.
-    /// Signature: (text, delayMs). When null, TTS is skipped but actions still run after the speak slot.
+    /// Signature: (text, delayMs, commandId, responseKind). When null, TTS is skipped but actions still run after the speak slot.
     /// </param>
     public CommandResult? Process(
         string recognizedText,
         SimVarSnapshot snapshot,
         string? wakeWord = null,
-        Action<string, int>? speakWithDelay = null)
+        Action<string, int, string?, string?>? speakWithDelay = null)
     {
         var (command, matchedPhrase, _) = _matcher.Match(recognizedText, wakeWord);
         if (command is null)
@@ -50,7 +50,7 @@ public sealed class CommandProcessor
                 : command.RejectResponse!;
 
             // Speak reject before any action (none on deny)
-            SpeakBeforeActions(speakWithDelay, reject);
+            SpeakBeforeActions(speakWithDelay, reject, command.Id, TtsResponseKind.Reject);
 
             return new CommandResult
             {
@@ -78,7 +78,7 @@ public sealed class CommandProcessor
         }
 
         // Allowed: TTS first (confirm + delay), then transmit events
-        SpeakBeforeActions(speakWithDelay, spoken);
+        SpeakBeforeActions(speakWithDelay, spoken, command.Id, TtsResponseKind.Success);
 
         var executed = _executor.Execute(command.Actions);
 
@@ -94,7 +94,11 @@ public sealed class CommandProcessor
         };
     }
 
-    private void SpeakBeforeActions(Action<string, int>? speakWithDelay, string text)
+    private void SpeakBeforeActions(
+        Action<string, int, string?, string?>? speakWithDelay,
+        string text,
+        string? commandId,
+        string responseKind)
     {
         if (speakWithDelay is null)
             return;
@@ -104,6 +108,6 @@ public sealed class CommandProcessor
             ? Math.Max(0, _behavior.CalloutDelayMs)
             : 0;
 
-        speakWithDelay(text, delayMs);
+        speakWithDelay(text, delayMs, commandId, responseKind);
     }
 }
