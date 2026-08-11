@@ -178,16 +178,21 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         if (method is null)
             throw new MissingMethodException("TransmitClientEvent");
 
+        // Align with NativeSimConnectClient: GroupID = HIGHEST priority + GROUPID_IS_PRIORITY (0x10).
         var groupType = _simConnectType.Assembly.GetType(
             "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_NOTIFICATION_GROUP_ID")
             ?? typeof(PrivateCopilotEventId);
 
-        object? groupId = Enum.ToObject(groupType, 0);
+        object? groupId = Enum.ToObject(groupType, (int)NativeSimConnectClient.GroupPriorityHighest);
         var flagType = _simConnectType.Assembly.GetType(
             "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_EVENT_FLAG");
-        object flags = flagType is not null ? Enum.ToObject(flagType, 0x10) : 0;
+        object flags = flagType is not null
+            ? Enum.ToObject(flagType, (int)NativeSimConnectClient.EventFlagGroupIdIsPriority)
+            : NativeSimConnectClient.EventFlagGroupIdIsPriority;
 
         method.Invoke(_simConnect, new object[] { 0u, enumId, data, groupId!, flags });
+        Console.WriteLine($"[SimConnect] LIVE event sent (managed): {eventName} data={data}");
+        StatusMessage = $"Event sent: {eventName}";
     }
 
     public void SetSimVar(string name, double value, string units)

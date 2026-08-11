@@ -43,8 +43,16 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     private const uint RECV_OPEN = 1;
     private const uint RECV_QUIT = 3;
     private const uint RECV_SIMOBJECT_DATA = 8;
-    private const uint GROUP_PRIORITY_HIGHEST = 1;
-    private const uint EVENT_FLAG_DEFAULT = 0;
+    /// <summary>SDK: SIMCONNECT_GROUP_PRIORITY_HIGHEST — use with <see cref="EventFlagGroupIdIsPriority"/>.</summary>
+    public const uint GroupPriorityHighest = 1;
+
+    /// <summary>
+    /// SDK: SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY (0x10).
+    /// Required so GroupID is treated as priority (not a notification group). Without this flag,
+    /// TransmitClientEvent can return S_OK while MSFS never applies the event to the aircraft.
+    /// </summary>
+    public const uint EventFlagGroupIdIsPriority = 0x10;
+
     /// <summary>SIMCONNECT_DATA_SET_FLAG_DEFAULT</summary>
     private const uint DATA_SET_FLAG_DEFAULT = 0;
     /// <summary>SIMCONNECT_OPEN_CONFIGINDEX_LOCAL — use local sim without remote cfg.</summary>
@@ -174,8 +182,10 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             _eventMap[eventName] = id;
         }
 
+        // Must pass GROUPID_IS_PRIORITY so GroupID is a priority (SDK example). Flags=0 treats
+        // GroupID as a notification group we never registered — events appear sent but sim ignores them.
         var hr = SimConnect_TransmitClientEvent(
-            _h, OBJECT_USER, id, data, GROUP_PRIORITY_HIGHEST, EVENT_FLAG_DEFAULT);
+            _h, OBJECT_USER, id, data, GroupPriorityHighest, EventFlagGroupIdIsPriority);
         if (hr < 0)
             throw new InvalidOperationException($"TransmitClientEvent({eventName}) failed 0x{hr:X8}");
 

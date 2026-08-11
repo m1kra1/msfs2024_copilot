@@ -81,7 +81,7 @@ Start ohne `--headless` öffnet ein dunkles Cockpit-UI (`Themes/DarkCockpit.xaml
 | **Manual** | Kategorisierte Buttons für den **aktuell geladenen** Katalog (profilabhängig). Klick → `RunCatalogCommand` (bypassed Wake/PTT; Conditions gelten weiter). Refresh nach Profilwechsel |
 | **Learn** | Control Capture (Live): Watches (Status + Katalog + watchlist + profile `learn_watch` + Manual); Debounce/Group; Action-Hints; Export JSON; Create/Edit → Save **aktives Profil**; DEF_LEARN SECOND; Suppress ~750 ms |
 | **Commands** | Browse/Filter des gemergten Katalogs; Phrases/TTS/Actions/Conditions editieren; Add/Delete; **Apply** (Memory) / **Save** (`base_commands.json` + aktives Aircraft-Profil) |
-| **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, **TTS engine** (Windows/Wav/Hybrid), **voice pack**, Windows TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder** |
+| **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, **TTS engine** (Windows/Wav/Hybrid), **voice pack**, Windows TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder**. **Dirty-guard:** unapplied edits are not overwritten by live Status refresh (~2 Hz) |
 | **Debug** | Live-Log (bounded ~2000 Zeilen), Phrase-Inject (+ Force Gate), Force Reconnect, Clear Logs, Test TTS, Reload Config, Continuous-Listen-Toggle |
 
 **Weitere UI-Features**
@@ -292,6 +292,8 @@ Quelle: `PackageSources/extras/config/base_commands.json` (Source of Truth).
 - Weitere Regeln: A320/A319/A321 → `a320`; 737 → `b737`
 - Live: SimConnect TITLE + ATC MODEL (SECOND period)
 - Identity-Change → Catalog + Pipeline/Speech rebuild
+- **Aus:** TITLE/ATC MODEL weiter anzeigen; **kein** Profil-Switch. Manuelles Profil: Settings-Combo + **Apply** (UI Dirty-Guard hält Checkbox/Combo bis Apply, trotz ~2 Hz Status-Refresh)
+- **false→true** Apply: einmalige Re-Eval der aktuellen Identity (Profil springt auf Match ohne neues Aircraft)
 - CLI `--profile` sperrt Auto-**Switch** (Title wird weiterhin angezeigt)
 - Offline → Title Unknown, kein Crash
 - Matcher: `AircraftProfileMatcher` (pure, kein Sim-I/O)
@@ -352,7 +354,8 @@ Airbus-Callouts für Gear-up: *positive rate*, *positive rate gear up*, …
 
 - Status-SimVars (SECOND period): Gear, VS, Flaps, AP, Lights, Park Brake, Anti-Ice, IAS, Altitude, On Ground, Ground Velocity, Heading, …
 - Aircraft Identity: TITLE, ATC MODEL; Airport Ident best-effort
-- Live **TransmitEvent** für Standard-Events (`StandardEventMap`)
+- Live **TransmitEvent** für Standard-Events (`StandardEventMap`) und dynamisch gemappte Namen
+- **Transmit-Flags (kritisch):** `SimConnect_TransmitClientEvent` mit `GroupID = HIGHEST (1)` und **`Flags = GROUPID_IS_PRIORITY (0x10)`** — Native + Managed aligned (`NativeSimConnectClient.EventFlagGroupIdIsPriority`). Ohne Flag kann der Host Live/TTS zeigen, während der Sim keine Events anwendet
 - Live **SetSimVar** für `A:`/`L:` via `SetDataOnSimObject`
 - Message Pump ~50 ms; Identity-Eval ~2 Hz (kein Busy-Poll)
 
@@ -367,6 +370,13 @@ Airbus-Callouts für Gear-up: *positive rate*, *positive rate gear up*, …
 | **Reload** | `LoadAll` von Disk (überschreibt Memory), Force Pipeline-Rebuild, Speech-Restart wenn aktiv |
 
 Nach Profilwechsel sieht `list_commands` den neuen gemergten Katalog.
+
+### Settings-UI Dirty-Guard (implementiert)
+
+- Live `StatusChanged` refresht Status-Tab und Flight Data ~2 Hz
+- Solange Settings-Controls **dirty** sind (User editiert, noch kein Apply/Save/Reload): **kein** Zurückschreiben von Session → Auto-Detect-Checkbox, Profil-Combo, Continuous/Announce usw.
+- Form **clean**: Sync erlaubt (verhindert Apply-Clobber nach Auto-Profil-Switch)
+- `LoadSettingsToUi` setzt Dirty zurück; Policy: `MainWindow.ShouldSyncSettingsControlsFromSession`
 
 ---
 
@@ -427,7 +437,7 @@ Projekt: `CoPilotVoiceHost.Tests` (~90 Tests)
 | `FenixA320ProfileTests` | Merge, dual-write, Unable FCU, Checklists |
 | `AircraftDetectionTests` | Rules, Fenix vor A320, CLI lock |
 | `ListCommandsTests` | Dynamische Liste aus Live-Katalog |
-| `GuiHostTests` | WinExe/WPF, Apply/Save/Reload Speech-Restart |
+| `GuiHostTests` | WinExe/WPF, Apply/Save/Reload Speech-Restart, Settings dirty-guard policy |
 | `PerformanceThriftTests` | No-op Apply ohne Speech-Restart |
 | `CommandEditorTests` | Commands-Tab Apply/Save-Pfad |
 | `SkepticFixTests` / `HostEntryTests` / `MaintainabilityConstantsTests` | Regressionen, Entry, Constants |
@@ -474,6 +484,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.6.0** | WPF Installer (`CoPilotVoiceSetup`): Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade |
 | **1.6.1** | Installer dark-theme control templates (readable ComboBox/Button/CheckBox); docs plans under `Plans/` |
 | **1.6.2** | Installer contrast redesign (status cards, step pills, SystemColors/ScrollBar, editable Combo chrome-free); host ComboBox fix |
+| **Unreleased (post-1.6.2)** | Live events: native `TransmitClientEvent` + `GROUPID_IS_PRIORITY`; Settings dirty-guard (Auto-Detect abschaltbar / manuelles Profil während Live-Refresh) |
 
 ---
 

@@ -1,6 +1,7 @@
 using CoPilotVoiceHost.Config;
 using CoPilotVoiceHost.Core;
 using CoPilotVoiceHost.Models;
+using CoPilotVoiceHost.SimConnect;
 using Xunit;
 
 namespace CoPilotVoiceHost.Tests;
@@ -23,6 +24,16 @@ public class MaintainabilityConstantsTests
         Assert.Equal("VERTICAL SPEED", HostConstants.VerticalSpeedSimVar);
         Assert.Equal(100, HostConstants.GearUpMinVerticalSpeedFpm);
         Assert.Equal(500, HostConstants.DefaultOfflineVerticalSpeedFpm);
+    }
+
+    /// <summary>
+    /// Live event transmit must use GROUPID_IS_PRIORITY; Flags=0 caused S_OK with no cockpit effect.
+    /// </summary>
+    [Fact]
+    public void NativeSimConnect_TransmitEventFlags_MatchSdkPriorityContract()
+    {
+        Assert.Equal(1u, NativeSimConnectClient.GroupPriorityHighest);
+        Assert.Equal(0x10u, NativeSimConnectClient.EventFlagGroupIdIsPriority);
     }
 
     [Fact]

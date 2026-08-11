@@ -63,6 +63,8 @@ Theme styles live in `Sources/Host/CoPilotVoiceHost/Themes/DarkCockpit.xaml` (me
 
 After Apply/Save, wake word, PTT, continuous listen, and profile phrases take effect on the live mic path without restarting the whole app. The **Debug** log is bounded (~2000 lines in the sink and TextBox) so long sessions do not grow UI memory without limit.
 
+**Settings edits while Live:** the Status tab refreshes flight data ~2× per second. Unapplied Settings changes (including **Auto-detect** and the **aircraft profile** combo) are **not** overwritten by that refresh — change a control, then click **Apply** or **Save**. The Status tab always shows the *active* session profile.
+
 ### Headless / CLI mode
 
 Use for automation, scripts, and the old console-style host:
@@ -188,6 +190,8 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 
 **Auto aircraft detection (default on):** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json` (e.g. title contains `fenix` → `fenix_a320`). Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
 
+**Manual profile / turn auto off:** uncheck **Auto-detect aircraft profile…** in Settings → **Apply** (or **Save**). Detected aircraft title still updates on the Status tab; the active profile no longer switches automatically. Then pick a profile in the combo and **Apply** again. Re-enable auto + **Apply** to re-match the current aircraft immediately (without needing to load a different plane).
+
 ### Study-level LVar strategy
 
 Study aircraft (Fenix A320 today; iniBuilds A350 later) use **profile overrides**, not a global LVar rewrite of `base_commands.json`:
@@ -206,7 +210,7 @@ Study aircraft (Fenix A320 today; iniBuilds A350 later) use **profile overrides*
 
 | `type` | Meaning |
 |--------|---------|
-| `event` | `TransmitClientEvent` (e.g. `GEAR_UP`, `LANDING_LIGHTS_ON`) |
+| `event` | `TransmitClientEvent` (e.g. `GEAR_UP`, `LANDING_LIGHTS_ON`) — native client uses priority + `GROUPID_IS_PRIORITY` so events actually reach the sim |
 | `set_simvar` / `simvar` | Live write of `A:` or `L:` name when connected (`SetDataOnSimObject`) |
 
 Next to the host EXE (also under `extras/`):
@@ -216,6 +220,8 @@ Next to the host EXE (also under `extras/`):
 | `SimConnect.dll` | Microsoft MSFS client (KittyHawk) |
 | `SimConnect.cfg` | Client config (default IPv4 127.0.0.1 Port **500**) |
 | `Microsoft.FlightSimulator.SimConnect.dll` | Optional managed wrapper |
+
+If the host shows **Live** and speaks the response but **nothing moves in the cockpit**, check the Debug log for `[SimConnect] LIVE event sent: …` and that you are running a current host build (native transmit flags). Also confirm Free Flight is loaded and the KittyHawk `SimConnect.dll` sits next to the EXE.
 
 Commands are JSON-driven — no aircraft-specific hardcoding in C# for events. Profiles merge on top of the base catalog.
 
@@ -349,14 +355,15 @@ Private personal project. Creator field is **Private**. Not intended for Marketp
 2. `run_copilot.bat` → window opens (dark theme)  
 3. Status bar shows **Live** (or Offline if SimConnect not connected)  
 4. Settings → change wake word → **Apply** → still shows new value; **Save** writes `settings.json`  
-5. Debug → inject `Co Pilot landing lights on` → last action / log updates  
-6. Minimize → tray icon keeps host running  
+5. Settings → uncheck **Auto-detect** → **Apply** → checkbox stays off; change profile combo → **Apply** → Status profile stays on your choice  
+6. Debug → inject `Co Pilot landing lights on` → last action / log updates; live: light moves + `LIVE event sent`  
+7. Minimize → tray icon keeps host running  
 
 ### Voice / live sim
 
 1. Free Flight + **Live** in status bar  
-2. Say: **“Co Pilot positive climb gear up”** (real climb, gear down)  
-3. Expect TTS + `[SimConnect] LIVE event sent: GEAR_UP` and gear retract  
+2. Say: **“Co Pilot positive climb gear up”** (real climb, gear down) — or inject / Manual **landing lights on** for a no-condition smoke  
+3. Expect TTS + `[SimConnect] LIVE event sent: …` and the aircraft control moves in the sim  
 
 ### Headless
 

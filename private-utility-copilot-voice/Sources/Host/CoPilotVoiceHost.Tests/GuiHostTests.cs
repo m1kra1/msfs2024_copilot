@@ -2,6 +2,7 @@ using System.Xml.Linq;
 using CoPilotVoiceHost;
 using CoPilotVoiceHost.Config;
 using CoPilotVoiceHost.Host;
+using CoPilotVoiceHost.Ui;
 using Xunit;
 
 namespace CoPilotVoiceHost.Tests;
@@ -95,6 +96,15 @@ public class GuiHostTests
         Assert.Equal(0, code);
         Assert.Contains("LANDING_LIGHTS_ON", session.LastAction, StringComparison.OrdinalIgnoreCase);
         Assert.False(session.IsLive);
+    }
+
+    [Fact]
+    public void SettingsDirty_Guard_Blocks_Session_Push_Into_Settings_Controls()
+    {
+        // Live RefreshStatus must not overwrite Settings while the form is dirty
+        // (otherwise Auto-Detect checkbox and profile combo snap back ~2 Hz).
+        Assert.True(MainWindow.ShouldSyncSettingsControlsFromSession(settingsDirty: false));
+        Assert.False(MainWindow.ShouldSyncSettingsControlsFromSession(settingsDirty: true));
     }
 
     [Fact]

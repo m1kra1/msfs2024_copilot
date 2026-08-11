@@ -25,6 +25,12 @@ public partial class MainWindow : Window
     private readonly Forms.NotifyIcon _tray;
     private bool _exitRequested;
     private bool _suppressContinuousEvent;
+    /// <summary>
+    /// True while Settings controls have user edits not yet Apply/Save/Reload'd.
+    /// Live StatusChanged (~2 Hz) must not overwrite those controls or Auto-Detect/profile cannot be changed.
+    /// </summary>
+    private bool _settingsDirty;
+    private bool _suppressSettingsDirty;
     private int _uiLogLineCount;
     private bool _logTrimScheduled;
 
@@ -74,6 +80,7 @@ public partial class MainWindow : Window
         _session.StatusChanged += () => Dispatcher.BeginInvoke(RefreshStatus);
         _session.LearnChanged += () => Dispatcher.BeginInvoke(RefreshLearnUi);
 
+        HookSettingsDirtyHandlers();
         LoadSettingsToUi();
         foreach (var line in _session.Log.Snapshot())
             AppendLogCore(line);
@@ -81,6 +88,47 @@ public partial class MainWindow : Window
         RefreshStatus();
         RefreshLearnUi();
         StatusBarVersion.Text = $"App {_session.ApplicationVersion} · pkg {_session.PackageVersion}";
+    }
+
+    /// <summary>
+    /// Live <see cref="RefreshStatus"/> may push session values into Settings controls only when the form is clean.
+    /// </summary>
+    public static bool ShouldSyncSettingsControlsFromSession(bool settingsDirty) => !settingsDirty;
+
+    private void HookSettingsDirtyHandlers()
+    {
+        void OnCheck(object sender, RoutedEventArgs e) => MarkSettingsDirty();
+        void OnText(object sender, TextChangedEventArgs e) => MarkSettingsDirty();
+        void OnSelection(object sender, SelectionChangedEventArgs e) => MarkSettingsDirty();
+
+        SetWakeWord.TextChanged += OnText;
+        SetPttKey.TextChanged += OnText;
+        SetConfidence.TextChanged += OnText;
+        SetPttGrace.TextChanged += OnText;
+        SetTtsVoice.TextChanged += OnText;
+
+        SetContinuous.Checked += OnCheck;
+        SetContinuous.Unchecked += OnCheck;
+        SetPositiveClimb.Checked += OnCheck;
+        SetPositiveClimb.Unchecked += OnCheck;
+        SetAutoDetect.Checked += OnCheck;
+        SetAutoDetect.Unchecked += OnCheck;
+        SetAnnounceProfile.Checked += OnCheck;
+        SetAnnounceProfile.Unchecked += OnCheck;
+
+        SetTtsEngine.SelectionChanged += OnSelection;
+        SetProfile.SelectionChanged += OnSelection;
+        SetTtsVoicePack.SelectionChanged += OnSelection;
+        // Editable combos: text typed into the inner TextBox.
+        SetProfile.AddHandler(System.Windows.Controls.TextBox.TextChangedEvent, new TextChangedEventHandler(OnText), handledEventsToo: true);
+        SetTtsVoicePack.AddHandler(System.Windows.Controls.TextBox.TextChangedEvent, new TextChangedEventHandler(OnText), handledEventsToo: true);
+    }
+
+    private void MarkSettingsDirty()
+    {
+        if (_suppressSettingsDirty)
+            return;
+        _settingsDirty = true;
     }
 
     private void OnLogLine(LogEntry entry)
@@ -191,15 +239,36 @@ public partial class MainWindow : Window
 
         var activeProfile = _session.AircraftProfile;
         TxtProfile.Text = activeProfile;
-        // Keep Settings combo in sync with auto-detect / session profile so Apply cannot
-        // clobber a newly auto-selected profile with a stale SetProfile.Text.
-        if (!string.Equals(SetProfile.Text, activeProfile, StringComparison.OrdinalIgnoreCase))
+
+        // Status-tab profile is always live. Settings-tab controls only sync when clean so the
+        // ~2 Hz StatusChanged poll cannot re-check Auto-Detect or force the profile combo back.
+        if (ShouldSyncSettingsControlsFromSession(_settingsDirty))
         {
-            if (!SetProfile.Items.Contains(activeProfile) && !string.IsNullOrWhiteSpace(activeProfile))
-                SetProfile.Items.Add(activeProfile);
-            SetProfile.Text = activeProfile;
-            if (_commandsLoaded)
-                ReloadCommandsEditorFromDisk(keepSelectionId: _selectedRow?.Id);
+            _suppressSettingsDirty = true;
+            try
+            {
+                // Keep Settings combo in sync with auto-detect / session profile so Apply cannot
+                // clobber a newly auto-selected profile with a stale SetProfile.Text.
+                if (!string.Equals(SetProfile.Text, activeProfile, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!SetProfile.Items.Contains(activeProfile) && !string.IsNullOrWhiteSpace(activeProfile))
+                        SetProfile.Items.Add(activeProfile);
+                    SetProfile.Text = activeProfile;
+                    if (_commandsLoaded)
+                        ReloadCommandsEditorFromDisk(keepSelectionId: _selectedRow?.Id);
+                }
+
+                _suppressContinuousEvent = true;
+                DbgContinuous.IsChecked = _session.Settings.Speech.ContinuousListen;
+                SetContinuous.IsChecked = _session.Settings.Speech.ContinuousListen;
+                SetAutoDetect.IsChecked = _session.Settings.AutoDetectAircraft;
+                SetAnnounceProfile.IsChecked = _session.Settings.AnnounceProfileSwitch;
+                _suppressContinuousEvent = false;
+            }
+            finally
+            {
+                _suppressSettingsDirty = false;
+            }
         }
 
         TxtLastPhrase.Text = string.IsNullOrWhiteSpace(_session.LastPhrase) ? "—" : _session.LastPhrase;
@@ -210,13 +279,6 @@ public partial class MainWindow : Window
             : MediaColor.FromRgb(0x3A, 0x42, 0x50));
         TxtMic.Text = _session.MicActive ? "Active (PTT/arm)" : "Idle";
         TxtVersions.Text = $"Application {_session.ApplicationVersion} · Package {_session.PackageVersion}";
-
-        _suppressContinuousEvent = true;
-        DbgContinuous.IsChecked = _session.Settings.Speech.ContinuousListen;
-        SetContinuous.IsChecked = _session.Settings.Speech.ContinuousListen;
-        SetAutoDetect.IsChecked = _session.Settings.AutoDetectAircraft;
-        SetAnnounceProfile.IsChecked = _session.Settings.AnnounceProfileSwitch;
-        _suppressContinuousEvent = false;
 
         if (_commandsLoaded)
             UpdateCmdStatusBar();
@@ -680,40 +742,51 @@ public partial class MainWindow : Window
 
     private void LoadSettingsToUi()
     {
-        var s = _session.Settings;
-        SetWakeWord.Text = s.Speech.WakeWord;
-        SetPttKey.Text = s.Speech.PttKey;
-        SetConfidence.Text = s.Speech.ConfidenceThreshold.ToString(CultureInfo.InvariantCulture);
-        SetPttGrace.Text = s.Speech.PttGraceMs.ToString(CultureInfo.InvariantCulture);
-        SetContinuous.IsChecked = s.Speech.ContinuousListen;
-        SetTtsEngine.Items.Clear();
-        foreach (var eng in new[] { TtsEngineKind.Hybrid, TtsEngineKind.Wav, TtsEngineKind.Windows })
-            SetTtsEngine.Items.Add(eng);
-        var engine = string.IsNullOrWhiteSpace(s.Tts.Engine) ? TtsEngineKind.Hybrid : s.Tts.Engine.Trim();
-        if (!SetTtsEngine.Items.Contains(engine))
-            SetTtsEngine.Items.Add(engine);
-        SetTtsEngine.SelectedItem = engine;
-        SetTtsVoicePack.Items.Clear();
-        foreach (var pack in _session.ListAvailableVoicePacks())
-            SetTtsVoicePack.Items.Add(pack);
-        // Always offer known sample packs even if scan is empty (e.g. wrong cwd)
-        foreach (var known in new[] { "austrian_airlines_en_us", "lufthansa_en_us", "copilot_en_us" })
+        _suppressSettingsDirty = true;
+        _suppressContinuousEvent = true;
+        try
         {
-            if (!SetTtsVoicePack.Items.Contains(known))
-                SetTtsVoicePack.Items.Add(known);
+            var s = _session.Settings;
+            SetWakeWord.Text = s.Speech.WakeWord;
+            SetPttKey.Text = s.Speech.PttKey;
+            SetConfidence.Text = s.Speech.ConfidenceThreshold.ToString(CultureInfo.InvariantCulture);
+            SetPttGrace.Text = s.Speech.PttGraceMs.ToString(CultureInfo.InvariantCulture);
+            SetContinuous.IsChecked = s.Speech.ContinuousListen;
+            SetTtsEngine.Items.Clear();
+            foreach (var eng in new[] { TtsEngineKind.Hybrid, TtsEngineKind.Wav, TtsEngineKind.Windows })
+                SetTtsEngine.Items.Add(eng);
+            var engine = string.IsNullOrWhiteSpace(s.Tts.Engine) ? TtsEngineKind.Hybrid : s.Tts.Engine.Trim();
+            if (!SetTtsEngine.Items.Contains(engine))
+                SetTtsEngine.Items.Add(engine);
+            SetTtsEngine.SelectedItem = engine;
+            SetTtsVoicePack.Items.Clear();
+            foreach (var pack in _session.ListAvailableVoicePacks())
+                SetTtsVoicePack.Items.Add(pack);
+            // Always offer known sample packs even if scan is empty (e.g. wrong cwd)
+            foreach (var known in new[] { "austrian_airlines_en_us", "lufthansa_en_us", "copilot_en_us" })
+            {
+                if (!SetTtsVoicePack.Items.Contains(known))
+                    SetTtsVoicePack.Items.Add(known);
+            }
+            SetTtsVoicePack.Text = string.IsNullOrWhiteSpace(s.Tts.VoicePack)
+                ? "austrian_airlines_en_us"
+                : s.Tts.VoicePack;
+            SetTtsVoice.Text = s.Tts.Voice;
+            SetPositiveClimb.IsChecked = s.Behavior.RequirePositiveClimbForGearUp;
+            SetAutoDetect.IsChecked = s.AutoDetectAircraft;
+            SetAnnounceProfile.IsChecked = s.AnnounceProfileSwitch;
+            SetProfile.Items.Clear();
+            foreach (var p in _session.ListProfiles())
+                SetProfile.Items.Add(p);
+            SetProfile.Text = s.AircraftProfile;
+            DbgContinuous.IsChecked = s.Speech.ContinuousListen;
+            _settingsDirty = false;
         }
-        SetTtsVoicePack.Text = string.IsNullOrWhiteSpace(s.Tts.VoicePack)
-            ? "austrian_airlines_en_us"
-            : s.Tts.VoicePack;
-        SetTtsVoice.Text = s.Tts.Voice;
-        SetPositiveClimb.IsChecked = s.Behavior.RequirePositiveClimbForGearUp;
-        SetAutoDetect.IsChecked = s.AutoDetectAircraft;
-        SetAnnounceProfile.IsChecked = s.AnnounceProfileSwitch;
-        SetProfile.Items.Clear();
-        foreach (var p in _session.ListProfiles())
-            SetProfile.Items.Add(p);
-        SetProfile.Text = s.AircraftProfile;
-        DbgContinuous.IsChecked = s.Speech.ContinuousListen;
+        finally
+        {
+            _suppressContinuousEvent = false;
+            _suppressSettingsDirty = false;
+        }
     }
 
     /// <summary>
@@ -844,7 +917,15 @@ public partial class MainWindow : Window
     {
         if (_suppressContinuousEvent) return;
         _session.SetContinuousListen(DbgContinuous.IsChecked == true);
-        SetContinuous.IsChecked = DbgContinuous.IsChecked;
+        _suppressSettingsDirty = true;
+        try
+        {
+            SetContinuous.IsChecked = DbgContinuous.IsChecked;
+        }
+        finally
+        {
+            _suppressSettingsDirty = false;
+        }
     }
 
     private void AlwaysOnTop_Changed(object sender, RoutedEventArgs e)

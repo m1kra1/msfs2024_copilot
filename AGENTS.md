@@ -116,11 +116,17 @@ Each command in `base_commands.json` / aircraft profiles:
 - **Save:** same as Apply + write `settings.json`.
 - **Reload:** `LoadAll` from disk (overwrites memory), force rebuild pipeline, restart speech if active.
 - After profile change, subsequent commands (including `list_commands`) must see the new merged catalog.
+- **Settings UI dirty-guard (regression-critical):** Live `StatusChanged` → `MainWindow.RefreshStatus` runs ~2 Hz. While the Settings form is **dirty** (user edited controls, not yet Apply/Save/Reload), **do not** push session values into Settings controls (Auto-Detect checkbox, profile combo, continuous, announce, etc.). Status-tab fields (`TxtProfile`, FLIGHT DATA, …) always stay live. When clean, still sync profile combo from session so Apply cannot clobber an auto-selected profile. `LoadSettingsToUi` clears dirty. Policy helper: `MainWindow.ShouldSyncSettingsControlsFromSession`. Never re-introduce unconditional `SetAutoDetect.IsChecked = Settings…` / force-`SetProfile.Text` on every refresh.
 
 ## Performance / resource notes (do not regress)
 - No busy SimVar polling; SimConnect status/aircraft data remain event/SECOND-period style. Prefer **native** SimConnect (dispatch thread) so TITLE/status arrive without a HWND; aircraft-identity + Status UI telemetry refresh ~2 Hz.
 - `UiLogSink` + Debug TextBox: bounded (~2000 lines); trim oldest under pressure.
 - Avoid duplicate background timers for PTT (session poll + HandlePhrase call `PttArmService.Poll`; do not add a second PttArm `StartPolling` on inject/--once paths).
+
+## SimConnect transmit notes (regression-critical)
+- Primary live client: **native** `NativeSimConnectClient` (managed is fallback).
+- `SimConnect_TransmitClientEvent` must use **`GroupID = SIMCONNECT_GROUP_PRIORITY_HIGHEST` (1)** and **`Flags = SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY` (0x10)**. Constants: `NativeSimConnectClient.GroupPriorityHighest` / `EventFlagGroupIdIsPriority`. Managed path must stay aligned.
+- **Do not** transmit with `Flags = 0` while passing a priority as GroupID — HRESULT can be S_OK while **MSFS never applies** the event (host Live + TTS/actions logged, cockpit dead). Smoke log: `[SimConnect] LIVE event sent: …`.
 
 ## Speech gate notes
 - Default: bare phrases rejected unless wake word present or PTT armed (`ptt_grace_ms` after key release).
@@ -131,6 +137,8 @@ Each command in `base_commands.json` / aircraft profiles:
 - **Default ON** in shipped `settings.json`: `auto_detect_aircraft: true`, `announce_profile_switch: true`.
 - Rules: `config/aircraft_detection.json` (case-insensitive contains; first match; `fallback_profile`). Fenix rule (`pattern: fenix`) → `fenix_a320` before generic A320.
 - Live only: SimConnect TITLE + ATC MODEL (SECOND period). Identity change → `RebuildCatalogFromCurrentSettings` + pipeline/speech rebuild.
+- When **off**: still update detected TITLE/model for display; **do not** switch `Settings.AircraftProfile`. Manual profile via Settings combo + **Apply** (UI dirty-guard must allow unchecking Auto-Detect and changing profile without 2 Hz snap-back).
+- false→true Apply re-evaluates current identity once (`_lastDetectedIdentityKey` cleared) so enabling auto switches without needing a new aircraft.
 - CLI `--profile` locks auto **switching** (title still shown). Offline → title Unknown, no crash.
 - Pure matcher: `AircraftProfileMatcher` (no WPF / no Sim I/O).
 
@@ -153,7 +161,7 @@ Each command in `base_commands.json` / aircraft profiles:
 | Tab | Role |
 |-----|------|
 | Status | Live/Offline, **FLIGHT DATA** (~2 Hz), detected aircraft, profile, last phrase/action |
-| Settings | Apply / Save / Reload; auto-detect; profile combo |
+| Settings | Apply / Save / Reload; auto-detect; profile combo (dirty-guard vs live RefreshStatus — see Settings section) |
 | **Manual** | Categorized fire buttons → `RunCatalogCommand` |
 | **Learn** | Control capture (Live): watches → detections → create/edit → save **active profile only** |
 | Commands | Edit base + profile JSON working copies |
@@ -186,8 +194,8 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
   `dotnet test private-utility-copilot-voice/Sources/Installer/CoPilotVoiceSetup.Tests -c Release`
 - Prefer tests that drive **shipped** code: real `ConfigLoader` / `HostSession.InjectPhrase` / `CommandProcessor` — not a reimplemented matcher.
 - Headless inject path must continue to work (`--headless --offline --inject "…"`).
-- GUI Settings Apply/Save/Reload must not regress (in-memory vs disk, speech restart, catalog profile).
-- Live path: Free Flight + correct **KittyHawk/MSFS** `SimConnect.dll` (not FSW/Dovetail) → status "Live" + `"[SimConnect] LIVE event sent: …"`.
+- GUI Settings Apply/Save/Reload must not regress (in-memory vs disk, speech restart, catalog profile, **Settings dirty-guard** / Auto-Detect uncheck + manual profile).
+- Live path: Free Flight + correct **KittyHawk/MSFS** `SimConnect.dll` (not FSW/Dovetail) → status "Live" + `"[SimConnect] LIVE event sent: …"` (native transmit flags 0x10 — see SimConnect transmit notes).
 - Human live/installer abnahme: follow root **`Live_Testing.md`** (installer contrast, install/uninstall, Live SimConnect, Fenix A1, Learn, WAV).
 - Non-regression: existing gear/lights/etc. event commands and offline inject exit codes stay valid.
 
@@ -203,6 +211,8 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - Put co-pilot logic in WASM or aircraft-specific event names in C#.
 - Busy-poll SimVars; use existing snapshot/event path.
 - Re-load settings from disk on Apply (known prior bug).
+- Overwrite Settings controls on every `RefreshStatus` while dirty (breaks Auto-Detect off / manual profile).
+- Use `TransmitClientEvent` with Flags=0 + priority GroupID (events appear sent, sim ignores them).
 - Treat `bin/` config or logs as source of truth.
 - Add public distribution / marketplace packaging assumptions (private utility only).
 - Implement Backlog items without an explicit user request.

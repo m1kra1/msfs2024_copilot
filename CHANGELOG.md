@@ -11,6 +11,11 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Live SimConnect events not applied to aircraft:** `NativeSimConnectClient.TransmitEvent` called `SimConnect_TransmitClientEvent` with `GroupID=HIGHEST` but **Flags=0**. Without `SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY` (0x10), the sim treats GroupID as a notification group (never registered) — host could show Live + recognize/voice/manual/inject commands while **no switches moved**. Native path now matches the SDK example and the managed fallback. Smoke: Free Flight Live → Manual/Inject `landing lights on` → cockpit light + log `LIVE event sent`.
+- **Settings Auto-Detect / profile UI reset while Live:** `RefreshStatus` (~2 Hz) re-applied session values into Settings checkboxes and forced the profile combo, so Auto-Detect could not stay unchecked and manual profile changes snapped back. Settings controls now use a dirty-guard: unapplied edits are kept until Apply/Save/Reload; clean form still syncs after auto profile switch.
+
 ### Added
 
 - **Live testing guide:** root `Live_Testing.md` — human checklists for installer UI/install/uninstall, host offline/live, Fenix A1, Learn Mode, WAV/Hybrid TTS (live abnahme still open as of 1.6.2).
