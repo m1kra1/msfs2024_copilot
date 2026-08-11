@@ -11,6 +11,10 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
+---
+
+## [1.6.3] - 2026-08-11
+
 ### Fixed
 
 - **Live SimConnect events not applied to aircraft:** `NativeSimConnectClient.TransmitEvent` called `SimConnect_TransmitClientEvent` with `GroupID=HIGHEST` but **Flags=0**. Without `SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY` (0x10), the sim treats GroupID as a notification group (never registered) — host could show Live + recognize/voice/manual/inject commands while **no switches moved**. Native path now matches the SDK example and the managed fallback. Smoke: Free Flight Live → Manual/Inject `landing lights on` → cockpit light + log `LIVE event sent`.
@@ -18,7 +22,11 @@ Versioning follows package `package_version` where applicable.
 
 ### Added
 
-- **Live testing guide:** root `Live_Testing.md` — human checklists for installer UI/install/uninstall, host offline/live, Fenix A1, Learn Mode, WAV/Hybrid TTS (live abnahme still open as of 1.6.2).
+- **Live testing guide:** root `Live_Testing.md` — human checklists for installer UI/install/uninstall, host offline/live, Fenix A1, Learn Mode, WAV/Hybrid TTS (live abnahme still open as of 1.6.3).
+
+### Changed
+
+- **Package/app version 1.6.3** (host + installer csproj, `manifest.json`, AssetPackage).
 
 ---
 

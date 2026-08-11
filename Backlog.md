@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-11 · Release **1.6.2** |
+| **Stand** | 2026-08-11 · Release **1.6.3** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 

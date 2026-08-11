@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-11 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.6.2** |
+| **Baseline** | Package/App **1.6.3** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Live-Test: [Live_Testing.md](Live_Testing.md) · Learn Mode Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
 
 ---
@@ -484,7 +484,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.6.0** | WPF Installer (`CoPilotVoiceSetup`): Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade |
 | **1.6.1** | Installer dark-theme control templates (readable ComboBox/Button/CheckBox); docs plans under `Plans/` |
 | **1.6.2** | Installer contrast redesign (status cards, step pills, SystemColors/ScrollBar, editable Combo chrome-free); host ComboBox fix |
-| **Unreleased (post-1.6.2)** | Live events: native `TransmitClientEvent` + `GROUPID_IS_PRIORITY`; Settings dirty-guard (Auto-Detect abschaltbar / manuelles Profil während Live-Refresh) |
+| **1.6.3** | Live events: native `TransmitClientEvent` + `GROUPID_IS_PRIORITY`; Settings dirty-guard (Auto-Detect abschaltbar / manuelles Profil während Live-Refresh); `Live_Testing.md` |
 
 ---
 

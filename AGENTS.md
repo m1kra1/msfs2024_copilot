@@ -177,7 +177,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.6.2** on **`dev`** (installer contrast redesign + UI polish + WPF installer + B2 WAV callouts + Learn Mode).
+- Package/app baseline **1.6.3** on **`dev`** (live SimConnect event flags + Settings dirty-guard; installer contrast + WPF installer + B2 WAV + Learn Mode).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 

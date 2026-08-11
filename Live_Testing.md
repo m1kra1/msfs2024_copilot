@@ -1,13 +1,13 @@
-# Live-Testing — Private Voice Co-Pilot (1.6.2)
+# Live-Testing — Private Voice Co-Pilot (1.6.3)
 
 Menschliche Abnahme in Free Flight / am Installer.  
 **Status (Stand 2026-08-11):** Live testing aktuell **noch nicht** durchgeführt.
 
 | | |
 |--|--|
-| **Baseline** | Package/App **1.6.2** (`dev` / `main`) |
+| **Baseline** | Package/App **1.6.3** (`dev` / `main`) |
 | **Dist** | `dist/CoPilotVoiceSetup/` (nach `scripts/pack-installer.ps1`) |
-| **Unit tests** | Host 119 + Installer 9 (Release) — grün vor diesem Release |
+| **Unit tests** | Host 121 + Installer 9 (Release) — grün vor diesem Release |
 | **Verwandt** | Fenix P0 Backlog **A1** · [Backlog.md](Backlog.md) · Features: [Complete_Features.md](Complete_Features.md) |
 
 Ergebnis je Block mit **Pass / Fail / N/A** und kurzer Notiz (Datum, Aircraft, Build-Pfad) unten oder in einem eigenen Log abhaken.
@@ -18,7 +18,7 @@ Ergebnis je Block mit **Pass / Fail / N/A** und kurzer Notiz (Datum, Aircraft, B
 
 ### 0.1 Build / Distribution
 
-- [ ] Repo auf **1.6.2** (`manifest.json` / Host-Version / Setup-Version)
+- [ ] Repo auf **1.6.3** (`manifest.json` / Host-Version / Setup-Version)
 - [ ] Optional frisch packen:
 
 ```powershell
@@ -210,7 +210,7 @@ Nur mit Fenix A320 in Free Flight, Status **Live**, Profil **`fenix_a320`**.
 
 | Bereich | Ergebnis | Tester | Datum |
 |---------|----------|--------|-------|
-| Installer UI 1.6.2 | Pass / Fail / Skip | | |
+| Installer UI (contrast 1.6.2+) | Pass / Fail / Skip | | |
 | Install / Uninstall | Pass / Fail / Skip | | |
 | Host Offline | Pass / Fail / Skip | | |
 | Host Live Generic | Pass / Fail / Skip | | |
