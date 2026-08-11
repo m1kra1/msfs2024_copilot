@@ -2,23 +2,42 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Private Voice Co-Pilot Setup"
-        Height="560" Width="700"
-        MinHeight="500" MinWidth="600"
+        Height="580" Width="720"
+        MinHeight="520" MinWidth="620"
         WindowStartupLocation="CenterScreen">
   <DockPanel Margin="24,20,24,16">
     <!-- Footer -->
     <StackPanel DockPanel.Dock="Bottom">
       <Border Height="1" Background="{StaticResource BorderBrushKey}" Margin="0,16,0,14"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button x:Name="BtnBack" Content="Back" Click="BtnBack_Click" IsEnabled="False" Margin="0"/>
+        <Button x:Name="BtnBack" Content="Back" Click="BtnBack_Click" IsEnabled="False" Margin="0"
+                Style="{StaticResource GhostButton}"/>
         <Button x:Name="BtnNext" Content="Next" Style="{StaticResource PrimaryButton}" Click="BtnNext_Click"/>
-        <Button x:Name="BtnCancel" Content="Cancel" Click="BtnCancel_Click"/>
+        <Button x:Name="BtnCancel" Content="Cancel" Click="BtnCancel_Click"
+                Style="{StaticResource GhostButton}"/>
       </StackPanel>
     </StackPanel>
 
     <!-- Header -->
-    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-      <TextBlock x:Name="StepText" Style="{StaticResource StepTextStyle}" Margin="0,0,0,6"/>
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+      <TextBlock x:Name="StepText" Style="{StaticResource StepTextStyle}" Margin="0,0,0,8"/>
+
+      <!-- Visual step strip (install wizard only) -->
+      <StackPanel x:Name="StepStrip" Orientation="Horizontal" Margin="0,0,0,12">
+        <Border x:Name="PillWelcome" Style="{StaticResource StepPillActive}">
+          <TextBlock x:Name="PillWelcomeLabel" Text="1 · Welcome" Style="{StaticResource StepPillLabelActive}"/>
+        </Border>
+        <Border x:Name="PillRuntime" Style="{StaticResource StepPillUpcoming}">
+          <TextBlock x:Name="PillRuntimeLabel" Text="2 · Runtime" Style="{StaticResource StepPillLabelUpcoming}"/>
+        </Border>
+        <Border x:Name="PillLocation" Style="{StaticResource StepPillUpcoming}">
+          <TextBlock x:Name="PillLocationLabel" Text="3 · Location" Style="{StaticResource StepPillLabelUpcoming}"/>
+        </Border>
+        <Border x:Name="PillOptions" Style="{StaticResource StepPillUpcoming}">
+          <TextBlock x:Name="PillOptionsLabel" Text="4 · Options" Style="{StaticResource StepPillLabelUpcoming}"/>
+        </Border>
+      </StackPanel>
+
       <TextBlock x:Name="TitleText" Text="Private Voice Co-Pilot Setup" Style="{StaticResource TitleTextStyle}"/>
       <Border Height="3" Width="48" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}"
               CornerRadius="2" Margin="0,10,0,8"/>
@@ -29,36 +48,41 @@
     <Grid>
       <!-- Welcome -->
       <StackPanel x:Name="PageWelcome" Visibility="Visible">
-        <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" FontSize="14"
+        <TextBlock Style="{StaticResource BodyTextStyle}" Margin="0,0,0,12"
                    Text="This setup copies the Co-Pilot Community package and creates shortcuts to start the out-of-process host."/>
-        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,12">
-          <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"
+        <Border Style="{StaticResource CardInfoStyle}" Margin="0,0,0,12">
+          <TextBlock Style="{StaticResource MutedTextStyle}"
                      Text="MSFS does not auto-start the host. After install: start Free Flight, then use the Desktop or Start Menu shortcut."/>
         </Border>
-        <TextBlock x:Name="WelcomeVersion" TextWrapping="Wrap" Margin="0,0,0,8" FontWeight="SemiBold"/>
-        <TextBlock x:Name="WelcomePayload" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
+        <TextBlock x:Name="WelcomeVersion" TextWrapping="Wrap" Margin="0,0,0,8" FontWeight="SemiBold"
+                   Foreground="{StaticResource FgBrush}"/>
+        <TextBlock x:Name="WelcomePayload" Style="{StaticResource MutedTextStyle}"/>
         <Button x:Name="BtnGoUninstall" Content="Uninstall existing installation…" HorizontalAlignment="Left"
-                Margin="0,20,0,0" Click="BtnGoUninstall_Click" Visibility="Collapsed"/>
+                Margin="0,20,0,0" Click="BtnGoUninstall_Click" Visibility="Collapsed"
+                Style="{StaticResource GhostButton}"/>
       </StackPanel>
 
       <!-- Runtime -->
       <StackPanel x:Name="PageRuntime" Visibility="Collapsed">
-        <TextBlock Text="Microsoft .NET 8 Desktop Runtime is required to run CoPilotVoiceHost.exe (framework-dependent)."
-                   TextWrapping="Wrap" Margin="0,0,0,14" FontSize="14"/>
-        <Border Padding="14" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,14">
+        <TextBlock Style="{StaticResource BodyTextStyle}" Margin="0,0,0,14"
+                   Text="Microsoft .NET 8 Desktop Runtime is required to run CoPilotVoiceHost.exe (framework-dependent)."/>
+        <Border x:Name="RuntimeCard" Style="{StaticResource CardInfoStyle}" Margin="0,0,0,14">
           <StackPanel>
-            <TextBlock x:Name="RuntimeStatus" FontWeight="SemiBold" FontSize="14"/>
-            <TextBlock x:Name="RuntimeHint" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/>
+            <TextBlock x:Name="RuntimeStatus" FontWeight="SemiBold" FontSize="14"
+                       Foreground="{StaticResource FgBrush}"/>
+            <TextBlock x:Name="RuntimeHint" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
-        <Button Content="Open .NET 8 download page" HorizontalAlignment="Left" Margin="0" Click="BtnDownloadDotNet_Click"/>
-        <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,16,0,0"
+        <Button Content="Open .NET 8 download page" HorizontalAlignment="Left" Margin="0"
+                Click="BtnDownloadDotNet_Click"/>
+        <TextBlock Style="{StaticResource MutedTextStyle}" Margin="0,16,0,0"
                    Text="You can still install files if the runtime is missing; launching the host will fail until it is installed."/>
       </StackPanel>
 
       <!-- Location -->
       <StackPanel x:Name="PageLocation" Visibility="Collapsed">
-        <TextBlock Text="MSFS 2024 Community folder" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"/>
+        <TextBlock Text="MSFS 2024 Community folder" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"
+                   Foreground="{StaticResource FgBrush}"/>
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -66,14 +90,16 @@
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <ComboBox x:Name="CommunityCombo" IsEditable="True" Grid.Column="0" MinHeight="36"
-                    VerticalAlignment="Center"/>
+                    VerticalAlignment="Center"
+                    LostFocus="CommunityCombo_LostFocus"
+                    DropDownClosed="CommunityCombo_DropDownClosed"/>
           <Button Content="Browse…" Grid.Column="1" Margin="10,0,0,0" Click="BtnBrowse_Click"/>
           <Button Content="Detect" Grid.Column="2" Click="BtnDetect_Click"/>
         </Grid>
-        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,14,0,0">
-          <TextBlock x:Name="LocationStatus" TextWrapping="Wrap"/>
+        <Border x:Name="LocationCard" Style="{StaticResource CardInfoStyle}" Margin="0,14,0,0">
+          <TextBlock x:Name="LocationStatus" TextWrapping="Wrap" Foreground="{StaticResource FgBrush}"/>
         </Border>
-        <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,12,0,0"
+        <TextBlock Style="{StaticResource MutedTextStyle}" Margin="0,12,0,0"
                    Text="Package will be installed as: Community\private-utility-copilot-voice\"/>
       </StackPanel>
 
@@ -83,22 +109,27 @@
         <CheckBox x:Name="OptStartMenu" Content="Create Start Menu shortcut (+ Uninstall entry)" IsChecked="True"/>
         <CheckBox x:Name="OptKeepConfig" Content="Keep my config on upgrade (settings + aircraft profiles)" IsChecked="True"/>
         <CheckBox x:Name="OptLaunch" Content="Launch host when finished"/>
-        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,18,0,0">
-          <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"
+        <Border Style="{StaticResource CardInfoStyle}" Margin="0,18,0,0">
+          <TextBlock Style="{StaticResource MutedTextStyle}"
                      Text="On upgrade, base_commands and voice packs are refreshed from the package. A config backup is always written under %LocalAppData%\PrivateCoPilotVoice\backup\."/>
         </Border>
       </StackPanel>
 
       <!-- Progress -->
       <StackPanel x:Name="PageProgress" Visibility="Collapsed">
-        <TextBlock x:Name="ProgressTitle" Text="Working…" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"/>
-        <TextBox x:Name="ProgressLog" Style="{StaticResource ProgressLogTextBox}" IsReadOnly="True" Height="260"/>
+        <TextBlock x:Name="ProgressTitle" Text="Working…" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"
+                   Foreground="{StaticResource FgBrush}"/>
+        <Border Style="{StaticResource CardInfoStyle}" Padding="0">
+          <TextBox x:Name="ProgressLog" Style="{StaticResource ProgressLogTextBox}" IsReadOnly="True"
+                   Height="260" BorderThickness="0" Background="{StaticResource InputBrush}"/>
+        </Border>
       </StackPanel>
 
       <!-- Finish -->
       <StackPanel x:Name="PageFinish" Visibility="Collapsed">
-        <Border Padding="14" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,18">
-          <TextBlock x:Name="FinishMessage" TextWrapping="Wrap" FontSize="15"/>
+        <Border x:Name="FinishCard" Style="{StaticResource CardInfoStyle}" Margin="0,0,0,18">
+          <TextBlock x:Name="FinishMessage" TextWrapping="Wrap" FontSize="15"
+                     Foreground="{StaticResource FgBrush}"/>
         </Border>
         <StackPanel Orientation="Horizontal">
           <Button x:Name="BtnLaunchHost" Content="Launch Host" Style="{StaticResource PrimaryButton}"
@@ -109,13 +140,15 @@
 
       <!-- Uninstall confirm -->
       <StackPanel x:Name="PageUninstall" Visibility="Collapsed">
-        <TextBlock TextWrapping="Wrap" Margin="0,0,0,14" FontSize="14"
+        <TextBlock Style="{StaticResource BodyTextStyle}" Margin="0,0,0,14"
                    Text="This removes the Community package folder private-utility-copilot-voice, Desktop/Start Menu shortcuts, and install metadata."/>
-        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,14">
-          <TextBlock x:Name="UninstallTarget" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
+        <Border x:Name="UninstallTargetCard" Style="{StaticResource CardInfoStyle}" Margin="0,0,0,14">
+          <TextBlock x:Name="UninstallTarget" Style="{StaticResource MutedTextStyle}"/>
         </Border>
-        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnBrush}"
-                   Text="A backup of extras\config will be saved under LocalAppData before deletion."/>
+        <Border Style="{StaticResource CardWarningStyle}">
+          <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnBrush}"
+                     Text="A backup of extras\config will be saved under LocalAppData before deletion."/>
+        </Border>
       </StackPanel>
     </Grid>
   </DockPanel>

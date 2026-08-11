@@ -5,7 +5,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.6.1 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.6.2 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)

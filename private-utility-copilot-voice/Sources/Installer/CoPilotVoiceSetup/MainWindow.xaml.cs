@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using CoPilotVoiceSetup.Core;
 using WinForms = System.Windows.Forms;
@@ -19,6 +20,14 @@ public partial class MainWindow : Window
         Progress,
         Finish,
         UninstallConfirm
+    }
+
+    private enum StatusKind
+    {
+        Info,
+        Success,
+        Warning,
+        Error
     }
 
     private WizardPage _page = WizardPage.Welcome;
@@ -42,7 +51,7 @@ public partial class MainWindow : Window
         var ver = _payloadRoot is not null
             ? PayloadLocator.ReadPackageVersion(_payloadRoot) ?? "?"
             : "?";
-        var setupVer = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.5.0";
+        var setupVer = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.6.2";
         WelcomeVersion.Text = $"Package version: {ver}  ·  Setup: {setupVer}";
         WelcomePayload.Text = _payloadRoot is not null
             ? $"Payload: {_payloadRoot}"
@@ -61,20 +70,92 @@ public partial class MainWindow : Window
             ShowPage(WizardPage.Welcome);
     }
 
+    private void SetStatusCard(Border card, TextBlock? text, StatusKind kind)
+    {
+        var styleKey = kind switch
+        {
+            StatusKind.Success => "CardSuccessStyle",
+            StatusKind.Warning => "CardWarningStyle",
+            StatusKind.Error => "CardErrorStyle",
+            _ => "CardInfoStyle"
+        };
+        card.Style = (Style)FindResource(styleKey);
+
+        if (text is null)
+            return;
+
+        text.Foreground = (Brush)FindResource(kind switch
+        {
+            StatusKind.Success => "OkBrush",
+            StatusKind.Warning => "WarnBrush",
+            StatusKind.Error => "ErrBrush",
+            StatusKind.Info => "MutedBrush",
+            _ => "FgBrush"
+        });
+    }
+
+    private void SetStepPill(Border pill, TextBlock label, string state)
+    {
+        // state: active | done | upcoming
+        pill.Style = (Style)FindResource(state switch
+        {
+            "active" => "StepPillActive",
+            "done" => "StepPillDone",
+            _ => "StepPillUpcoming"
+        });
+        label.Style = (Style)FindResource(state switch
+        {
+            "active" => "StepPillLabelActive",
+            "done" => "StepPillLabelDone",
+            _ => "StepPillLabelUpcoming"
+        });
+    }
+
+    private void UpdateStepStrip(WizardPage page)
+    {
+        var showStrip = page is WizardPage.Welcome or WizardPage.Runtime or WizardPage.Location or WizardPage.Options;
+        StepStrip.Visibility = showStrip ? Visibility.Visible : Visibility.Collapsed;
+        if (!showStrip)
+            return;
+
+        var index = page switch
+        {
+            WizardPage.Welcome => 0,
+            WizardPage.Runtime => 1,
+            WizardPage.Location => 2,
+            WizardPage.Options => 3,
+            _ => -1
+        };
+
+        void Apply(int step, Border pill, TextBlock label)
+        {
+            if (step < index) SetStepPill(pill, label, "done");
+            else if (step == index) SetStepPill(pill, label, "active");
+            else SetStepPill(pill, label, "upcoming");
+        }
+
+        Apply(0, PillWelcome, PillWelcomeLabel);
+        Apply(1, PillRuntime, PillRuntimeLabel);
+        Apply(2, PillLocation, PillLocationLabel);
+        Apply(3, PillOptions, PillOptionsLabel);
+    }
+
     private void RefreshRuntimeUi()
     {
         _runtimeOk = DotNetRuntimeChecker.IsDotNet8DesktopRuntimeInstalled();
         if (_runtimeOk)
         {
             RuntimeStatus.Text = ".NET 8 Desktop Runtime: found";
-            RuntimeStatus.Foreground = (Brush)FindResource("OkBrush");
             RuntimeHint.Text = "CoPilotVoiceHost.exe can run on this machine.";
+            SetStatusCard(RuntimeCard, RuntimeStatus, StatusKind.Success);
+            RuntimeHint.Foreground = (Brush)FindResource("MutedBrush");
         }
         else
         {
             RuntimeStatus.Text = ".NET 8 Desktop Runtime: not found";
-            RuntimeStatus.Foreground = (Brush)FindResource("ErrBrush");
             RuntimeHint.Text = "Install the Desktop Runtime (not just ASP.NET) from Microsoft, then re-check by reopening Setup.";
+            SetStatusCard(RuntimeCard, RuntimeStatus, StatusKind.Error);
+            RuntimeHint.Foreground = (Brush)FindResource("MutedBrush");
         }
     }
 
@@ -106,14 +187,14 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(path))
         {
             LocationStatus.Text = "Select or browse to your Community folder.";
-            LocationStatus.Foreground = (Brush)FindResource("MutedBrush");
+            SetStatusCard(LocationCard, LocationStatus, StatusKind.Info);
             return;
         }
 
         if (!Directory.Exists(path))
         {
             LocationStatus.Text = "Folder does not exist.";
-            LocationStatus.Foreground = (Brush)FindResource("ErrBrush");
+            SetStatusCard(LocationCard, LocationStatus, StatusKind.Error);
             return;
         }
 
@@ -125,12 +206,12 @@ public partial class MainWindow : Window
         {
             var v = PayloadLocator.ReadPackageVersion(pkg) ?? "?";
             LocationStatus.Text = $"Existing install detected (v{v}). Next step will upgrade.{warn}";
-            LocationStatus.Foreground = (Brush)FindResource("WarnBrush");
+            SetStatusCard(LocationCard, LocationStatus, StatusKind.Warning);
         }
         else
         {
             LocationStatus.Text = $"Ready to install into:{Environment.NewLine}{pkg}{warn}";
-            LocationStatus.Foreground = (Brush)FindResource("OkBrush");
+            SetStatusCard(LocationCard, LocationStatus, StatusKind.Success);
         }
     }
 
@@ -150,6 +231,11 @@ public partial class MainWindow : Window
         BtnCancel.Content = page is WizardPage.Finish ? "Close" : "Cancel";
         if (page != WizardPage.Finish)
             BtnNext.Visibility = Visibility.Visible;
+
+        // Default Next style; Uninstall overrides to destructive.
+        BtnNext.Style = (Style)FindResource("PrimaryButton");
+
+        UpdateStepStrip(page);
 
         switch (page)
         {
@@ -202,10 +288,12 @@ public partial class MainWindow : Window
                 TitleText.Text = "Uninstall";
                 SubtitleText.Text = "Remove package and shortcuts.";
                 BtnNext.Content = "Uninstall";
+                BtnNext.Style = (Style)FindResource("DestructiveButton");
                 var st = InstallStateStore.Load();
                 UninstallTarget.Text = st is not null
                     ? $"Package: {st.PackagePath}\nCommunity: {st.CommunityPath}\nVersion: {st.Version}"
                     : "No install.json — will try to remove package if path is known.";
+                SetStatusCard(UninstallTargetCard, UninstallTarget, StatusKind.Info);
                 break;
         }
     }
@@ -332,9 +420,7 @@ public partial class MainWindow : Window
                 ? $"\n\nConfig backup:\n{result.ConfigBackupPath}"
                 : "")
             : "Install failed:\n" + result.Message;
-        FinishMessage.Foreground = result.Success
-            ? (Brush)FindResource("OkBrush")
-            : (Brush)FindResource("ErrBrush");
+        SetStatusCard(FinishCard, FinishMessage, result.Success ? StatusKind.Success : StatusKind.Error);
 
         ShowPage(WizardPage.Finish);
 
@@ -373,9 +459,7 @@ public partial class MainWindow : Window
                 ? $"\n\nConfig backup kept at:\n{result.ConfigBackupPath}"
                 : "")
             : "Uninstall failed:\n" + result.Message;
-        FinishMessage.Foreground = result.Success
-            ? (Brush)FindResource("OkBrush")
-            : (Brush)FindResource("ErrBrush");
+        SetStatusCard(FinishCard, FinishMessage, result.Success ? StatusKind.Success : StatusKind.Error);
         ShowPage(WizardPage.Finish);
     }
 
@@ -416,6 +500,10 @@ public partial class MainWindow : Window
             UpdateLocationStatus();
         }
     }
+
+    private void CommunityCombo_LostFocus(object sender, RoutedEventArgs e) => UpdateLocationStatus();
+
+    private void CommunityCombo_DropDownClosed(object sender, EventArgs e) => UpdateLocationStatus();
 
     private void BtnDownloadDotNet_Click(object sender, RoutedEventArgs e)
     {

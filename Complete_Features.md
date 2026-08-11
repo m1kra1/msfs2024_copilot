@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-10 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.6.1** |
+| **Baseline** | Package/App **1.6.2** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec (shipped): [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
 
 ---
@@ -217,7 +217,7 @@ Gear · Lights · Flaps · Autopilot / FCU · Anti-ice · Brakes / Spoilers · A
 | App | `CoPilotVoiceSetup` under `Sources/Installer/` (separate from HostSession) |
 | Pack | `scripts/pack-installer.ps1` → `dist/CoPilotVoiceSetup/` + `payload/private-utility-copilot-voice` |
 | Features | Community auto-detect (`UserCfg.opt`) + Browse; copy package; Desktop + Start Menu shortcuts; .NET 8 Desktop Runtime check; upgrade keep-config; uninstall (`--uninstall`); launch after install |
-| UI | Dark theme with full control templates (`Themes/InstallerTheme.xaml`); step strip; Host-aligned readability (1.6.1) |
+| UI | Dark theme (`Themes/InstallerTheme.xaml`): contrast-safe controls (no light-on-light), status cards, step pills, Host-aligned (1.6.2) |
 | State | `%LocalAppData%\PrivateCoPilotVoice\install.json` + config backups under `backup\` |
 
 ### 6.6 TTS / WAV-Callouts (B2)
@@ -473,6 +473,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.5.0** | B2 WAV callouts: Hybrid/Wav/Windows TTS engines, voice packs + manifests, Austrian Airlines & Lufthansa samples |
 | **1.6.0** | WPF Installer (`CoPilotVoiceSetup`): Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade |
 | **1.6.1** | Installer dark-theme control templates (readable ComboBox/Button/CheckBox); docs plans under `Plans/` |
+| **1.6.2** | Installer contrast redesign (status cards, step pills, SystemColors/ScrollBar, editable Combo chrome-free); host ComboBox fix |
 
 ---
 

@@ -577,9 +577,8 @@
               </ContentPresenter.Resources>
             </ContentPresenter>
 
-            <!-- Editable text (IsEditable=True) -->
+            <!-- Editable text: chrome-free template (Style=null uses system white chrome under Light OS theme) -->
             <TextBox x:Name="PART_EditableTextBox"
-                     Style="{x:Null}"
                      Background="Transparent"
                      BorderThickness="0"
                      Foreground="{StaticResource FgBrush}"
@@ -591,7 +590,19 @@
                      VerticalAlignment="Center"
                      Focusable="True"
                      Visibility="Hidden"
-                     IsReadOnly="{TemplateBinding IsReadOnly}"/>
+                     IsReadOnly="{TemplateBinding IsReadOnly}">
+              <TextBox.Template>
+                <ControlTemplate TargetType="TextBox">
+                  <Border Background="Transparent" BorderThickness="0" SnapsToDevicePixels="True">
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden"
+                                  Background="Transparent"/>
+                  </Border>
+                </ControlTemplate>
+              </TextBox.Template>
+            </TextBox>
 
             <Popup x:Name="Popup"
                    Placement="Bottom"

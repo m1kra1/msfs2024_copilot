@@ -13,6 +13,16 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.6.2] - 2026-08-11
+
+### Changed
+
+- **Installer UI contrast redesign:** fix light-on-light text (editable ComboBox chrome-free template; SystemColors overrides; dark ScrollBar); status surfaces (Success/Warning/Error cards); visual step pills; stronger borders; button hierarchy (Primary / Ghost / Destructive Uninstall); muted text slightly brighter for panel readability.
+- **Host:** same chrome-free editable ComboBox text host in `DarkCockpit.xaml` (Windows Light theme).
+- **Package/app version 1.6.2** (host + installer csproj, `manifest.json`, AssetPackage).
+
+---
+
 ## [1.6.1] - 2026-08-11
 
 ### Changed
