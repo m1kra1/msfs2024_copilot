@@ -11,6 +11,10 @@ Versioning follows package `package_version` where applicable.
 
 ## [Unreleased]
 
+### Added
+
+- **Live testing guide:** root `Live_Testing.md` — human checklists for installer UI/install/uninstall, host offline/live, Fenix A1, Learn Mode, WAV/Hybrid TTS (live abnahme still open as of 1.6.2).
+
 ---
 
 ## [1.6.2] - 2026-08-11

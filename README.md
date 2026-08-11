@@ -9,6 +9,7 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
+- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.6.2)*
 - **Learn Mode (shipped 1.4.0):** [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
 - **Feature plans:** [Plans/](Plans/) (specs for shipped and upcoming work)
 

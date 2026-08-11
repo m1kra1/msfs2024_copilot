@@ -28,7 +28,7 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
 - **Voice packs (WAV callouts):** `private-utility-copilot-voice/PackageSources/extras/voices/{pack}/` (`manifest.json` + `.wav`)
 - Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/` (+ `extras/voices/`)
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
-- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`
+- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`, `Live_Testing.md`
 - Feature plans (future + shipped specs): `Plans/` (e.g. `Plans/Plan_LearnMode.md`, `Plans/Plan_B2_WavCallouts_with_samples/`)
 
 ### Build / publish / test (explicit)
@@ -37,6 +37,7 @@ From repo root (or Host dir as noted):
 ```bat
 dotnet build private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.sln -c Release
 dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c Release
+dotnet test private-utility-copilot-voice/Sources/Installer/CoPilotVoiceSetup.Tests -c Release
 ```
 
 Publish host into extras (from Host project directory):
@@ -181,11 +182,13 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 
 ## Testing Expectations
 - Unit tests must stay green:  
-  `dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c Release`
+  `dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c Release`  
+  `dotnet test private-utility-copilot-voice/Sources/Installer/CoPilotVoiceSetup.Tests -c Release`
 - Prefer tests that drive **shipped** code: real `ConfigLoader` / `HostSession.InjectPhrase` / `CommandProcessor` — not a reimplemented matcher.
 - Headless inject path must continue to work (`--headless --offline --inject "…"`).
 - GUI Settings Apply/Save/Reload must not regress (in-memory vs disk, speech restart, catalog profile).
 - Live path: Free Flight + correct **KittyHawk/MSFS** `SimConnect.dll` (not FSW/Dovetail) → status "Live" + `"[SimConnect] LIVE event sent: …"`.
+- Human live/installer abnahme: follow root **`Live_Testing.md`** (installer contrast, install/uninstall, Live SimConnect, Fenix A1, Learn, WAV).
 - Non-regression: existing gear/lights/etc. event commands and offline inject exit codes stay valid.
 
 ## Agent do / don't (session hygiene)
@@ -207,7 +210,8 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 ## Related planning
 - **Implemented features (SSOT):** `Complete_Features.md` (incl. Learn Mode §5b)
 - **Open work / improvements:** `Backlog.md` (A1 Fenix live re-test P0; later items)
+- **Live testing checklist (human):** `Live_Testing.md` (installer + Free Flight; not a substitute for unit tests)
 - **Learn Mode coding spec:** `Plans/Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
 - **WAV callouts (B2) coding spec:** `Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
-- New feature plans go under **`Plans/`** only (not repo root).
-- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts are **done** (see Complete_Features).
+- New feature plans go under **`Plans/`** only (not repo root). Runtime live checklists may live at repo root (`Live_Testing.md`).
+- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts + Installer (1.6.x) are **done** in code (see Complete_Features); human live abnahme still open (Live_Testing / A1).

@@ -5,10 +5,10 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 
 | | |
 |--|--|
-| **Stand** | 2026-08-10 |
+| **Stand** | 2026-08-11 |
 | **Branch** | `main` / `dev` |
 | **Baseline** | Package/App **1.6.2** |
-| **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Learn Mode Spec (shipped): [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
+| **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Live-Test: [Live_Testing.md](Live_Testing.md) · Learn Mode Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
 
 ---
 

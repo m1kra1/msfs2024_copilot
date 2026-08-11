@@ -39,9 +39,11 @@ Details: [Complete_Features.md](Complete_Features.md) §5b · [Plans/Plan_LearnM
 `tts.engine` Hybrid/Wav/Windows + `tts.voice_pack`; `WavTtsService` / `HybridTtsService` / manifests; Austrian + Lufthansa sample packs under `extras/voices/`.  
 Details: [Complete_Features.md](Complete_Features.md) · [Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
 
-### Installer (WPF Setup) — **DONE** in **1.6.0**
+### Installer (WPF Setup) — **DONE** in **1.6.0** (+ UI **1.6.1** / contrast **1.6.2**)
 
 `CoPilotVoiceSetup`: Community detect/install/uninstall, shortcuts, .NET 8 check, config-preserving upgrade. Pack: `scripts/pack-installer.ps1`.  
+UI: dark control templates (1.6.1), contrast redesign / status cards / step pills (1.6.2).  
+Human installer + Free Flight abnahme: [Live_Testing.md](Live_Testing.md) (noch offen).  
 Host auto-start with MSFS remains **B3** (not done).
 
 ---
@@ -56,7 +58,8 @@ Host auto-start with MSFS remains **B3** (not done).
 
 **Architektur / Implementierung:**
 - Kein Code nötig für den Test selbst.
-- Checkliste (Free Flight, Status **Live**):
+- **Vollständige Checklisten (Installer + Host + Fenix):** [Live_Testing.md](Live_Testing.md) §4 (und Gesamtablauf §0–§7).
+- Kurz-Checkliste (Free Flight, Status **Live**):
   1. Auto-Detect TITLE enthält `fenix` → Profil `fenix_a320`
   2. Gear up/down: Hebel + `L:S_MIP_GEAR` (0/1)
   3. Landing lights ON/OFF/RETRACT (0/1/2)
@@ -65,7 +68,7 @@ Host auto-start with MSFS remains **B3** (not done).
   6. Overhead: Anti-ice, APU master/start/bleed, BAT, EXT PWR, Fuel, Packs, ADIRS, Seatbelts
   7. Checklists `before start` / `before takeoff` / `after landing` — Multi-Actions
   8. FCU mode holds → TTS **Unable**, keine Events
-- Ergebnisse in CHANGELOG / ggf. Profil-Notes nachziehen.
+- Ergebnisse in CHANGELOG / ggf. Profil-Notes nachziehen; Live_Testing Sign-off ausfüllen.
 - Nach Fenix-Package-Updates erneut smoke-testen.
 
 **Prio:** P0
