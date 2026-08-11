@@ -477,27 +477,6 @@
       "response": "Listing available commands.",
       "conditions": [],
       "actions": []
-    },
-    {
-      "id": "checklist_before_start",
-      "phrases": ["before start checklist", "run before start"],
-      "response": "Before start checklist. Parking brake set. Fuel quantity checked. Beacon on.",
-      "actions": [],
-      "checklist": true
-    },
-    {
-      "id": "checklist_before_takeoff",
-      "phrases": ["before takeoff checklist", "run before takeoff"],
-      "response": "Before takeoff checklist. Flaps set. Trim set. Lights as required. Transponder on.",
-      "actions": [],
-      "checklist": true
-    },
-    {
-      "id": "checklist_after_landing",
-      "phrases": ["after landing checklist", "run after landing"],
-      "response": "After landing checklist. Flaps up. Spoilers retract. Landing lights off. Taxi lights on.",
-      "actions": [],
-      "checklist": true
     }
   ]
 }

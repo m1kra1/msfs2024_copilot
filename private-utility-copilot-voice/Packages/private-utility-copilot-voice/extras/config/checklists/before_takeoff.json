@@ -1,0 +1,40 @@
+{
+  "id": "before_takeoff",
+  "name": "Before Takeoff",
+  "phrases": [
+    "before takeoff checklist",
+    "run before takeoff checklist"
+  ],
+  "global_delay_ms": 300,
+  "assigned_profiles": [],
+  "items": [
+    {
+      "mode": "execute",
+      "challenge": "Flaps one",
+      "command_id": "flaps_1",
+      "response_ok": "Flaps one",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Spoilers arm",
+      "command_id": "spoilers_arm",
+      "response_ok": "Armed",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Landing lights",
+      "command_id": "landing_lights_on",
+      "response_ok": "On",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Strobe lights",
+      "command_id": "strobe_lights_on",
+      "response_ok": "On",
+      "delay_after_ms": 100
+    }
+  ]
+}

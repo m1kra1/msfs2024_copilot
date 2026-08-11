@@ -51,7 +51,7 @@ public partial class MainWindow : Window
         var ver = _payloadRoot is not null
             ? PayloadLocator.ReadPackageVersion(_payloadRoot) ?? "?"
             : "?";
-        var setupVer = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.6.3";
+        var setupVer = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.7.0";
         WelcomeVersion.Text = $"Package version: {ver}  ·  Setup: {setupVer}";
         WelcomePayload.Text = _payloadRoot is not null
             ? $"Payload: {_payloadRoot}"

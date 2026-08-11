@@ -1,13 +1,13 @@
-# Live-Testing — Private Voice Co-Pilot (1.6.3)
+# Live-Testing — Private Voice Co-Pilot (1.7.0)
 
 Menschliche Abnahme in Free Flight / am Installer.  
 **Status (Stand 2026-08-11):** Live testing aktuell **noch nicht** durchgeführt.
 
 | | |
 |--|--|
-| **Baseline** | Package/App **1.6.3** (`dev` / `main`) |
+| **Baseline** | Package/App **1.7.0** (`dev` / `main`) |
 | **Dist** | `dist/CoPilotVoiceSetup/` (nach `scripts/pack-installer.ps1`) |
-| **Unit tests** | Host 121 + Installer 9 (Release) — grün vor diesem Release |
+| **Unit tests** | Host 129 + Installer 9 (Release) — grün vor diesem Release |
 | **Verwandt** | Fenix P0 Backlog **A1** · [Backlog.md](Backlog.md) · Features: [Complete_Features.md](Complete_Features.md) |
 
 Ergebnis je Block mit **Pass / Fail / N/A** und kurzer Notiz (Datum, Aircraft, Build-Pfad) unten oder in einem eigenen Log abhaken.
@@ -18,7 +18,7 @@ Ergebnis je Block mit **Pass / Fail / N/A** und kurzer Notiz (Datum, Aircraft, B
 
 ### 0.1 Build / Distribution
 
-- [ ] Repo auf **1.6.3** (`manifest.json` / Host-Version / Setup-Version)
+- [ ] Repo auf **1.7.0** (`manifest.json` / Host-Version / Setup-Version)
 - [ ] Optional frisch packen:
 
 ```powershell
@@ -103,7 +103,7 @@ Ohne oder vor Free Flight:
 
 - [ ] Host startet (Shortcut oder `extras\CoPilotVoiceHost.exe`)
 - [ ] Statusleiste **Offline** (ohne Sim) — kein Crash
-- [ ] Tabs: Status, Manual, Learn, Commands, Settings, Debug erreichbar
+- [ ] Tabs: Status, Manual, Checklists, Learn, Commands, Settings, Debug erreichbar
 - [ ] Settings: TTS Engine + Voice Pack Combo lesbar (Light OS Theme)
 - [ ] Debug: Inject `"Co Pilot landing lights on"` (oder Force gate) → Match + TTS
 - [ ] Debug: **Test TTS** (Hybrid/WAV-Pack Sample)
@@ -175,7 +175,7 @@ Nur mit Fenix A320 in Free Flight, Status **Live**, Profil **`fenix_a320`**.
 | 4 | Strobe / Beacon / Nav / Taxi / Wing / Logo | ☐ | |
 | 5 | Flaps diskret 0–4; Park brake; Speedbrake ARM/RETRACT/DETENT | ☐ | |
 | 6 | Overhead: Anti-ice, APU master/start/bleed, BAT, EXT PWR, Fuel, Packs, ADIRS, Seatbelts | ☐ | |
-| 7 | Checklists before start / before takeoff / after landing (Multi-Actions) | ☐ | |
+| 7 | Checklists tab / voice: `before start checklist` etc. (sequential verify/execute from `config/checklists/`) | ☐ | |
 | 8 | FCU mode holds → TTS **Unable**, keine falschen Events | ☐ | |
 | 9 | Log: `LIVE event sent` und/oder live `SetSimVar` / SetDataOnSimObject | ☐ | |
 
@@ -183,7 +183,20 @@ Nur mit Fenix A320 in Free Flight, Status **Live**, Profil **`fenix_a320`**.
 
 ---
 
-## 5. Learn Mode (Live)
+## 5. Checklists tab / voice (1.7.0)
+
+- [ ] Tab **Checklists**: Samples geladen (`before_start`, `before_takeoff`, `after_landing`)
+- [ ] Start/Stop + Progress; Apply/Save/Reload
+- [ ] Voice (Live oder inject): `Co Pilot before takeoff checklist` startet Runner
+- [ ] Verify-Item wartet bis Zustand passt oder Pilot sagt **continue**
+- [ ] **stop checklist** bricht ab
+- [ ] Execute-Items senden Events/LVars (bei Live sichtbar)
+
+**Checklist-Notizen:** _________
+
+---
+
+## 5b. Learn Mode (Live)
 
 - [ ] Learn nur sinnvoll bei **Live**
 - [ ] Start Learn → Watches / Detections erscheinen bei Cockpit-Schaltern
@@ -215,6 +228,7 @@ Nur mit Fenix A320 in Free Flight, Status **Live**, Profil **`fenix_a320`**.
 | Host Offline | Pass / Fail / Skip | | |
 | Host Live Generic | Pass / Fail / Skip | | |
 | Fenix A1 | Pass / Fail / Skip | | |
+| Checklists 1.7.0 | Pass / Fail / Skip | | |
 | Learn Mode | Pass / Fail / Skip | | |
 | WAV / Hybrid TTS | Pass / Fail / Skip | | |
 

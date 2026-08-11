@@ -13,6 +13,27 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.7.0] - 2026-08-11
+
+### Added
+
+- **First-class Checklist system:** sequential challenge/verify/execute checklists under `config/checklists/*.json` (profile assignment via `assigned_profiles`, empty = all profiles).
+  - Core: `ChecklistRunner` (tick-based), `ChecklistValidator`, `ChecklistPhraseIndex`, `ChecklistCatalog`.
+  - Voice: residual containing whole-word **checklist** matching a checklist phrase starts the runner; in-run **continue** / **stop checklist**.
+  - GUI: new **Checklists** tab (list/filter, Start/Stop + progress, full editor with item reorder, Apply/Save/Reload).
+  - Samples: `before_start`, `before_takeoff`, `after_landing`.
+  - Host APIs: `ApplyChecklists`, `StartChecklist`, `StopChecklist`, `PumpChecklist`; Settings/Debug Reload reloads checklists from disk.
+
+### Removed
+
+- Legacy one-shot multi-action command checklists (`checklist_before_start` / `_takeoff` / `_after_landing`) from `base_commands.json` and `fenix_a320.json` (replaced by the checklist subsystem).
+
+### Changed
+
+- **Package/app version 1.7.0** (host + installer csproj, `manifest.json`, AssetPackage).
+
+---
+
 ## [1.6.3] - 2026-08-11
 
 ### Fixed

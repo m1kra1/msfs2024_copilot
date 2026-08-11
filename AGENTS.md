@@ -14,6 +14,7 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
 - UI (`Ui/`, WPF XAML) is a **thin shell** over `HostSession`; no recognition, catalog, or SimConnect logic in the UI layer.
 - **Commands tab** edits working copies of base + active profile, then `HostSession.ApplyCommandSources` (merge + optional disk save). Persistence = ConfigLoader/JSON only.
 - **Manual tab** builds categorized buttons from the live catalog via Core `CommandCatalogGroups` + `HostSession.RunCatalogCommand` (force-gate; first phrase). UI = layout/click → session only.
+- **Checklists** are first-class under `config/checklists/*.json` (not inside aircraft profiles). Core: `ChecklistRunner` / `ChecklistValidator` / `ChecklistPhraseIndex`. Host: load on Reload, voice intercept (word **checklist**), poll tick, `ApplyChecklists`. GUI: **Checklists** tab only → session APIs.
 
 ## Key Paths
 - Host source: `private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost/`
@@ -24,7 +25,7 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
   - Solution: `…/Sources/Installer/CoPilotVoiceSetup.sln`
   - Pack distribution: `scripts/pack-installer.ps1` → `dist/CoPilotVoiceSetup/` (Setup + `payload/private-utility-copilot-voice`)
 - **Canonical config (edit here):** `private-utility-copilot-voice/PackageSources/extras/config/`
-  - `settings.json`, `base_commands.json`, `aircraft_detection.json`, `aircraft/*.json`
+  - `settings.json`, `base_commands.json`, `aircraft_detection.json`, `aircraft/*.json`, `checklists/*.json`
 - **Voice packs (WAV callouts):** `private-utility-copilot-voice/PackageSources/extras/voices/{pack}/` (`manifest.json` + `.wav`)
 - Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/` (+ `extras/voices/`)
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
@@ -154,8 +155,8 @@ Each command in `base_commands.json` / aircraft profiles:
 - Flaps: `L:S_FC_FLAPS` 0–4; incr/decr event-only.
 - Park brake: `L:S_MIP_PARKING_BRAKE` 0/1. Speedbrake: `L:A_FC_SPEEDBRAKE` 0=ARM, 1=RETRACT, 2=DETENT.
 - Overhead: anti-ice / probe / APU master-start-bleed / BAT / EXT PWR / fuel / packs / ADIRS / seatbelts / dome.
-- Checklists (`checklist_*`) include real multi-action sequences on Fenix.
 - Prefer JSON profile overrides over C# aircraft branches.
+- Sequential checklists: `config/checklists/` + `assigned_profiles` (not Fenix-only multi-action commands).
 
 ## GUI tabs (thin shell)
 | Tab | Role |
@@ -163,6 +164,7 @@ Each command in `base_commands.json` / aircraft profiles:
 | Status | Live/Offline, **FLIGHT DATA** (~2 Hz), detected aircraft, profile, last phrase/action |
 | Settings | Apply / Save / Reload; auto-detect; profile combo (dirty-guard vs live RefreshStatus — see Settings section) |
 | **Manual** | Categorized fire buttons → `RunCatalogCommand` |
+| **Checklists** | Sequential verify/execute checklists → `StartChecklist` / `ApplyChecklists` |
 | **Learn** | Control capture (Live): watches → detections → create/edit → save **active profile only** |
 | Commands | Edit base + profile JSON working copies |
 | Debug | Log, inject, reconnect, test TTS |
@@ -177,7 +179,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.6.3** on **`dev`** (live SimConnect event flags + Settings dirty-guard; installer contrast + WPF installer + B2 WAV + Learn Mode).
+- Package/app baseline **1.7.0** on **`dev`** (first-class Checklist system + prior 1.6.x installer/host fixes).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 
@@ -224,4 +226,4 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - **Learn Mode coding spec:** `Plans/Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
 - **WAV callouts (B2) coding spec:** `Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
 - New feature plans go under **`Plans/`** only (not repo root). Runtime live checklists may live at repo root (`Live_Testing.md`).
-- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts + Installer (1.6.x) are **done** in code (see Complete_Features); human live abnahme still open (Live_Testing / A1).
+- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts + Installer (1.6.x) + Checklist system (1.7.0) are **done** in code (see Complete_Features); human live abnahme still open (Live_Testing / A1).

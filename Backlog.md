@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-11 · Release **1.6.3** |
+| **Stand** | 2026-08-11 · Release **1.7.0** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -28,6 +28,11 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 ---
 
 ## Done (recent)
+
+### Checklist system (first-class) — **DONE** in **1.7.0**
+
+`config/checklists/*.json`, `ChecklistRunner` (verify/execute, continue/stop), GUI **Checklists** tab, voice start on whole-word `checklist`. Legacy multi-action `checklist_*` commands removed.  
+Details: [Complete_Features.md](Complete_Features.md) §5c · [CHANGELOG.md](CHANGELOG.md).
 
 ### L0 / L0b / L0c. Learn-Modus (full) — **DONE** in **1.4.0**
 

@@ -2,7 +2,7 @@
   "profile_id": "fenix_a320",
   "title": "Fenix A320 family (events + LVars; Unable for unmapped FCU)",
   "extends": "generic",
-  "notes": "Hybrid study-level profile: base_commands keep standard events; this profile dual-writes Event + Fenix LVars (Cockpit_Behavior.xml / S_* and A_* names) via set_simvar. LVar enums from community AAO/YourControls maps (S_FC_FLAPS 0–4, A_FC_SPEEDBRAKE 0=ARM/1=RETRACT/2=DETENT, S_MIP_PARKING_BRAKE 0/1, overhead S_OH_*). New overhead/system command ids are Fenix-only (merge append). Checklists fire real dual-write actions. Unmapped FCU mode holds return Unable. Live Free Flight verification recommended after Fenix updates.",
+  "notes": "Hybrid study-level profile: base_commands keep standard events; this profile dual-writes Event + Fenix LVars (Cockpit_Behavior.xml / S_* and A_* names) via set_simvar. LVar enums from community AAO/YourControls maps (S_FC_FLAPS 0–4, A_FC_SPEEDBRAKE 0=ARM/1=RETRACT/2=DETENT, S_MIP_PARKING_BRAKE 0/1, overhead S_OH_*). New overhead/system command ids are Fenix-only (merge append). Sequential checklists live under config/checklists/ (not this profile). Unmapped FCU mode holds return Unable. Live Free Flight verification recommended after Fenix updates.",
   "limitations": [
     "Select fenix_a320 via settings, GUI, or auto-detect (TITLE contains 'fenix').",
     "LVar writes use SimConnect SetDataOnSimObject (L: name). If a Fenix build ignores external LVar sets, switches may not animate; H/B-Events not bridged.",
@@ -10,7 +10,7 @@
     "Airbus FCU mode engages (HDG/ALT/SPD/VS hold, NAV, APP, LOC) are Unable; bug/var knobs best-effort events.",
     "Flaps incr/decr keep standard events only (no discrete LVar step without reading current position).",
     "APU START is a momentary LVar write (S_OH_ELEC_APU_START=1); MASTER is separate.",
-    "Checklists are simplified voice sequences, not full airline SOPs.",
+    "Challenge/execute checklists: config/checklists/*.json with assigned_profiles.",
     "Gear-up gate: airborne (SIM ON GROUND == 0) and VERTICAL SPEED > 0 — not GEAR POSITION == 1."
   ],
   "commands": [
@@ -704,63 +704,6 @@
       "actions": [
         { "type": "event", "name": "AP_VS_VAR_DEC" }
       ]
-    },
-    {
-      "id": "checklist_before_start",
-      "phrases": ["before start checklist", "run before start"],
-      "response": "Before start. Parking brake set. Beacon on. Seatbelts on. Fuel pumps on.",
-      "actions": [
-        { "type": "event", "name": "PARKING_BRAKES" },
-        { "type": "set_simvar", "name": "L:S_MIP_PARKING_BRAKE", "value": 1, "units": "number" },
-        { "type": "event", "name": "BEACON_LIGHTS_ON" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_BEACON", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_1", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_FUEL_LEFT_2", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_1", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_FUEL_RIGHT_2", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_FUEL_MODE_SEL", "value": 1, "units": "number" }
-      ],
-      "checklist": true
-    },
-    {
-      "id": "checklist_before_takeoff",
-      "phrases": ["before takeoff checklist", "run before takeoff"],
-      "response": "Before takeoff. Flaps one. Spoilers armed. Seatbelts on. Landing lights on. Strobe on.",
-      "actions": [
-        { "type": "event", "name": "FLAPS_1" },
-        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 1, "units": "number" },
-        { "type": "event", "name": "SPOILERS_ARM_ON" },
-        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 0, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_SIGNS", "value": 1, "units": "number" },
-        { "type": "event", "name": "LANDING_LIGHTS_ON" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 2, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 2, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 2, "units": "number" },
-        { "type": "event", "name": "STROBES_ON" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_STROBE", "value": 2, "units": "number" }
-      ],
-      "checklist": true
-    },
-    {
-      "id": "checklist_after_landing",
-      "phrases": ["after landing checklist", "run after landing"],
-      "response": "After landing. Flaps up. Spoilers retract. Landing lights off. Taxi lights on. Strobe off.",
-      "actions": [
-        { "type": "event", "name": "FLAPS_UP" },
-        { "type": "set_simvar", "name": "L:S_FC_FLAPS", "value": 0, "units": "number" },
-        { "type": "event", "name": "SPOILERS_OFF" },
-        { "type": "set_simvar", "name": "L:A_FC_SPEEDBRAKE", "value": 1, "units": "number" },
-        { "type": "event", "name": "LANDING_LIGHTS_OFF" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_L", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_R", "value": 1, "units": "number" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_LANDING_BOTH", "value": 1, "units": "number" },
-        { "type": "event", "name": "TOGGLE_TAXI_LIGHTS" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_NOSE", "value": 1, "units": "number" },
-        { "type": "event", "name": "STROBES_OFF" },
-        { "type": "set_simvar", "name": "L:S_OH_EXT_LT_STROBE", "value": 0, "units": "number" }
-      ],
-      "checklist": true
     }
   ],
   "learn_watch": [

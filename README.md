@@ -5,11 +5,11 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.6.3 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.7.0 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
-- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.6.3)*
+- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.7.0)*
 - **Learn Mode (shipped 1.4.0):** [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
 - **Feature plans:** [Plans/](Plans/) (specs for shipped and upcoming work)
 
@@ -43,6 +43,7 @@ Starting `CoPilotVoiceHost.exe` without `--headless` opens a **dark cockpit-frie
 |-----|----------|
 | **Status** | SimConnect connected/IsLive/errors, **FLIGHT DATA** (aircraft TITLE, airport, altitude, IAS, V/S, on ground), active profile, last phrase + confidence, last action, mic, versions |
 | **Manual** | Categorized buttons for every loaded voice command (active profile). Click to fire (bypasses wake/PTT; conditions still apply). Refresh after profile switch. |
+| **Checklists** | Sequential challenge/verify/execute checklists from `config/checklists/`. List + filter by profile, Start/Stop + live progress, full editor (items, delays, profile assignment). Apply/Save/Reload. |
 | **Learn** | Control capture when **Live**: watches from discrete SimVars + catalog + `learn_watchlist.json` + profile `learn_watch` + manual; detections (debounce/group); Mapped/Unmapped; create/edit → **Save to active profile**; Export JSON. Does **not** magically discover unknown LVars. |
 | **Commands** | Browse/filter the merged command catalog; edit phrases, TTS, actions, conditions; Add/Delete; **Apply** (memory) / **Save** (`base_commands.json` + active aircraft profile) |
 | **Settings** | Wake word, PTT, confidence, continuous listen, PTT grace, **TTS engine** (Windows / Wav / Hybrid), **voice pack**, Windows TTS voice, gear-up climb gate, aircraft profile, **auto-detect aircraft** (default on), **announce profile switch**; **Apply / Save / Reload / Open Config Folder** |
@@ -171,6 +172,21 @@ Phrase matching uses **whole words** (not loose substrings) and may re-rank Wind
 In the GUI **Manual** tab you can fire any loaded command by button (bypasses wake/PTT; conditions still apply).  
 In the **Debug** tab you can inject phrases (optional **Force** bypasses the wake/PTT gate).
 
+### Checklists (sequential)
+
+Checklists are **not** one-shot command actions. Each file under `config/checklists/` is a multi-step flow:
+
+1. Voice residual must contain the whole word **checklist** and match a checklist’s `phrases` (wake word / PTT still apply unless force-gate).
+2. Items run **one by one**:
+   - **verify** — speak `challenge` → wait until `expected` SimVar condition matches **or** pilot says **continue** / **go on** / **next**
+   - **execute** — speak `challenge` → run `command_id` catalog actions or free `action`/`actions` → confirm
+3. Honors `global_delay_ms` and per-item `delay_after_ms`.
+4. **stop checklist** / **cancel checklist** / **abort checklist** cancels the active run.
+5. `assigned_profiles: []` (or omitted) → available for **all** profiles; otherwise only listed profile ids.
+
+Examples: `Co Pilot before start checklist`, `before takeoff checklist`, `after landing checklist`.  
+GUI: **Checklists** tab for Start/Stop, progress, and full editor (Apply = memory, Save = `config/checklists/*.json`).
+
 ---
 
 ## Configuration
@@ -183,10 +199,11 @@ All under `PackageSources/extras/config/` (and the published package `extras/con
 | `../voices/{pack}/` | WAV callout packs: `manifest.json` maps `command_id` + kind → file; samples: `austrian_airlines_en_us`, `lufthansa_en_us` |
 | `aircraft_detection.json` | Auto-detect rules: case-insensitive contains patterns → profile id + `fallback_profile` |
 | `learn_watchlist.json` | Learn Mode global exclude names + default watches (merged with profile `learn_watch`) |
+| `checklists/*.json` | Sequential checklists (id, phrases with “checklist”, items verify/execute, `assigned_profiles`) |
 | `base_commands.json` | Core phrases, conditions, actions (events / SimVars) |
 | `aircraft/generic.json` | Default profile |
 | `aircraft/a320.json`, `b737.json` | Aircraft-specific extras / overrides |
-| `aircraft/fenix_a320.json` | **Fenix A320** — hybrid dual-write (events + Fenix LVars): gear, lights, flaps, park brake, spoilers, anti-ice/APU/overhead, checklists; unmapped FCU modes speak Unable |
+| `aircraft/fenix_a320.json` | **Fenix A320** — hybrid dual-write (events + Fenix LVars): gear, lights, flaps, park brake, spoilers, anti-ice/APU/overhead; unmapped FCU modes speak Unable |
 
 **Auto aircraft detection (default on):** when SimConnect is **Live** and `auto_detect_aircraft` is true, the host reads aircraft **TITLE** / **ATC MODEL** (period SECOND, not a busy poll) and applies the first matching rule in `aircraft_detection.json` (e.g. title contains `fenix` → `fenix_a320`). Profile switches only when the detected identity changes. CLI `--profile` locks the profile for that process (auto still shows the title but does not switch). Offline/Unknown → no crash; keep configured profile.
 
@@ -204,7 +221,7 @@ Study aircraft (Fenix A320 today; iniBuilds A350 later) use **profile overrides*
 | Gaps | Prefer **Unable** TTS over guessed mappings (FCU modes) |
 | Cross-vendor | Separate LVar maps per aircraft — Fenix names must not be reused for A350 |
 
-**Fenix A320 profile:** auto when TITLE matches `fenix`, or select in Settings. Mapped groups include gear (`L:S_MIP_GEAR`), exterior lights (`L:S_OH_EXT_LT_*`), flaps (`L:S_FC_FLAPS` 0–4), parking brake (`L:S_MIP_PARKING_BRAKE`), speedbrake (`L:A_FC_SPEEDBRAKE`), anti-ice / probe / APU / batteries / fuel / packs / ADIRS / seatbelts, and **checklists with real actions**. Writes go through SimConnect `SetDataOnSimObject` (no SPAD/AAO). H/B-Events are not bridged. Live Free Flight re-test after Fenix updates.
+**Fenix A320 profile:** auto when TITLE matches `fenix`, or select in Settings. Mapped groups include gear (`L:S_MIP_GEAR`), exterior lights (`L:S_OH_EXT_LT_*`), flaps (`L:S_FC_FLAPS` 0–4), parking brake (`L:S_MIP_PARKING_BRAKE`), speedbrake (`L:A_FC_SPEEDBRAKE`), anti-ice / probe / APU / batteries / fuel / packs / ADIRS / seatbelts. Sequential checklists live under `config/checklists/` (not inside the Fenix profile). Writes go through SimConnect `SetDataOnSimObject` (no SPAD/AAO). H/B-Events are not bridged. Live Free Flight re-test after Fenix updates.
 
 **Action types in JSON:**
 

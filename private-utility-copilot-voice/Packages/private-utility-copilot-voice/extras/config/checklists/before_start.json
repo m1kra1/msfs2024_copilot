@@ -1,0 +1,38 @@
+{
+  "id": "before_start",
+  "name": "Before Start",
+  "phrases": [
+    "before start checklist",
+    "run before start checklist"
+  ],
+  "global_delay_ms": 300,
+  "assigned_profiles": [],
+  "items": [
+    {
+      "mode": "verify",
+      "challenge": "Parking brake",
+      "expected": {
+        "simvar": "BRAKE PARKING POSITION",
+        "op": "==",
+        "value": 1,
+        "units": "bool"
+      },
+      "response_ok": "Set",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Beacon lights",
+      "command_id": "beacon_lights_on",
+      "response_ok": "On",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Nav lights",
+      "command_id": "nav_lights_on",
+      "response_ok": "On",
+      "delay_after_ms": 100
+    }
+  ]
+}

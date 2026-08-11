@@ -1,0 +1,40 @@
+{
+  "id": "after_landing",
+  "name": "After Landing",
+  "phrases": [
+    "after landing checklist",
+    "run after landing checklist"
+  ],
+  "global_delay_ms": 300,
+  "assigned_profiles": [],
+  "items": [
+    {
+      "mode": "execute",
+      "challenge": "Flaps up",
+      "command_id": "flaps_up",
+      "response_ok": "Up",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Spoilers retract",
+      "command_id": "spoilers_off",
+      "response_ok": "Retract",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Landing lights off",
+      "command_id": "landing_lights_off",
+      "response_ok": "Off",
+      "delay_after_ms": 150
+    },
+    {
+      "mode": "execute",
+      "challenge": "Taxi lights",
+      "command_id": "taxi_lights_on",
+      "response_ok": "On",
+      "delay_after_ms": 100
+    }
+  ]
+}

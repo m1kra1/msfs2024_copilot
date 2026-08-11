@@ -56,6 +56,11 @@ public sealed class HostSession : IDisposable
     private LearnWatchlistConfig _learnWatchlist = new();
     private bool _learnModeActive;
 
+    // ── Checklist system (Core-only; no WPF) ──────────────────────────────────
+    private List<ChecklistDefinition> _checklists = new();
+    private ChecklistPhraseIndex _checklistPhraseIndex = new(Array.Empty<ChecklistDefinition>());
+    private ChecklistRunner? _checklistRunner;
+
     /// <summary>Profile id last merged into <see cref="Catalog"/> (skips redundant disk re-merge on Apply).</summary>
     private string _mergedCatalogProfile = "";
 
@@ -133,6 +138,17 @@ public sealed class HostSession : IDisposable
 
     /// <summary>Raised when Learn Mode detections or watch state change (UI thin shell).</summary>
     public event Action? LearnChanged;
+
+    /// <summary>Raised when checklist list or run progress changes (UI thin shell).</summary>
+    public event Action? ChecklistChanged;
+
+    /// <summary>All loaded checklists (not filtered by profile).</summary>
+    public IReadOnlyList<ChecklistDefinition> Checklists => _checklists;
+
+    public ChecklistProgress ChecklistProgress =>
+        _checklistRunner?.GetProgress() ?? new ChecklistProgress();
+
+    public bool ChecklistActive => _checklistRunner?.IsActive == true;
 
     public bool LearnModeActive => _learnModeActive;
 
@@ -292,6 +308,121 @@ public sealed class HostSession : IDisposable
         return InjectPhrase(text, forceGate: true);
     }
 
+    /// <summary>Deep-cloned checklists from disk (editor working copy).</summary>
+    public IReadOnlyList<ChecklistDefinition> LoadChecklistsFromDisk() =>
+        ConfigLoader.CloneChecklists(ConfigLoader.LoadAllChecklists(ConfigRoot));
+
+    /// <summary>
+    /// Replace in-memory checklists; optionally persist to <c>config/checklists/</c>
+    /// (writes all, deletes files for removed ids).
+    /// </summary>
+    public void ApplyChecklists(IReadOnlyList<ChecklistDefinition> list, bool saveToDisk)
+    {
+        var working = ConfigLoader.CloneChecklists(list);
+        var knownIds = Catalog.Commands.Select(c => c.Id);
+        var validation = ChecklistValidator.ValidateAll(working, knownIds);
+        foreach (var w in validation.Warnings)
+            Log.Warn($"[Checklist] {w}");
+        if (!validation.IsValid)
+        {
+            foreach (var e in validation.Errors)
+                Log.Error($"[Checklist] {e}");
+            throw new InvalidOperationException(
+                "Checklist validation failed: " + string.Join("; ", validation.Errors));
+        }
+
+        if (saveToDisk)
+        {
+            var dir = ConfigLoader.ChecklistsDirectory(ConfigRoot);
+            Directory.CreateDirectory(dir);
+            var keep = new HashSet<string>(
+                working.Select(c => c.Id.Trim()),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var existing in Directory.GetFiles(dir, "*.json"))
+            {
+                var id = Path.GetFileNameWithoutExtension(existing) ?? "";
+                if (!keep.Contains(id))
+                {
+                    try
+                    {
+                        File.Delete(existing);
+                        Log.Info($"[Checklist] Deleted {existing}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warn($"[Checklist] Delete failed {existing}: {ex.Message}");
+                    }
+                }
+            }
+
+            foreach (var cl in working)
+            {
+                ConfigLoader.SaveChecklist(ConfigRoot, cl);
+                Log.Info($"[Checklist] Saved {cl.Id} ({cl.Items.Count} items)");
+            }
+        }
+        else
+        {
+            Log.Info($"[Checklist] Applied in memory ({working.Count} checklists; not saved).");
+        }
+
+        _checklists = working.ToList();
+        RebuildChecklistIndex();
+        RefreshPipelineAndSpeechIfNeeded(reason: "Checklists");
+        ChecklistChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    public void StartChecklist(string checklistId)
+    {
+        EnsureChecklistRunner();
+        var id = (checklistId ?? "").Trim();
+        var def = _checklists.FirstOrDefault(c =>
+            c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (def is null)
+        {
+            Log.Warn($"[Checklist] Unknown id '{checklistId}'");
+            return;
+        }
+
+        if (!ChecklistCatalog.IsAssignedToProfile(def, ActiveProfileName()))
+        {
+            Log.Warn($"[Checklist] '{def.Id}' not assigned to profile '{ActiveProfileName()}'");
+            return;
+        }
+
+        Log.Info($"[Checklist] Start id={def.Id} name='{def.Name}' items={def.Items.Count}");
+        _checklistRunner!.Start(def);
+        ChecklistChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    public void StopChecklist()
+    {
+        if (_checklistRunner is null || !_checklistRunner.IsActive)
+        {
+            Log.Info("[Checklist] Stop ignored (not active).");
+            return;
+        }
+
+        _checklistRunner.Stop();
+        Log.Info("[Checklist] Stopped");
+        ChecklistChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Advance checklist state machine (used by tests and when poll timer is not running).
+    /// </summary>
+    public void PumpChecklist(int maxTicks = 1, DateTime? utcNow = null)
+    {
+        if (_checklistRunner is null || _sim is null || maxTicks <= 0)
+            return;
+        var t = utcNow ?? DateTime.UtcNow;
+        for (var i = 0; i < maxTicks && _checklistRunner.IsActive; i++)
+            _checklistRunner.Tick(t.AddMilliseconds(i * 25), _sim.Snapshot);
+    }
+
     public void ForceReconnect()
     {
         if (_sim is null || _options.ForceOffline)
@@ -305,6 +436,12 @@ public sealed class HostSession : IDisposable
         {
             StopLearnMode();
             Log.Info("[Learn] Stopped (reconnect)");
+        }
+
+        if (_checklistRunner?.IsActive == true)
+        {
+            StopChecklist();
+            Log.Info("[Checklist] Stopped (reconnect)");
         }
 
         try
@@ -798,7 +935,7 @@ public sealed class HostSession : IDisposable
                     return _pttArm?.IsArmed ?? false;
                 };
                 win.Matcher = _matcher;
-                win.LoadGrammar(_matcher!.AllPhrases, Settings.Speech.WakeWord);
+                win.LoadGrammar(BuildSpeechPhraseList(), Settings.Speech.WakeWord);
                 _speech = win;
             }
         }
@@ -839,6 +976,10 @@ public sealed class HostSession : IDisposable
                     if (added > 0)
                         LearnChanged?.Invoke();
                 }
+
+                // Checklist tick (delays / verify wait) — no busy SimVar poll.
+                if (_checklistRunner?.IsActive == true && _sim is not null)
+                    _checklistRunner.Tick(DateTime.UtcNow, _sim.Snapshot);
 
                 // TITLE/ATC MODEL + flight snapshot arrive on SECOND period — evaluate ~2 Hz.
                 if (_sim is not null && _sim.IsLive)
@@ -881,6 +1022,15 @@ public sealed class HostSession : IDisposable
         try
         {
             StopLearnMode();
+        }
+        catch
+        {
+            // best-effort
+        }
+
+        try
+        {
+            _checklistRunner?.Stop();
         }
         catch
         {
@@ -965,6 +1115,51 @@ public sealed class HostSession : IDisposable
 
         if (!_options.ForceOffline)
             EnsureLiveConnection();
+
+        // Checklist control / start (before normal command pipeline).
+        var residual = ChecklistPhraseIndex.StripWake(text, Settings.Speech.WakeWord);
+        EnsureChecklistRunner();
+
+        if (_checklistRunner!.IsActive)
+        {
+            if (ChecklistPhraseIndex.IsStopPhrase(residual))
+            {
+                StopChecklist();
+                LastPhrase = residual;
+                LastAction = "checklist:stop";
+                StatusChanged?.Invoke();
+                return 0;
+            }
+
+            if (ChecklistPhraseIndex.IsContinuePhrase(residual))
+            {
+                _checklistRunner.RequestContinue();
+                Log.Info("[Checklist] Continue requested");
+                LastPhrase = residual;
+                LastAction = "checklist:continue";
+                // Process continue on this tick so inject tests don't need a poll wait.
+                _checklistRunner.Tick(DateTime.UtcNow, _sim.Snapshot);
+                ChecklistChanged?.Invoke();
+                StatusChanged?.Invoke();
+                return 0;
+            }
+        }
+
+        if (ChecklistValidator.PhraseContainsChecklistToken(residual))
+        {
+            var (matched, phrase) = _checklistPhraseIndex.MatchStart(residual);
+            if (matched is not null)
+            {
+                Log.Info($"[Checklist] Voice start phrase='{phrase}' id={matched.Id}");
+                StartChecklist(matched.Id);
+                // Drive first item immediately for inject/headless without waiting for poll.
+                _checklistRunner.Tick(DateTime.UtcNow, _sim.Snapshot);
+                LastPhrase = phrase;
+                LastAction = $"checklist:start:{matched.Id}";
+                StatusChanged?.Invoke();
+                return 0;
+            }
+        }
 
         var result = _processor.Process(
             text,
@@ -1080,6 +1275,8 @@ public sealed class HostSession : IDisposable
 
         _detectionConfig = ConfigLoader.LoadAircraftDetection(ConfigRoot);
         _learnWatchlist = ConfigLoader.LoadLearnWatchlist(ConfigRoot);
+        _checklists = ConfigLoader.LoadAllChecklists(ConfigRoot).Select(ConfigLoader.CloneChecklist).ToList();
+        RebuildChecklistIndex();
         _lastDetectedIdentityKey = "";
         _lastSeenDisplayIdentityKey = null;
 
@@ -1092,8 +1289,10 @@ public sealed class HostSession : IDisposable
             $"[Config] Detection rules: {_detectionConfig.Rules.Count} fallback='{_detectionConfig.FallbackProfile}'");
         Log.Info(
             $"[Config] Learn watchlist: exclude={_learnWatchlist.ExcludeNames.Count} defaults={_learnWatchlist.DefaultWatches.Count}");
+        Log.Info($"[Config] Checklists: {_checklists.Count}");
         Log.Info($"[Config] Wake word: '{Settings.Speech.WakeWord}' | PTT: {Settings.Speech.PttKey}");
         Log.Info($"[Config] continuous_listen={Settings.Speech.ContinuousListen} ptt_grace_ms={Settings.Speech.PttGraceMs}");
+        ChecklistChanged?.Invoke();
 
         if (reconnectSim || _sim is null)
             ConnectSimClient();
@@ -1139,6 +1338,7 @@ public sealed class HostSession : IDisposable
         _mergedCatalogProfile = profileName;
         Log.Info($"[Config] Catalog rebuilt for profile '{profileName}': {Catalog.Commands.Count} commands");
         OnCatalogChangedForLearn("RebuildCatalog");
+        RebuildChecklistIndex();
     }
 
     private string EnsureProfileExists(string profileName)
@@ -1227,7 +1427,66 @@ public sealed class HostSession : IDisposable
             : CreateTts(Settings.Tts);
         _tts.ApplySettings(Settings.Tts);
 
+        EnsureChecklistRunner(forceRebuild: true);
+        RebuildChecklistIndex();
+
         StampActiveFingerprints();
+    }
+
+    private void EnsureChecklistRunner(bool forceRebuild = false)
+    {
+        if (_sim is null || _executor is null || _tts is null)
+            return;
+
+        if (_checklistRunner is not null && !forceRebuild)
+            return;
+
+        // Keep progress event wiring when rebuilding.
+        if (_checklistRunner is not null)
+            _checklistRunner.ProgressChanged -= OnChecklistProgress;
+
+        _checklistRunner = new ChecklistRunner(
+            getCatalog: () => Catalog.Commands,
+            executeActions: actions =>
+            {
+                var done = _executor!.Execute(actions);
+                if (done.Count > 0)
+                    LastAction = string.Join(", ", done.Select(a => $"{a.Type}:{a.Name}"));
+                SuppressLearnAfterActions(done);
+            },
+            speak: (t, d, id, kind) => _tts!.Speak(t, d, id, kind));
+        _checklistRunner.ProgressChanged += OnChecklistProgress;
+    }
+
+    private void OnChecklistProgress(ChecklistProgress progress)
+    {
+        Log.Info(
+            $"[Checklist] progress id={progress.ChecklistId} state={progress.State} item={progress.ItemIndex + 1}/{progress.ItemCount} {progress.StatusMessage}");
+        ChecklistChanged?.Invoke();
+        StatusChanged?.Invoke();
+    }
+
+    private void RebuildChecklistIndex()
+    {
+        var visible = ChecklistCatalog.ForProfile(_checklists, ActiveProfileName());
+        _checklistPhraseIndex = new ChecklistPhraseIndex(visible);
+    }
+
+    private IEnumerable<string> BuildSpeechPhraseList()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_matcher is not null)
+        {
+            foreach (var p in _matcher.AllPhrases)
+                set.Add(p);
+        }
+
+        foreach (var p in _checklistPhraseIndex.AllStartPhrases)
+            set.Add(p);
+        foreach (var p in ChecklistPhraseIndex.ControlPhrases)
+            set.Add(p);
+
+        return set;
     }
 
     private void StampActiveFingerprints()
@@ -1248,7 +1507,24 @@ public sealed class HostSession : IDisposable
         sb.Append(Settings.Speech.Culture ?? "").Append('\u001f');
         sb.Append(Settings.Speech.Engine ?? "").Append('\u001f');
         sb.Append(ActiveProfileName()).Append('\u001f');
-        sb.Append(CatalogFingerprint());
+        sb.Append(CatalogFingerprint()).Append('\u001f');
+        sb.Append(ChecklistFingerprint());
+        return sb.ToString();
+    }
+
+    private string ChecklistFingerprint()
+    {
+        var list = ChecklistCatalog.ForProfile(_checklists, ActiveProfileName());
+        var sb = new StringBuilder(list.Count * 24);
+        sb.Append(list.Count);
+        foreach (var c in list.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            sb.Append('|').Append(c.Id).Append(':').Append(c.Phrases.Count);
+            if (c.Phrases.Count > 0)
+                sb.Append(':').Append(c.Phrases[0]);
+            sb.Append('#').Append(c.Items.Count);
+        }
+
         return sb.ToString();
     }
 

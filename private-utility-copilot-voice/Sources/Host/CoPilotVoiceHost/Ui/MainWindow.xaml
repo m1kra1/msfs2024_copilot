@@ -237,6 +237,158 @@
           </Grid>
         </TabItem>
 
+        <!-- CHECKLISTS -->
+        <TabItem Header="Checklists" GotFocus="ChecklistsTab_GotFocus">
+          <Grid Margin="12,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="280"/>
+              <ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Left: list -->
+            <GroupBox Header="CHECKLISTS" Grid.Column="0" Grid.Row="0">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                  <TextBlock Text="Filter" Style="{StaticResource LabelMuted}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                  <ComboBox x:Name="ClFilterProfile" MinHeight="32" SelectionChanged="ClFilter_Changed"/>
+                </DockPanel>
+                <TextBox x:Name="ClSearch" Grid.Row="1" MinHeight="32" Margin="0,0,0,8"
+                         VerticalContentAlignment="Center" TextChanged="ClFilter_Changed"
+                         ToolTip="Filter by name or id"/>
+                <ListBox x:Name="ClList" Grid.Row="2"
+                         DisplayMemberPath="Display"
+                         SelectionChanged="ClList_SelectionChanged"/>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
+                  <Button Content="New" Click="BtnClNew_Click" MinWidth="72" Margin="0,0,8,0"/>
+                  <Button Content="Delete" Click="BtnClDelete_Click" MinWidth="72"/>
+                </StackPanel>
+              </Grid>
+            </GroupBox>
+
+            <!-- Right: run + editor -->
+            <ScrollViewer Grid.Column="2" Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+              <StackPanel>
+                <GroupBox Header="RUN">
+                  <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                      <Button DockPanel.Dock="Right" Content="Stop" Click="BtnClStop_Click" MinWidth="80" Margin="8,0,0,0"/>
+                      <Button DockPanel.Dock="Right" Content="Start" Click="BtnClStart_Click" MinWidth="80"/>
+                      <TextBlock x:Name="ClProgressText" Text="Idle" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </DockPanel>
+                    <TextBlock x:Name="ClChallengeText" Style="{StaticResource LabelMuted}" TextWrapping="Wrap" Text=""/>
+                  </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="EDITOR" Margin="0,10,0,0">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="110"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="110"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Id" Style="{StaticResource LabelMuted}" Grid.Row="0" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClEditId" Grid.Row="0" Grid.Column="1" MinHeight="32" Margin="0,0,8,6"
+                             TextChanged="ClEditor_Changed"/>
+                    <TextBlock Text="Name" Style="{StaticResource LabelMuted}" Grid.Row="0" Grid.Column="2" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClEditName" Grid.Row="0" Grid.Column="3" MinHeight="32" Margin="0,0,0,6"
+                             TextChanged="ClEditor_Changed"/>
+
+                    <TextBlock Text="Phrases" Style="{StaticResource LabelMuted}" Grid.Row="1" Margin="0,0,8,6"/>
+                    <TextBox x:Name="ClEditPhrases" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                             MinHeight="56" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             Margin="0,0,0,6" TextChanged="ClEditor_Changed"
+                             ToolTip="One phrase per line; each must contain the word checklist"/>
+
+                    <TextBlock Text="Global delay ms" Style="{StaticResource LabelMuted}" Grid.Row="2" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClEditGlobalDelay" Grid.Row="2" Grid.Column="1" MinHeight="32" Margin="0,0,8,6"
+                             TextChanged="ClEditor_Changed"/>
+                    <TextBlock Text="Profiles" Style="{StaticResource LabelMuted}" Grid.Row="2" Grid.Column="2" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClEditProfiles" Grid.Row="2" Grid.Column="3" MinHeight="32" Margin="0,0,0,6"
+                             TextChanged="ClEditor_Changed"
+                             ToolTip="Comma-separated profile ids; empty = all profiles"/>
+
+                    <TextBlock Text="Items" Style="{StaticResource LabelMuted}" Grid.Row="3" Margin="0,4,8,6"/>
+                    <ListBox x:Name="ClItemsList" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3"
+                             MinHeight="120" Margin="0,0,0,6"
+                             DisplayMemberPath="Display"
+                             SelectionChanged="ClItemsList_SelectionChanged"/>
+
+                    <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,0,0,8">
+                      <Button Content="Add item" Click="BtnClItemAdd_Click" MinWidth="88" Margin="0,0,8,0"/>
+                      <Button Content="Remove" Click="BtnClItemRemove_Click" MinWidth="80" Margin="0,0,8,0"/>
+                      <Button Content="Up" Click="BtnClItemUp_Click" MinWidth="56" Margin="0,0,8,0"/>
+                      <Button Content="Down" Click="BtnClItemDown_Click" MinWidth="56"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Mode" Style="{StaticResource LabelMuted}" Grid.Row="5" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ClItemMode" Grid.Row="5" Grid.Column="1" MinHeight="32" Margin="0,0,8,6"
+                              SelectionChanged="ClItemEditor_Changed">
+                      <ComboBoxItem Content="verify"/>
+                      <ComboBoxItem Content="execute"/>
+                    </ComboBox>
+                    <TextBlock Text="Challenge" Style="{StaticResource LabelMuted}" Grid.Row="5" Grid.Column="2" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClItemChallenge" Grid.Row="5" Grid.Column="3" MinHeight="32" Margin="0,0,0,6"
+                             TextChanged="ClItemEditor_Changed"/>
+
+                    <TextBlock Text="Command id" Style="{StaticResource LabelMuted}" Grid.Row="6" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ClItemCommandId" Grid.Row="6" Grid.Column="1" MinHeight="32" Margin="0,0,8,6"
+                              IsEditable="True" SelectionChanged="ClItemEditor_Changed"
+                              LostFocus="ClItemEditor_LostFocus"/>
+                    <TextBlock Text="Delay after ms" Style="{StaticResource LabelMuted}" Grid.Row="6" Grid.Column="2" Margin="0,0,8,6" VerticalAlignment="Center"/>
+                    <TextBox x:Name="ClItemDelayAfter" Grid.Row="6" Grid.Column="3" MinHeight="32" Margin="0,0,0,6"
+                             TextChanged="ClItemEditor_Changed"/>
+
+                    <TextBlock Text="Action JSON" Style="{StaticResource LabelMuted}" Grid.Row="7" Margin="0,0,8,6"/>
+                    <TextBox x:Name="ClItemAction" Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3"
+                             MinHeight="48" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,6"
+                             TextChanged="ClItemEditor_Changed"
+                             ToolTip="Optional free action: type|name|value|units per line (same as Commands tab)"/>
+
+                    <TextBlock Text="Expected" Style="{StaticResource LabelMuted}" Grid.Row="8" Margin="0,0,8,6"/>
+                    <TextBox x:Name="ClItemExpected" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="3"
+                             MinHeight="48" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,6"
+                             TextChanged="ClItemEditor_Changed"
+                             ToolTip="Verify condition lines: simvar|op|value|units"/>
+                  </Grid>
+                </GroupBox>
+              </StackPanel>
+            </ScrollViewer>
+
+            <DockPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,10,0,0">
+              <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <Button Content="Apply" Click="BtnClApply_Click" MinWidth="88" Margin="0,0,8,0"
+                        ToolTip="Apply checklists in memory"/>
+                <Button Content="Save" Click="BtnClSave_Click" MinWidth="88" Margin="0,0,8,0"
+                        ToolTip="Apply and write config/checklists/*.json"/>
+                <Button Content="Reload" Click="BtnClReload_Click" MinWidth="88"
+                        ToolTip="Reload checklists from disk into the editor"/>
+              </StackPanel>
+              <TextBlock x:Name="ClStatus" Style="{StaticResource LabelMuted}" VerticalAlignment="Center"
+                         TextWrapping="Wrap" Margin="12,0,0,0"/>
+            </DockPanel>
+          </Grid>
+        </TabItem>
+
         <!-- LEARN MODE -->
         <TabItem Header="Learn" GotFocus="LearnTab_GotFocus">
           <Grid Margin="12,10">

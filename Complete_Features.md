@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-11 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.6.3** |
+| **Baseline** | Package/App **1.7.0** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Live-Test: [Live_Testing.md](Live_Testing.md) · Learn Mode Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
 
 ---
@@ -79,6 +79,7 @@ Start ohne `--headless` öffnet ein dunkles Cockpit-UI (`Themes/DarkCockpit.xaml
 |-----|----------|
 | **Status** | SimConnect Connected / IsLive / Fehler; **FLIGHT DATA** (Aircraft TITLE, Airport best-effort, Altitude, IAS, V/S, On Ground) ~2 Hz live; aktives Profil; letzte Phrase/Confidence; letzte Action; Mic; Versionen |
 | **Manual** | Kategorisierte Buttons für den **aktuell geladenen** Katalog (profilabhängig). Klick → `RunCatalogCommand` (bypassed Wake/PTT; Conditions gelten weiter). Refresh nach Profilwechsel |
+| **Checklists** | Sequenzielle Challenge/Verify/Execute-Checklisten aus `config/checklists/`; Filter nach Profil; Start/Stop + Progress; Editor (Items, Delays, `assigned_profiles`); Apply/Save/Reload |
 | **Learn** | Control Capture (Live): Watches (Status + Katalog + watchlist + profile `learn_watch` + Manual); Debounce/Group; Action-Hints; Export JSON; Create/Edit → Save **aktives Profil**; DEF_LEARN SECOND; Suppress ~750 ms |
 | **Commands** | Browse/Filter des gemergten Katalogs; Phrases/TTS/Actions/Conditions editieren; Add/Delete; **Apply** (Memory) / **Save** (`base_commands.json` + aktives Aircraft-Profil) |
 | **Settings** | Wake Word, PTT, Confidence, Continuous Listen, PTT Grace, **TTS engine** (Windows/Wav/Hybrid), **voice pack**, Windows TTS Voice, Gear-up Climb Gate, Aircraft Profile, Auto-Detect, Announce Profile Switch; **Apply / Save / Reload / Open Config Folder**. **Dirty-guard:** unapplied edits are not overwritten by live Status refresh (~2 Hz) |
@@ -169,6 +170,22 @@ Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md).
 
 ---
 
+## 5c. Checklist system (first-class)
+
+| Aspekt | Umsetzung |
+|--------|-----------|
+| Speicher | `config/checklists/{id}.json` — **profil-unabhängig**; `assigned_profiles` (leer = alle Profile) |
+| Schema | `id`, `name`, `phrases[]` (jede Phrase muss das Wort **checklist** enthalten), `global_delay_ms`, `items[]` |
+| Item modes | **verify** (challenge → Snapshot-Condition oder Voice **continue**) · **execute** (`command_id` und/oder free `action`/`actions`) |
+| Core | `ChecklistRunner` (tick-basiert, Poll 50 ms), `ChecklistValidator`, `ChecklistPhraseIndex`, `ChecklistCatalog` — **kein WPF** |
+| Host | Load on Reload; `HandlePhrase` vor `CommandProcessor`; Grammar enthält Checklist-Phrasen + Continue/Stop; `ApplyChecklists` / Start / Stop / `PumpChecklist` |
+| Voice control | Start: Residual enthält `checklist` + Match; Continue: `continue` / `go on` / `next`; Stop: `stop checklist` / `cancel checklist` / `abort checklist` |
+| UI | Tab **Checklists**: Liste/Filter, Start/Stop + Progress, Editor (Items Up/Down), Apply/Save/Reload |
+| Samples | `before_start`, `before_takeoff`, `after_landing` |
+| Entfernt | Frühere One-Shot `checklist_*` Commands in base/Fenix (ersetzt durch dieses Subsystem) |
+
+---
+
 ## 6. Command-System (JSON-driven)
 
 ### 6.1 Schema
@@ -234,7 +251,7 @@ Gear · Lights · Flaps · Autopilot / FCU · Anti-ice · Brakes / Spoilers · A
 
 ---
 
-## 7. Base-Command-Katalog (58 Commands)
+## 7. Base-Command-Katalog (~55 Commands)
 
 Quelle: `PackageSources/extras/config/base_commands.json` (Source of Truth).
 
@@ -265,13 +282,11 @@ Quelle: `PackageSources/extras/config/base_commands.json` (Source of Truth).
 ### APU
 - `apu_start`, `apu_off`
 
-### Checklists (Base: primär TTS-Callouts)
-- `checklist_before_start`
-- `checklist_before_takeoff`
-- `checklist_after_landing`
-
 ### Info
 - `list_commands`
+
+### Checklists
+- Nicht mehr als Base-Commands — siehe **§5c** (`config/checklists/`)
 
 ---
 
@@ -282,7 +297,7 @@ Quelle: `PackageSources/extras/config/base_commands.json` (Source of Truth).
 | `generic` | Leere Overrides; Default-Fallback |
 | `a320` | Stub: `a320_managed_speed` |
 | `b737` | Stub: `b737_n1_mode` |
-| `fenix_a320` | **Study-level Hybrid** (Events + LVars), 76 Command-Einträge (Replace + Append) |
+| `fenix_a320` | **Study-level Hybrid** (Events + LVars); dual-write overrides + Fenix-only overhead ids (checklists → `config/checklists/`) |
 
 ### Auto-Detect (Default **ON**)
 
@@ -324,7 +339,7 @@ Datei: `config/aircraft/fenix_a320.json`
 | Anti-ice / Probe | Events + Fenix Overhead LVars |
 | APU | Events + MASTER / START / BLEED LVars; extra `apu_master_*` / `apu_bleed_*` |
 | Overhead | Batteries, EXT PWR, Fuel Pumps, Packs, ADIRS NAV, Seatbelt Signs, Dome |
-| Checklists | Multi-Action-Sequenzen (nicht nur TTS) |
+| Checklists | Ausgelagert nach `config/checklists/` (first-class System) |
 | FCU Mode Holds | **Unable** (leere Actions) |
 
 Airbus-Callouts für Gear-up: *positive rate*, *positive rate gear up*, …
@@ -485,6 +500,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.6.1** | Installer dark-theme control templates (readable ComboBox/Button/CheckBox); docs plans under `Plans/` |
 | **1.6.2** | Installer contrast redesign (status cards, step pills, SystemColors/ScrollBar, editable Combo chrome-free); host ComboBox fix |
 | **1.6.3** | Live events: native `TransmitClientEvent` + `GROUPID_IS_PRIORITY`; Settings dirty-guard (Auto-Detect abschaltbar / manuelles Profil während Live-Refresh); `Live_Testing.md` |
+| **1.7.0** | First-class Checklist system (`config/checklists/`, runner, Checklists GUI tab); legacy `checklist_*` multi-action commands removed |
 
 ---
 

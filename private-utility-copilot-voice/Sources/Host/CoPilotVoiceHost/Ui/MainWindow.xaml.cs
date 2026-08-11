@@ -52,6 +52,15 @@ public partial class MainWindow : Window
     private List<ActionDefinition> _learnEditActions = new();
     private bool _learnEditIsEdit;
 
+    // Checklists tab
+    private readonly ObservableCollection<ChecklistListRow> _clRows = new();
+    private readonly ObservableCollection<ChecklistItemRow> _clItemRows = new();
+    private List<ChecklistDefinition> _clWorking = new();
+    private ChecklistDefinition? _clSelected;
+    private bool _clDirty;
+    private bool _suppressClEvents;
+    private bool _clLoaded;
+
     public MainWindow(HostSession session, HostOptions _)
     {
         _session = session;
@@ -59,6 +68,8 @@ public partial class MainWindow : Window
 
         CmdList.ItemsSource = _commandRows;
         LearnList.ItemsSource = _learnRows;
+        ClList.ItemsSource = _clRows;
+        ClItemsList.ItemsSource = _clItemRows;
 
         _tray = new Forms.NotifyIcon
         {
@@ -79,6 +90,7 @@ public partial class MainWindow : Window
         _session.Log.LineAppended += OnLogLine;
         _session.StatusChanged += () => Dispatcher.BeginInvoke(RefreshStatus);
         _session.LearnChanged += () => Dispatcher.BeginInvoke(RefreshLearnUi);
+        _session.ChecklistChanged += () => Dispatcher.BeginInvoke(RefreshChecklistProgressOnly);
 
         HookSettingsDirtyHandlers();
         LoadSettingsToUi();
@@ -87,6 +99,7 @@ public partial class MainWindow : Window
 
         RefreshStatus();
         RefreshLearnUi();
+        InitChecklistFilterCombo();
         StatusBarVersion.Text = $"App {_session.ApplicationVersion} · pkg {_session.PackageVersion}";
     }
 
@@ -1322,6 +1335,452 @@ public partial class MainWindow : Window
         return list;
     }
 
+    // ── Checklists tab ────────────────────────────────────────────────────────
+
+    private void InitChecklistFilterCombo()
+    {
+        _suppressClEvents = true;
+        ClFilterProfile.Items.Clear();
+        ClFilterProfile.Items.Add("All profiles");
+        ClFilterProfile.Items.Add("Current profile");
+        foreach (var p in _session.ListProfiles())
+            ClFilterProfile.Items.Add(p);
+        ClFilterProfile.SelectedIndex = 0;
+        _suppressClEvents = false;
+    }
+
+    private void ChecklistsTab_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (!_clLoaded)
+            ReloadChecklistsEditor(keepSelectionId: null);
+        RefreshChecklistProgressOnly();
+        RefreshClCommandIdCombo();
+    }
+
+    private void RefreshChecklistProgressOnly()
+    {
+        var p = _session.ChecklistProgress;
+        if (!_session.ChecklistActive && p.State is ChecklistRunState.Idle)
+        {
+            ClProgressText.Text = "Idle";
+            ClChallengeText.Text = "";
+            return;
+        }
+
+        var itemLabel = p.ItemCount > 0
+            ? $"{Math.Min(p.ItemIndex + 1, p.ItemCount)}/{p.ItemCount}"
+            : "—";
+        ClProgressText.Text = $"{p.Name} · {p.State} · {itemLabel} · {p.StatusMessage}";
+        ClChallengeText.Text = string.IsNullOrWhiteSpace(p.CurrentChallenge)
+            ? p.LastResult
+            : p.CurrentChallenge;
+    }
+
+    private void ReloadChecklistsEditor(string? keepSelectionId)
+    {
+        CommitClEditorToModel();
+        _clWorking = _session.LoadChecklistsFromDisk().ToList();
+        _clLoaded = true;
+        _clDirty = false;
+        RebuildClList(keepSelectionId);
+        ClStatus.Text = $"Loaded {_clWorking.Count} checklist(s) from disk.";
+    }
+
+    private void RebuildClList(string? selectId)
+    {
+        _suppressClEvents = true;
+        var filter = ClFilterProfile.SelectedItem as string ?? "All profiles";
+        var search = (ClSearch.Text ?? "").Trim();
+        var profile = _session.AircraftProfile;
+
+        IEnumerable<ChecklistDefinition> q = _clWorking;
+        if (string.Equals(filter, "Current profile", StringComparison.OrdinalIgnoreCase))
+            q = q.Where(c => ChecklistCatalog.IsAssignedToProfile(c, profile));
+        else if (!string.Equals(filter, "All profiles", StringComparison.OrdinalIgnoreCase)
+                 && !string.IsNullOrWhiteSpace(filter))
+            q = q.Where(c => ChecklistCatalog.IsAssignedToProfile(c, filter));
+
+        if (search.Length > 0)
+        {
+            q = q.Where(c =>
+                (c.Id?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (c.Name?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        _clRows.Clear();
+        foreach (var c in q.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+            _clRows.Add(new ChecklistListRow(c));
+
+        ChecklistListRow? pick = null;
+        if (!string.IsNullOrWhiteSpace(selectId))
+            pick = _clRows.FirstOrDefault(r => r.Id.Equals(selectId, StringComparison.OrdinalIgnoreCase));
+        pick ??= _clRows.FirstOrDefault();
+        ClList.SelectedItem = pick;
+        _suppressClEvents = false;
+        if (pick is not null)
+            LoadClIntoEditor(pick.Checklist);
+        else
+            ClearClEditor();
+    }
+
+    private void ClFilter_Changed(object sender, EventArgs e)
+    {
+        if (_suppressClEvents) return;
+        RebuildClList(_clSelected?.Id);
+    }
+
+    private void ClList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressClEvents) return;
+        CommitClEditorToModel();
+        if (ClList.SelectedItem is ChecklistListRow row)
+            LoadClIntoEditor(row.Checklist);
+        else
+            ClearClEditor();
+    }
+
+    private void LoadClIntoEditor(ChecklistDefinition cl)
+    {
+        _clSelected = cl;
+        _suppressClEvents = true;
+        ClEditId.Text = cl.Id;
+        ClEditName.Text = cl.Name;
+        ClEditPhrases.Text = string.Join(Environment.NewLine, cl.Phrases ?? new List<string>());
+        ClEditGlobalDelay.Text = cl.GlobalDelayMs.ToString(CultureInfo.InvariantCulture);
+        ClEditProfiles.Text = string.Join(", ", cl.AssignedProfiles ?? new List<string>());
+        RebuildClItemRows(selectIndex: 0);
+        _suppressClEvents = false;
+    }
+
+    private void ClearClEditor()
+    {
+        _clSelected = null;
+        _suppressClEvents = true;
+        ClEditId.Text = "";
+        ClEditName.Text = "";
+        ClEditPhrases.Text = "";
+        ClEditGlobalDelay.Text = HostConstants.ChecklistDefaultGlobalDelayMs.ToString(CultureInfo.InvariantCulture);
+        ClEditProfiles.Text = "";
+        _clItemRows.Clear();
+        ClearClItemDetail();
+        _suppressClEvents = false;
+    }
+
+    private void RebuildClItemRows(int selectIndex)
+    {
+        _clItemRows.Clear();
+        if (_clSelected?.Items is null) return;
+        for (var i = 0; i < _clSelected.Items.Count; i++)
+            _clItemRows.Add(new ChecklistItemRow(i, _clSelected.Items[i]));
+        if (_clItemRows.Count == 0)
+        {
+            ClearClItemDetail();
+            return;
+        }
+
+        var idx = Math.Clamp(selectIndex, 0, _clItemRows.Count - 1);
+        ClItemsList.SelectedIndex = idx;
+        LoadClItemDetail(_clItemRows[idx].Item);
+    }
+
+    private void ClearClItemDetail()
+    {
+        _suppressClEvents = true;
+        ClItemMode.SelectedIndex = 0;
+        ClItemChallenge.Text = "";
+        ClItemCommandId.Text = "";
+        ClItemDelayAfter.Text = "0";
+        ClItemAction.Text = "";
+        ClItemExpected.Text = "";
+        _suppressClEvents = false;
+    }
+
+    private void LoadClItemDetail(ChecklistItem item)
+    {
+        _suppressClEvents = true;
+        var mode = (item.Mode ?? ChecklistItemMode.Verify).Trim().ToLowerInvariant();
+        ClItemMode.SelectedIndex = mode == ChecklistItemMode.Execute ? 1 : 0;
+        ClItemChallenge.Text = item.Challenge ?? "";
+        ClItemCommandId.Text = item.CommandId ?? "";
+        ClItemDelayAfter.Text = item.DelayAfterMs.ToString(CultureInfo.InvariantCulture);
+
+        var actions = item.Actions is { Count: > 0 }
+            ? item.Actions
+            : item.Action is not null
+                ? new List<ActionDefinition> { item.Action }
+                : new List<ActionDefinition>();
+        ClItemAction.Text = FormatActions(actions);
+
+        var conditions = item.ExpectedList is { Count: > 0 }
+            ? item.ExpectedList
+            : item.Expected is not null
+                ? new List<ConditionDefinition> { item.Expected }
+                : new List<ConditionDefinition>();
+        ClItemExpected.Text = FormatConditions(conditions);
+        _suppressClEvents = false;
+    }
+
+    private void RefreshClCommandIdCombo()
+    {
+        var current = ClItemCommandId.Text;
+        ClItemCommandId.Items.Clear();
+        ClItemCommandId.Items.Add("");
+        foreach (var id in _session.Catalog.Commands
+                     .Select(c => c.Id)
+                     .OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            ClItemCommandId.Items.Add(id);
+        ClItemCommandId.Text = current ?? "";
+    }
+
+    private void ClEditor_Changed(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressClEvents) return;
+        _clDirty = true;
+        ClStatus.Text = "Edited (not applied).";
+    }
+
+    private void ClItemEditor_Changed(object sender, EventArgs e)
+    {
+        if (_suppressClEvents) return;
+        _clDirty = true;
+        CommitClItemDetailToModel();
+        if (ClItemsList.SelectedItem is ChecklistItemRow row)
+            row.RefreshDisplay();
+        ClItemsList.Items.Refresh();
+    }
+
+    private void ClItemEditor_LostFocus(object sender, RoutedEventArgs e) => ClItemEditor_Changed(sender, e);
+
+    private void ClItemsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressClEvents) return;
+        CommitClItemDetailToModel();
+        if (ClItemsList.SelectedItem is ChecklistItemRow row)
+            LoadClItemDetail(row.Item);
+        else
+            ClearClItemDetail();
+    }
+
+    private void CommitClEditorToModel()
+    {
+        if (_clSelected is null) return;
+        CommitClItemDetailToModel();
+        _clSelected.Id = (ClEditId.Text ?? "").Trim();
+        _clSelected.Name = (ClEditName.Text ?? "").Trim();
+        _clSelected.Phrases = ParseLines(ClEditPhrases.Text);
+        if (!int.TryParse((ClEditGlobalDelay.Text ?? "").Trim(), NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out var gDelay))
+            gDelay = HostConstants.ChecklistDefaultGlobalDelayMs;
+        _clSelected.GlobalDelayMs = gDelay;
+        _clSelected.AssignedProfiles = (ClEditProfiles.Text ?? "")
+            .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => s.Length > 0)
+            .ToList();
+    }
+
+    private void CommitClItemDetailToModel()
+    {
+        if (ClItemsList.SelectedItem is not ChecklistItemRow row) return;
+        var item = row.Item;
+        item.Mode = (ClItemMode.SelectedItem as ComboBoxItem)?.Content?.ToString()
+                    ?? ClItemMode.Text
+                    ?? ChecklistItemMode.Verify;
+        item.Challenge = ClItemChallenge.Text?.Trim() ?? "";
+        item.CommandId = string.IsNullOrWhiteSpace(ClItemCommandId.Text) ? null : ClItemCommandId.Text.Trim();
+        if (!int.TryParse((ClItemDelayAfter.Text ?? "").Trim(), NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out var delay))
+            delay = 0;
+        item.DelayAfterMs = delay;
+
+        var actions = ParseActions(ClItemAction.Text);
+        item.Actions = actions;
+        item.Action = actions.Count == 1 ? actions[0] : null;
+
+        var conditions = ParseConditions(ClItemExpected.Text);
+        item.ExpectedList = conditions;
+        item.Expected = conditions.Count == 1 ? conditions[0] : null;
+    }
+
+    private void BtnClNew_Click(object sender, RoutedEventArgs e)
+    {
+        CommitClEditorToModel();
+        var id = MakeUniqueChecklistId("new_checklist");
+        var cl = new ChecklistDefinition
+        {
+            Id = id,
+            Name = "New checklist",
+            Phrases = new List<string> { "new checklist" },
+            GlobalDelayMs = HostConstants.ChecklistDefaultGlobalDelayMs,
+            Items = new List<ChecklistItem>
+            {
+                new()
+                {
+                    Mode = ChecklistItemMode.Verify,
+                    Challenge = "Item",
+                    Expected = new ConditionDefinition
+                    {
+                        SimVar = "BRAKE PARKING POSITION",
+                        Op = "==",
+                        Value = 1,
+                        Units = "bool"
+                    }
+                }
+            }
+        };
+        _clWorking.Add(cl);
+        _clDirty = true;
+        RebuildClList(id);
+        ClStatus.Text = "Added checklist (Apply/Save to keep).";
+    }
+
+    private string MakeUniqueChecklistId(string prefix)
+    {
+        var baseId = prefix;
+        var n = 1;
+        while (_clWorking.Any(c => c.Id.Equals(baseId, StringComparison.OrdinalIgnoreCase)))
+        {
+            n++;
+            baseId = $"{prefix}_{n}";
+        }
+
+        return baseId;
+    }
+
+    private void BtnClDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clSelected is null) return;
+        var id = _clSelected.Id;
+        _clWorking.RemoveAll(c => ReferenceEquals(c, _clSelected) || c.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        _clDirty = true;
+        RebuildClList(null);
+        ClStatus.Text = $"Removed '{id}' from working set (Save to delete file).";
+    }
+
+    private void BtnClItemAdd_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clSelected is null) return;
+        CommitClItemDetailToModel();
+        _clSelected.Items.Add(new ChecklistItem
+        {
+            Mode = ChecklistItemMode.Execute,
+            Challenge = "New item",
+            CommandId = "landing_lights_on",
+            DelayAfterMs = 100
+        });
+        _clDirty = true;
+        RebuildClItemRows(_clSelected.Items.Count - 1);
+    }
+
+    private void BtnClItemRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clSelected is null || ClItemsList.SelectedItem is not ChecklistItemRow row) return;
+        var idx = row.Index;
+        if (idx < 0 || idx >= _clSelected.Items.Count) return;
+        _clSelected.Items.RemoveAt(idx);
+        _clDirty = true;
+        RebuildClItemRows(Math.Max(0, idx - 1));
+    }
+
+    private void BtnClItemUp_Click(object sender, RoutedEventArgs e) => MoveClItem(-1);
+
+    private void BtnClItemDown_Click(object sender, RoutedEventArgs e) => MoveClItem(1);
+
+    private void MoveClItem(int delta)
+    {
+        if (_clSelected is null || ClItemsList.SelectedItem is not ChecklistItemRow row) return;
+        CommitClItemDetailToModel();
+        var i = row.Index;
+        var j = i + delta;
+        if (j < 0 || j >= _clSelected.Items.Count) return;
+        (_clSelected.Items[i], _clSelected.Items[j]) = (_clSelected.Items[j], _clSelected.Items[i]);
+        _clDirty = true;
+        RebuildClItemRows(j);
+    }
+
+    private void BtnClStart_Click(object sender, RoutedEventArgs e)
+    {
+        CommitClEditorToModel();
+        if (_clSelected is null || string.IsNullOrWhiteSpace(_clSelected.Id))
+        {
+            ClStatus.Text = "Select a checklist first.";
+            return;
+        }
+
+        // Ensure session has latest working definitions for run (memory apply without full validate save).
+        try
+        {
+            _session.ApplyChecklists(_clWorking, saveToDisk: false);
+            _clDirty = false;
+        }
+        catch (Exception ex)
+        {
+            ClStatus.Text = ex.Message;
+            return;
+        }
+
+        _session.StartChecklist(_clSelected.Id);
+        // Drive a few ticks so first challenge/execute runs without waiting for poll.
+        for (var i = 0; i < 5 && _session.ChecklistActive; i++)
+            System.Threading.Thread.Sleep(10);
+        RefreshChecklistProgressOnly();
+        ClStatus.Text = $"Started '{_clSelected.Id}'.";
+    }
+
+    private void BtnClStop_Click(object sender, RoutedEventArgs e)
+    {
+        _session.StopChecklist();
+        RefreshChecklistProgressOnly();
+        ClStatus.Text = "Checklist stopped.";
+    }
+
+    private void BtnClApply_Click(object sender, RoutedEventArgs e)
+    {
+        CommitClEditorToModel();
+        try
+        {
+            _session.ApplyChecklists(_clWorking, saveToDisk: false);
+            _clDirty = false;
+            ClStatus.Text = $"Applied {_clWorking.Count} checklist(s) in memory.";
+            RebuildClList(_clSelected?.Id);
+        }
+        catch (Exception ex)
+        {
+            ClStatus.Text = ex.Message;
+        }
+    }
+
+    private void BtnClSave_Click(object sender, RoutedEventArgs e)
+    {
+        CommitClEditorToModel();
+        try
+        {
+            _session.ApplyChecklists(_clWorking, saveToDisk: true);
+            _clDirty = false;
+            ClStatus.Text = $"Saved {_clWorking.Count} checklist(s) to config/checklists/.";
+            RebuildClList(_clSelected?.Id);
+        }
+        catch (Exception ex)
+        {
+            ClStatus.Text = ex.Message;
+        }
+    }
+
+    private void BtnClReload_Click(object sender, RoutedEventArgs e)
+    {
+        if (_clDirty)
+        {
+            var r = System.Windows.MessageBox.Show(
+                "Discard unapplied checklist edits and reload from disk?",
+                "Reload checklists",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (r != MessageBoxResult.Yes)
+                return;
+        }
+
+        ReloadChecklistsEditor(_clSelected?.Id);
+    }
+
     /// <summary>List row for the Commands tab (UI-only; holds reference into working copy).</summary>
     private sealed class CommandRow
     {
@@ -1340,5 +1799,44 @@ public partial class MainWindow : Window
                 : "—";
 
         public void ReplaceCommand(CommandDefinition cmd) => Command = cmd;
+    }
+
+    private sealed class ChecklistListRow
+    {
+        public ChecklistListRow(ChecklistDefinition checklist) => Checklist = checklist;
+        public ChecklistDefinition Checklist { get; }
+        public string Id => Checklist.Id;
+        public string Display =>
+            string.IsNullOrWhiteSpace(Checklist.Name)
+                ? Checklist.Id
+                : $"{Checklist.Name} ({Checklist.Id})";
+    }
+
+    private sealed class ChecklistItemRow
+    {
+        public ChecklistItemRow(int index, ChecklistItem item)
+        {
+            Index = index;
+            Item = item;
+            RefreshDisplay();
+        }
+
+        public int Index { get; }
+        public ChecklistItem Item { get; }
+        public string Display { get; private set; } = "";
+
+        public void RefreshDisplay()
+        {
+            var mode = (Item.Mode ?? "?").Trim();
+            var ch = Item.Challenge ?? "";
+            var src = !string.IsNullOrWhiteSpace(Item.CommandId)
+                ? Item.CommandId
+                : Item.Actions.Count > 0 || Item.Action is not null
+                    ? "free action"
+                    : Item.Expected is not null || Item.ExpectedList.Count > 0
+                        ? "expected"
+                        : "—";
+            Display = $"{Index + 1}. [{mode}] {ch} · {src}";
+        }
     }
 }

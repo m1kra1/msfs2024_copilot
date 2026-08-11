@@ -43,12 +43,19 @@ public static class ConfigLoader
     public static string LearnWatchlistPath(string configRoot) =>
         Path.Combine(configRoot, HostConstants.LearnWatchlistFileName);
 
+    public static string ChecklistsDirectory(string configRoot) =>
+        Path.Combine(configRoot, HostConstants.ChecklistsDirectoryName);
+
+    public static string ChecklistPath(string configRoot, string checklistId) =>
+        Path.Combine(
+            ChecklistsDirectory(configRoot),
+            $"{(string.IsNullOrWhiteSpace(checklistId) ? "unnamed" : checklistId.Trim())}.json");
+
     public static string AircraftProfilePath(string configRoot, string? profileName) =>
         Path.Combine(
             configRoot,
             HostConstants.AircraftProfilesDirectoryName,
             $"{HostConstants.NormalizeProfileId(profileName)}.json");
-
     public static AppSettings LoadSettings(string settingsPath)
     {
         if (!File.Exists(settingsPath))
@@ -195,6 +202,122 @@ public static class ConfigLoader
         return JsonSerializer.Deserialize<AircraftProfile>(json, JsonOptions)
                ?? throw new InvalidOperationException($"Failed to deserialize {profilePath}");
     }
+
+    /// <summary>
+    /// Loads all <c>config/checklists/*.json</c>. Missing directory → empty list.
+    /// Invalid files are skipped (caller may log via returned skip messages).
+    /// </summary>
+    public static IReadOnlyList<ChecklistDefinition> LoadAllChecklists(string configRoot)
+    {
+        var dir = ChecklistsDirectory(configRoot);
+        if (!Directory.Exists(dir))
+            return Array.Empty<ChecklistDefinition>();
+
+        var list = new List<ChecklistDefinition>();
+        foreach (var path in Directory.GetFiles(dir, "*.json").OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var json = File.ReadAllText(path);
+                var def = JsonSerializer.Deserialize<ChecklistDefinition>(json, JsonOptions);
+                if (def is null) continue;
+                if (string.IsNullOrWhiteSpace(def.Id))
+                    def.Id = Path.GetFileNameWithoutExtension(path) ?? "";
+                list.Add(def);
+            }
+            catch
+            {
+                // Skip unreadable files; HostSession may re-load after fix.
+            }
+        }
+
+        return list;
+    }
+
+    public static void SaveChecklist(string configRoot, ChecklistDefinition checklist)
+    {
+        if (checklist is null) throw new ArgumentNullException(nameof(checklist));
+        if (string.IsNullOrWhiteSpace(checklist.Id))
+            throw new ArgumentException("Checklist id required", nameof(checklist));
+
+        var path = ChecklistPath(configRoot, checklist.Id);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var json = JsonSerializer.Serialize(checklist, WriteCommandsOptions);
+        File.WriteAllText(path, json);
+    }
+
+    public static bool DeleteChecklistFile(string configRoot, string checklistId)
+    {
+        var path = ChecklistPath(configRoot, checklistId);
+        if (!File.Exists(path))
+            return false;
+        File.Delete(path);
+        return true;
+    }
+
+    /// <summary>Deep-clones a checklist definition (safe for UI working copies).</summary>
+    public static ChecklistDefinition CloneChecklist(ChecklistDefinition src)
+    {
+        src ??= new ChecklistDefinition();
+        return new ChecklistDefinition
+        {
+            Id = src.Id,
+            Name = src.Name,
+            Phrases = (src.Phrases ?? new List<string>()).ToList(),
+            GlobalDelayMs = src.GlobalDelayMs,
+            AssignedProfiles = (src.AssignedProfiles ?? new List<string>()).ToList(),
+            Items = (src.Items ?? new List<ChecklistItem>()).Select(CloneChecklistItem).ToList()
+        };
+    }
+
+    public static IReadOnlyList<ChecklistDefinition> CloneChecklists(IEnumerable<ChecklistDefinition>? list) =>
+        (list ?? Enumerable.Empty<ChecklistDefinition>()).Select(CloneChecklist).ToList();
+
+    private static ChecklistItem CloneChecklistItem(ChecklistItem src) => new()
+    {
+        Mode = src?.Mode ?? ChecklistItemMode.Verify,
+        Challenge = src?.Challenge ?? "",
+        CommandId = src?.CommandId,
+        Action = src?.Action is null
+            ? null
+            : new ActionDefinition
+            {
+                Type = src.Action.Type,
+                Name = src.Action.Name,
+                Value = src.Action.Value,
+                Units = src.Action.Units
+            },
+        Actions = (src?.Actions ?? new List<ActionDefinition>())
+            .Select(a => new ActionDefinition
+            {
+                Type = a.Type,
+                Name = a.Name,
+                Value = a.Value,
+                Units = a.Units
+            }).ToList(),
+        Expected = src?.Expected is null
+            ? null
+            : new ConditionDefinition
+            {
+                SimVar = src.Expected.SimVar,
+                Op = src.Expected.Op,
+                Value = src.Expected.Value,
+                Units = src.Expected.Units
+            },
+        ExpectedList = (src?.ExpectedList ?? new List<ConditionDefinition>())
+            .Select(c => new ConditionDefinition
+            {
+                SimVar = c.SimVar,
+                Op = c.Op,
+                Value = c.Value,
+                Units = c.Units
+            }).ToList(),
+        ResponseOk = src?.ResponseOk,
+        DelayAfterMs = src?.DelayAfterMs ?? 0
+    };
 
     /// <summary>
     /// Merges base commands with an aircraft profile. Profile commands with the same id replace base;

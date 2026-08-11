@@ -16,6 +16,7 @@ public static class HostConstants
     public const string AircraftDetectionFileName = "aircraft_detection.json";
     public const string LearnWatchlistFileName = "learn_watchlist.json";
     public const string AircraftProfilesDirectoryName = "aircraft";
+    public const string ChecklistsDirectoryName = "checklists";
     public const string ManifestFileName = "manifest.json";
     public const string HeadlessLogFileName = "copilot-host-headless.log";
 
@@ -28,6 +29,12 @@ public static class HostConstants
     public const double GearUpMinVerticalSpeedFpm = 100;
 
     public const double DefaultOfflineVerticalSpeedFpm = 500;
+
+    // ── Checklist system ──────────────────────────────────────────────────────
+    public const int ChecklistDefaultGlobalDelayMs = 400;
+    public const int ChecklistMaxDelayMs = 5000;
+    public const string ChecklistDefaultResponseOk = "Checked";
+    public const string ChecklistToken = "checklist";
 
     // ── Learn Mode ────────────────────────────────────────────────────────────
     /// <summary>Hard cap on SimConnect learn watch definitions (SECOND period).</summary>
