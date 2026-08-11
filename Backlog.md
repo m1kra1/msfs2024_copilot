@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-10 · Release **1.6.0** |
+| **Stand** | 2026-08-11 · Release **1.6.1** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -32,12 +32,12 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 ### L0 / L0b / L0c. Learn-Modus (full) — **DONE** in **1.4.0**
 
 MVP + Phase G (watchlists, profile `learn_watch`, debounce/group) + Phase H (action hints, export, headless dump).  
-Details: [Complete_Features.md](Complete_Features.md) §5b · [Plan_LearnMode.md](Plan_LearnMode.md) · [CHANGELOG.md](CHANGELOG.md).
+Details: [Complete_Features.md](Complete_Features.md) §5b · [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) · [CHANGELOG.md](CHANGELOG.md).
 
 ### B2. WAV-Callouts — **DONE** in **1.5.0**
 
 `tts.engine` Hybrid/Wav/Windows + `tts.voice_pack`; `WavTtsService` / `HybridTtsService` / manifests; Austrian + Lufthansa sample packs under `extras/voices/`.  
-Details: [Complete_Features.md](Complete_Features.md) · [Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
+Details: [Complete_Features.md](Complete_Features.md) · [Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
 
 ### Installer (WPF Setup) — **DONE** in **1.6.0**
 
@@ -414,7 +414,7 @@ Host auto-start with MSFS remains **B3** (not done).
 
 ## Empfohlene nächste Schritte (an Prios ausgerichtet)
 
-1. **L0 (P0)** — Learn-Modus implementieren nach [Plan_LearnMode.md](Plan_LearnMode.md)
+1. **L0 (P0)** — Learn-Modus implementieren nach [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
 2. **A1 (P0)** — Live Free Flight Fenix abhaken (Human; optional mit Learn-Tab)
 3. **B2 (P1)** — WAV-Callouts / Hybrid-TTS
 4. **C2 + C4 + C5 (P1)** — dynamische Events, SimVar-Aliases, Profile-`extends`

@@ -148,32 +148,39 @@ public partial class MainWindow : Window
         BtnBack.IsEnabled = page is WizardPage.Runtime or WizardPage.Location or WizardPage.Options or WizardPage.UninstallConfirm;
         BtnNext.IsEnabled = !_busy;
         BtnCancel.Content = page is WizardPage.Finish ? "Close" : "Cancel";
+        if (page != WizardPage.Finish)
+            BtnNext.Visibility = Visibility.Visible;
 
         switch (page)
         {
             case WizardPage.Welcome:
+                StepText.Text = "Step 1 of 4 · Welcome";
                 TitleText.Text = "Private Voice Co-Pilot Setup";
                 SubtitleText.Text = "Install or upgrade the Community package and host shortcuts.";
                 BtnNext.Content = "Next";
                 break;
             case WizardPage.Runtime:
+                StepText.Text = "Step 2 of 4 · Runtime";
                 TitleText.Text = ".NET Runtime";
                 SubtitleText.Text = "Host requires .NET 8 Desktop Runtime.";
                 RefreshRuntimeUi();
                 BtnNext.Content = "Next";
                 break;
             case WizardPage.Location:
+                StepText.Text = "Step 3 of 4 · Location";
                 TitleText.Text = "Community folder";
                 SubtitleText.Text = "Where MSFS loads Community packages from.";
                 UpdateLocationStatus();
                 BtnNext.Content = "Next";
                 break;
             case WizardPage.Options:
+                StepText.Text = "Step 4 of 4 · Options";
                 TitleText.Text = "Options";
                 SubtitleText.Text = "Shortcuts and upgrade behavior.";
                 BtnNext.Content = "Install";
                 break;
             case WizardPage.Progress:
+                StepText.Text = _uninstallMode ? "Uninstall in progress" : "Install in progress";
                 TitleText.Text = _uninstallMode ? "Uninstalling…" : "Installing…";
                 SubtitleText.Text = "Please wait.";
                 BtnBack.IsEnabled = false;
@@ -181,6 +188,7 @@ public partial class MainWindow : Window
                 BtnCancel.IsEnabled = false;
                 break;
             case WizardPage.Finish:
+                StepText.Text = "Complete";
                 TitleText.Text = "Finished";
                 SubtitleText.Text = "";
                 BtnBack.IsEnabled = false;
@@ -190,6 +198,7 @@ public partial class MainWindow : Window
                 BtnLaunchHost.IsEnabled = _runtimeOk && !_uninstallMode && File.Exists(_lastHostExe ?? "");
                 break;
             case WizardPage.UninstallConfirm:
+                StepText.Text = "Uninstall";
                 TitleText.Text = "Uninstall";
                 SubtitleText.Text = "Remove package and shortcuts.";
                 BtnNext.Content = "Uninstall";

@@ -28,7 +28,8 @@ Package: `private-utility-copilot-voice` | Creator: Private | Type: MISC (Commun
 - **Voice packs (WAV callouts):** `private-utility-copilot-voice/PackageSources/extras/voices/{pack}/` (`manifest.json` + `.wav`)
 - Packaged copy (keep in sync when shipping): `private-utility-copilot-voice/Packages/private-utility-copilot-voice/extras/config/` (+ `extras/voices/`)
 - Published host + extras: `private-utility-copilot-voice/PackageSources/extras/`
-- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`, `Plan_LearnMode.md`, `Plan_B2_WavCallouts_with_samples/`
+- Docs (repo root): `README.md`, `CHANGELOG.md`, `Complete_Features.md`, `Backlog.md`
+- Feature plans (future + shipped specs): `Plans/` (e.g. `Plans/Plan_LearnMode.md`, `Plans/Plan_B2_WavCallouts_with_samples/`)
 
 ### Build / publish / test (explicit)
 From repo root (or Host dir as noted):
@@ -167,14 +168,14 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.6.0** on **`dev`** (WPF installer + B2 WAV callouts + Learn Mode).
+- Package/app baseline **1.6.1** on **`dev`** (installer UI polish + WPF installer + B2 WAV callouts + Learn Mode).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 
 ## Docs Workflow
 Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.md` when architecture/agent conventions change.
 - Done features → `Complete_Features.md`
-- Open work → `Backlog.md` (implementation specs may live in `Plan_*.md`, e.g. `Plan_LearnMode.md`)
+- Open work → `Backlog.md` (implementation specs live under `Plans/`, e.g. `Plans/Plan_LearnMode.md`)
 - Push to **`dev`** when the user wants it published; releases also go to **`main`** when requested.
 - Do **not** revive `FUTURE.md` — replaced by Complete_Features + Backlog.
 
@@ -206,6 +207,7 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 ## Related planning
 - **Implemented features (SSOT):** `Complete_Features.md` (incl. Learn Mode §5b)
 - **Open work / improvements:** `Backlog.md` (A1 Fenix live re-test P0; later items)
-- **Learn Mode coding spec:** `Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
-- **WAV callouts (B2) coding spec:** `Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
+- **Learn Mode coding spec:** `Plans/Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
+- **WAV callouts (B2) coding spec:** `Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
+- New feature plans go under **`Plans/`** only (not repo root).
 - Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts are **done** (see Complete_Features).

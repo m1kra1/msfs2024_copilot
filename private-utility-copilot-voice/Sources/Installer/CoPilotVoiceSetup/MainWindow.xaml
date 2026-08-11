@@ -2,31 +2,41 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Private Voice Co-Pilot Setup"
-        Height="520" Width="640"
-        MinHeight="480" MinWidth="560"
+        Height="560" Width="700"
+        MinHeight="500" MinWidth="600"
         WindowStartupLocation="CenterScreen">
-  <DockPanel Margin="20">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-      <Button x:Name="BtnBack" Content="Back" Click="BtnBack_Click" IsEnabled="False"/>
-      <Button x:Name="BtnNext" Content="Next" Style="{StaticResource PrimaryButton}" Click="BtnNext_Click"/>
-      <Button x:Name="BtnCancel" Content="Cancel" Click="BtnCancel_Click"/>
+  <DockPanel Margin="24,20,24,16">
+    <!-- Footer -->
+    <StackPanel DockPanel.Dock="Bottom">
+      <Border Height="1" Background="{StaticResource BorderBrushKey}" Margin="0,16,0,14"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button x:Name="BtnBack" Content="Back" Click="BtnBack_Click" IsEnabled="False" Margin="0"/>
+        <Button x:Name="BtnNext" Content="Next" Style="{StaticResource PrimaryButton}" Click="BtnNext_Click"/>
+        <Button x:Name="BtnCancel" Content="Cancel" Click="BtnCancel_Click"/>
+      </StackPanel>
     </StackPanel>
 
-    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-      <TextBlock x:Name="TitleText" Text="Private Voice Co-Pilot Setup" FontSize="22" FontWeight="SemiBold"/>
-      <TextBlock x:Name="SubtitleText" Text="" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+    <!-- Header -->
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+      <TextBlock x:Name="StepText" Style="{StaticResource StepTextStyle}" Margin="0,0,0,6"/>
+      <TextBlock x:Name="TitleText" Text="Private Voice Co-Pilot Setup" Style="{StaticResource TitleTextStyle}"/>
+      <Border Height="3" Width="48" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}"
+              CornerRadius="2" Margin="0,10,0,8"/>
+      <TextBlock x:Name="SubtitleText" Text="" Style="{StaticResource SubtitleTextStyle}"/>
     </StackPanel>
 
     <!-- Pages -->
     <Grid>
       <!-- Welcome -->
       <StackPanel x:Name="PageWelcome" Visibility="Visible">
-        <TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" FontSize="14"
                    Text="This setup copies the Co-Pilot Community package and creates shortcuts to start the out-of-process host."/>
-        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"
-                   Text="MSFS does not auto-start the host. After install: start Free Flight, then use the Desktop or Start Menu shortcut."/>
-        <TextBlock x:Name="WelcomeVersion" TextWrapping="Wrap" Margin="0,0,0,12"/>
-        <TextBlock x:Name="WelcomePayload" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,12">
+          <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"
+                     Text="MSFS does not auto-start the host. After install: start Free Flight, then use the Desktop or Start Menu shortcut."/>
+        </Border>
+        <TextBlock x:Name="WelcomeVersion" TextWrapping="Wrap" Margin="0,0,0,8" FontWeight="SemiBold"/>
+        <TextBlock x:Name="WelcomePayload" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
         <Button x:Name="BtnGoUninstall" Content="Uninstall existing installation…" HorizontalAlignment="Left"
                 Margin="0,20,0,0" Click="BtnGoUninstall_Click" Visibility="Collapsed"/>
       </StackPanel>
@@ -34,33 +44,36 @@
       <!-- Runtime -->
       <StackPanel x:Name="PageRuntime" Visibility="Collapsed">
         <TextBlock Text="Microsoft .NET 8 Desktop Runtime is required to run CoPilotVoiceHost.exe (framework-dependent)."
-                   TextWrapping="Wrap" Margin="0,0,0,12"/>
-        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="4" Margin="0,0,0,12">
+                   TextWrapping="Wrap" Margin="0,0,0,14" FontSize="14"/>
+        <Border Padding="14" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,14">
           <StackPanel>
-            <TextBlock x:Name="RuntimeStatus" FontWeight="SemiBold"/>
-            <TextBlock x:Name="RuntimeHint" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
+            <TextBlock x:Name="RuntimeStatus" FontWeight="SemiBold" FontSize="14"/>
+            <TextBlock x:Name="RuntimeHint" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
-        <Button Content="Open .NET 8 download page" HorizontalAlignment="Left" Click="BtnDownloadDotNet_Click"/>
-        <TextBlock Text="You can still install files if the runtime is missing; launching the host will fail until it is installed."
-                   TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0"/>
+        <Button Content="Open .NET 8 download page" HorizontalAlignment="Left" Margin="0" Click="BtnDownloadDotNet_Click"/>
+        <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,16,0,0"
+                   Text="You can still install files if the runtime is missing; launching the host will fail until it is installed."/>
       </StackPanel>
 
       <!-- Location -->
       <StackPanel x:Name="PageLocation" Visibility="Collapsed">
-        <TextBlock Text="MSFS 2024 Community folder" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <TextBlock Text="MSFS 2024 Community folder" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"/>
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
-          <ComboBox x:Name="CommunityCombo" IsEditable="True" Grid.Column="0" Height="32"/>
-          <Button Content="Browse…" Grid.Column="1" Click="BtnBrowse_Click"/>
+          <ComboBox x:Name="CommunityCombo" IsEditable="True" Grid.Column="0" MinHeight="36"
+                    VerticalAlignment="Center"/>
+          <Button Content="Browse…" Grid.Column="1" Margin="10,0,0,0" Click="BtnBrowse_Click"/>
           <Button Content="Detect" Grid.Column="2" Click="BtnDetect_Click"/>
         </Grid>
-        <TextBlock x:Name="LocationStatus" TextWrapping="Wrap" Margin="0,10,0,0"/>
-        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,12,0,0"
+        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,14,0,0">
+          <TextBlock x:Name="LocationStatus" TextWrapping="Wrap"/>
+        </Border>
+        <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" Margin="0,12,0,0"
                    Text="Package will be installed as: Community\private-utility-copilot-voice\"/>
       </StackPanel>
 
@@ -70,31 +83,37 @@
         <CheckBox x:Name="OptStartMenu" Content="Create Start Menu shortcut (+ Uninstall entry)" IsChecked="True"/>
         <CheckBox x:Name="OptKeepConfig" Content="Keep my config on upgrade (settings + aircraft profiles)" IsChecked="True"/>
         <CheckBox x:Name="OptLaunch" Content="Launch host when finished"/>
-        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0"
-                   Text="On upgrade, base_commands and voice packs are refreshed from the package. A config backup is always written under %LocalAppData%\PrivateCoPilotVoice\backup\."/>
+        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,18,0,0">
+          <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"
+                     Text="On upgrade, base_commands and voice packs are refreshed from the package. A config backup is always written under %LocalAppData%\PrivateCoPilotVoice\backup\."/>
+        </Border>
       </StackPanel>
 
       <!-- Progress -->
       <StackPanel x:Name="PageProgress" Visibility="Collapsed">
-        <TextBlock x:Name="ProgressTitle" Text="Working…" FontWeight="SemiBold" Margin="0,0,0,8"/>
-        <TextBox x:Name="ProgressLog" IsReadOnly="True" Height="220" TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto" AcceptsReturn="True"/>
+        <TextBlock x:Name="ProgressTitle" Text="Working…" FontWeight="SemiBold" Margin="0,0,0,10" FontSize="14"/>
+        <TextBox x:Name="ProgressLog" Style="{StaticResource ProgressLogTextBox}" IsReadOnly="True" Height="260"/>
       </StackPanel>
 
       <!-- Finish -->
       <StackPanel x:Name="PageFinish" Visibility="Collapsed">
-        <TextBlock x:Name="FinishMessage" TextWrapping="Wrap" FontSize="15" Margin="0,0,0,16"/>
+        <Border Padding="14" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,18">
+          <TextBlock x:Name="FinishMessage" TextWrapping="Wrap" FontSize="15"/>
+        </Border>
         <StackPanel Orientation="Horizontal">
-          <Button x:Name="BtnLaunchHost" Content="Launch Host" Style="{StaticResource PrimaryButton}" Click="BtnLaunchHost_Click"/>
+          <Button x:Name="BtnLaunchHost" Content="Launch Host" Style="{StaticResource PrimaryButton}"
+                  Margin="0" Click="BtnLaunchHost_Click"/>
           <Button Content="Open package folder" Click="BtnOpenFolder_Click"/>
         </StackPanel>
       </StackPanel>
 
       <!-- Uninstall confirm -->
       <StackPanel x:Name="PageUninstall" Visibility="Collapsed">
-        <TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,14" FontSize="14"
                    Text="This removes the Community package folder private-utility-copilot-voice, Desktop/Start Menu shortcuts, and install metadata."/>
-        <TextBlock x:Name="UninstallTarget" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,12"/>
+        <Border Padding="12" Background="{StaticResource PanelBrush}" CornerRadius="8" Margin="0,0,0,14">
+          <TextBlock x:Name="UninstallTarget" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}"/>
+        </Border>
         <TextBlock TextWrapping="Wrap" Foreground="{StaticResource WarnBrush}"
                    Text="A backup of extras\config will be saved under LocalAppData before deletion."/>
       </StackPanel>

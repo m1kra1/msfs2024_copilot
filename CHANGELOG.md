@@ -13,6 +13,16 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.6.1] - 2026-08-11
+
+### Changed
+
+- **Installer UI polish:** full dark control templates (Button, CheckBox, ComboBox + editable popup, TextBox) aligned with Host DarkCockpit; clearer typography hierarchy; step strip; status/info panels; progress log mono styling.
+- **Docs layout:** feature plans under `Plans/` (`Plan_LearnMode.md`, `Plan_B2_WavCallouts_with_samples/`).
+- **Package/app version 1.6.1** (host + installer csproj, `manifest.json`, AssetPackage).
+
+---
+
 ## [1.6.0] - 2026-08-10
 
 ### Added
@@ -52,7 +62,7 @@ Versioning follows package `package_version` where applicable.
   - **MVP:** GUI **Learn** tab — watches (status + catalog + manual), detections, Mapped/Unmapped/Ambiguous, create/edit → **Save to active profile**, isolated SimConnect DEF_LEARN (SECOND), self-echo suppress (~750 ms).
   - **Phase G:** `config/learn_watchlist.json` (exclude + default watches), profile `learn_watch` (Fenix seed), debounce (400 ms same-signal), multi-var `GroupId` per Observe pass.
   - **Phase H:** `LearnActionHints` dual-write suggestions (event + set_simvar), **Export JSON** (GUI + `ExportLearnDetections`), headless `--learn-dump` / `--learn-export <path>`.
-  - Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints`. Spec: [Plan_LearnMode.md](Plan_LearnMode.md).
+  - Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints`. Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md).
 
 ### Changed
 
@@ -73,7 +83,7 @@ Versioning follows package `package_version` where applicable.
 - **Automatic aircraft profile detection:** `aircraft_detection.json`; default ON; Fenix TITLE → `fenix_a320` before generic A320.
 - **Dynamic `list_commands` voice command:** TTS summary + full Debug list from live merged catalog.
 - **Live `SetSimVar`:** `A:` / `L:` writes via SimConnect `SetDataOnSimObject` (Native + managed best-effort).
-- **Docs SSOT:** `Complete_Features.md` (implemented), `Backlog.md` (open work), `Plan_LearnMode.md` (Learn Mode coding spec); removed `FUTURE.md`.
+- **Docs SSOT:** `Complete_Features.md` (implemented), `Backlog.md` (open work), `Plans/` (feature coding specs, e.g. Learn Mode); removed `FUTURE.md`.
 
 ### Changed
 

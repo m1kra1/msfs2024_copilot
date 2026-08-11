@@ -5,11 +5,12 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.6.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.6.1 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
-- **Learn Mode (shipped 1.4.0):** [Plan_LearnMode.md](Plan_LearnMode.md)
+- **Learn Mode (shipped 1.4.0):** [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
+- **Feature plans:** [Plans/](Plans/) (specs for shipped and upcoming work)
 
 **Docs workflow:** every meaningful code change updates **README.md** and **CHANGELOG.md**, then is pushed to **`dev`** (and **`main`** on releases).
 
@@ -234,7 +235,7 @@ CO_Pilot_msfs2024/
 ├── CHANGELOG.md
 ├── Complete_Features.md
 ├── Backlog.md
-├── Plan_LearnMode.md
+├── Plans/                       # Feature plans (Learn Mode, WAV callouts, future)
 └── private-utility-copilot-voice/
     ├── PackageDefinitions/          # MSFS package definition (MISC, modules + extras)
     ├── PackageSources/
