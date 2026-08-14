@@ -64,20 +64,26 @@ public sealed class WavTtsService : ITtsService
             return false;
         }
 
-        if (delayMs > 0)
-            Thread.Sleep(delayMs);
+        void PlayNow()
+        {
+            if (_disposed)
+                return;
+            try
+            {
+                Console.WriteLine($"[TTS][Wav] {Path.GetFileName(path)} ({commandId}/{responseKind})");
+                _player.Play(path);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TTS][Wav] play failed: {ex.Message}");
+            }
+        }
 
-        try
-        {
-            Console.WriteLine($"[TTS][Wav] {Path.GetFileName(path)} ({commandId}/{responseKind})");
-            _player.Play(path);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[TTS][Wav] play failed: {ex.Message}");
-            return false;
-        }
+        if (delayMs > 0)
+            TtsSpeakQueue.EnqueueDelayed(delayMs, PlayNow);
+        else
+            PlayNow();
+        return true;
     }
 
     public void Dispose()

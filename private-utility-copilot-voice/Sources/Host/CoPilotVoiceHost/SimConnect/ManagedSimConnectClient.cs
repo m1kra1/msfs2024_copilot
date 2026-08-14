@@ -18,6 +18,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     private readonly Dictionary<string, Enum> _mappedEvents = new(StringComparer.OrdinalIgnoreCase);
     private Delegate? _recvSimObjectDataHandler;
     private bool _disposed;
+    private int _nextDynamicEventId = unchecked((int)0xC0030100);
 
     public bool IsConnected { get; private set; }
     public bool IsLive => IsConnected && _simConnect is not null;
@@ -167,19 +168,25 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
         if (_simConnect is null)
             throw new InvalidOperationException("Not connected");
 
-        if (!_mappedEvents.TryGetValue(eventName, out var enumId))
+        if (!_mappedEvents.TryGetValue(eventName, out var mapped))
         {
-            MapClientEvent(eventName, PrivateCopilotEventId.PRIVATE_COPILOT_EVT_GENERIC);
-            enumId = _mappedEvents[eventName];
+            PrivateCopilotEventId id;
+            if (!StandardEventMap.TryGet(eventName, out id))
+            {
+                // Incremental ids — never reuse GENERIC (that rebound the previous event).
+                id = (PrivateCopilotEventId)Interlocked.Increment(ref _nextDynamicEventId);
+            }
+
+            MapClientEvent(eventName, id);
+            mapped = id;
         }
 
-        var method = _simConnectType!.GetMethod("TransmitClientEvent",
-            BindingFlags.Instance | BindingFlags.Public);
+        var method = ResolveTransmitClientEvent();
         if (method is null)
             throw new MissingMethodException("TransmitClientEvent");
 
         // Align with NativeSimConnectClient: GroupID = HIGHEST priority + GROUPID_IS_PRIORITY (0x10).
-        var groupType = _simConnectType.Assembly.GetType(
+        var groupType = _simConnectType!.Assembly.GetType(
             "Microsoft.FlightSimulator.SimConnect.SIMCONNECT_NOTIFICATION_GROUP_ID")
             ?? typeof(PrivateCopilotEventId);
 
@@ -190,7 +197,7 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
             ? Enum.ToObject(flagType, (int)NativeSimConnectClient.EventFlagGroupIdIsPriority)
             : NativeSimConnectClient.EventFlagGroupIdIsPriority;
 
-        method.Invoke(_simConnect, new object[] { 0u, enumId, data, groupId!, flags });
+        method.Invoke(_simConnect, new object[] { 0u, mapped, data, groupId!, flags });
         Console.WriteLine($"[SimConnect] LIVE event sent (managed): {eventName} data={data}");
         StatusMessage = $"Event sent: {eventName}";
     }
@@ -562,6 +569,23 @@ public sealed class ManagedSimConnectClient : ISimConnectClient
     {
         foreach (var kv in StandardEventMap.All)
             MapClientEvent(kv.Key, kv.Value);
+    }
+
+    private MethodInfo? ResolveTransmitClientEvent()
+    {
+        if (_simConnectType is null)
+            return null;
+
+        var methods = _simConnectType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(m => m.Name == "TransmitClientEvent")
+            .ToArray();
+        if (methods.Length == 0)
+            return null;
+        if (methods.Length == 1)
+            return methods[0];
+
+        // Prefer the classic 5-arg overload (objectId, eventId, data, groupId, flags).
+        return methods.FirstOrDefault(m => m.GetParameters().Length == 5) ?? methods[0];
     }
 
     private void MapClientEvent(string simEventName, PrivateCopilotEventId id)

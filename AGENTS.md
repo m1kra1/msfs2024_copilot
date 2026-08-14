@@ -62,6 +62,7 @@ powershell -ExecutionPolicy Bypass -File scripts/pack-installer.ps1
 
 ### Config copy rules
 - **Source of truth = PackageSources/extras/config.** The csproj copies those JSON files into build output (`bin/.../config`) via `CopyToOutputDirectory`.
+- After config edits, run `scripts/sync-config.ps1` (or `pack-installer.ps1`) so `Packages/.../extras/config` stays aligned.
 - When changing commands/settings, update **PackageSources** always; also update **Packages/.../extras/config** if the repo ships a built package tree.
 - Do **not** hand-edit `bin/` or `obj/` config copies — they are build outputs.
 
@@ -125,6 +126,8 @@ Each command in `base_commands.json` / aircraft profiles:
 - Avoid duplicate background timers for PTT (session poll + HandlePhrase call `PttArmService.Poll`; do not add a second PttArm `StartPolling` on inject/--once paths).
 
 ## SimConnect transmit notes (regression-critical)
+- Profile / checklist IDs used as filenames must pass `SafeConfigPath.IsSafeId` (`[A-Za-z0-9_-]`, no `..`). Voice-pack manifests already reject traversal.
+- Native `SimConnect.dll` is loaded **only** from the EXE directory (MSFS markers required). Do not re-add CWD/Steam search or process-wide `SetDllDirectory`.
 - Primary live client: **native** `NativeSimConnectClient` (managed is fallback).
 - `SimConnect_TransmitClientEvent` must use **`GroupID = SIMCONNECT_GROUP_PRIORITY_HIGHEST` (1)** and **`Flags = SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY` (0x10)**. Constants: `NativeSimConnectClient.GroupPriorityHighest` / `EventFlagGroupIdIsPriority`. Managed path must stay aligned.
 - **Do not** transmit with `Flags = 0` while passing a priority as GroupID — HRESULT can be S_OK while **MSFS never applies** the event (host Live + TTS/actions logged, cockpit dead). Smoke log: `[SimConnect] LIVE event sent: …`.
@@ -179,7 +182,7 @@ Each command in `base_commands.json` / aircraft profiles:
 - Vendor LVars only in aircraft profile, never `base_commands.json`.
 
 ## Current Version & Branch
-- Package/app baseline **1.7.0** on **`dev`** (first-class Checklist system + prior 1.6.x installer/host fixes).
+- Package/app baseline **1.7.1** on **`dev`** (live/thread/path hardening + first-class Checklist system + prior 1.6.x installer/host fixes).
 - Source of version truth: `Packages/.../manifest.json` `package_version` and host csproj `<Version>`.
 - Do not invent version bumps without user intent.
 
@@ -226,4 +229,4 @@ Every meaningful change → update `README.md` + `CHANGELOG.md` + this `AGENTS.m
 - **Learn Mode coding spec:** `Plans/Plan_LearnMode.md` (Phases 1–3 shipped in 1.4.0)
 - **WAV callouts (B2) coding spec:** `Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md` (Phase 1 shipped in 1.5.0)
 - New feature plans go under **`Plans/`** only (not repo root). Runtime live checklists may live at repo root (`Live_Testing.md`).
-- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts + Installer (1.6.x) + Checklist system (1.7.0) are **done** in code (see Complete_Features); human live abnahme still open (Live_Testing / A1).
+- Fenix hybrid + Manual/Commands + Learn Mode full + B2 WAV callouts + Installer (1.6.x) + Checklist system (1.7.0) + **1.7.1 live/security hardening** are **done** in code (see Complete_Features); human live abnahme still open (Live_Testing / A1).

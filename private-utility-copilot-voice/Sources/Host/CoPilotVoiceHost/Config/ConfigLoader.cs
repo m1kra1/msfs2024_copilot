@@ -46,16 +46,25 @@ public static class ConfigLoader
     public static string ChecklistsDirectory(string configRoot) =>
         Path.Combine(configRoot, HostConstants.ChecklistsDirectoryName);
 
-    public static string ChecklistPath(string configRoot, string checklistId) =>
-        Path.Combine(
-            ChecklistsDirectory(configRoot),
-            $"{(string.IsNullOrWhiteSpace(checklistId) ? "unnamed" : checklistId.Trim())}.json");
+    public static string ChecklistPath(string configRoot, string checklistId)
+    {
+        var id = SafeConfigPath.SanitizeId(checklistId, "unnamed");
+        var dir = ChecklistsDirectory(configRoot);
+        var path = Path.GetFullPath(Path.Combine(dir, id + ".json"));
+        if (!SafeConfigPath.IsUnderDirectory(dir, path))
+            throw new InvalidOperationException($"Checklist path escaped config: {checklistId}");
+        return path;
+    }
 
-    public static string AircraftProfilePath(string configRoot, string? profileName) =>
-        Path.Combine(
-            configRoot,
-            HostConstants.AircraftProfilesDirectoryName,
-            $"{HostConstants.NormalizeProfileId(profileName)}.json");
+    public static string AircraftProfilePath(string configRoot, string? profileName)
+    {
+        var id = HostConstants.NormalizeProfileId(profileName);
+        var dir = Path.Combine(configRoot, HostConstants.AircraftProfilesDirectoryName);
+        var path = Path.GetFullPath(Path.Combine(dir, id + ".json"));
+        if (!SafeConfigPath.IsUnderDirectory(dir, path))
+            throw new InvalidOperationException($"Profile path escaped config: {profileName}");
+        return path;
+    }
     public static AppSettings LoadSettings(string settingsPath)
     {
         if (!File.Exists(settingsPath))

@@ -13,6 +13,38 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.7.1] - 2026-08-14
+
+### Fixed
+
+- **Live stability:** `SimVarSnapshot` is now a `ConcurrentDictionary` so dispatch, poll, conditions, Learn, and Status UI no longer race on a plain `Dictionary`.
+- **Native SimConnect:** all `SimConnect_*` calls (including Close) are serialized; failed `Open` handles are closed; `RECV_QUIT` marks the client disconnected; dispatch Join wait increased.
+- **TTS no longer sleeps on the SAPI or 50 ms poll thread.** Delay+play is queued (`TtsSpeakQueue`); delay 0 stays synchronous for tests. Checklist complete/fail speak outside the runner lock.
+- **Auto-detect:** catalog rebuild + TTS run **outside** `_detectLock`.
+- **Poll timer** logs each new exception type instead of swallowing all errors.
+- **CLI:** `--config` / `--inject` / `--vs` / `--learn-export` as last arg no longer throw `IndexOutOfRangeException`. `--help` no longer calls `Environment.Exit` inside `Parse`.
+- **Managed SimConnect fallback:** unknown events get incremental IDs (no longer reuse `GENERIC`); `TransmitClientEvent` overload is resolved by arity.
+- **Checklist Start (GUI):** uses `PumpChecklist` instead of `Thread.Sleep` on the dispatcher.
+
+### Security
+
+- Config IDs used as filenames (`aircraft/*.json`, `checklists/*.json`) are sanitized (`[A-Za-z0-9_-]`) and confined under the target directory.
+- `--learn-export` / Learn export writes only under `extras/learn-exports/`.
+- Native `SimConnect.dll` is loaded **only** from the EXE directory; unmarked / FSW binaries are rejected. Process-wide `SetDllDirectory` and Steam/CWD search are gone.
+- Installer: `manifest.json` is parsed as JSON and must contain exact `package_name`. Optional `payload.sha256` (written by `pack-installer.ps1`) is verified before copy. Uninstall refuses a package path that does not match install-state Community.
+
+### Changed
+
+- `ActionExecutor` history capped at 200; optional `ILogSink`.
+- `PhraseMatcher.Normalize` is a single-pass `StringBuilder`; `AllPhrases` is cached.
+- Status dots use frozen `StatusBrushes` (no per-tick brush alloc).
+- `CopyEditableSettings` now copies speech culture/engine and SimConnect app/index.
+- Host/Installer version **1.7.1**. New helpers: `SafeConfigPath`, `AircraftIdentityService`, `PipelineFingerprints`, `PackageVersionReader`, `PayloadIntegrity`.
+- `scripts/sync-config.ps1` copies PackageSources config/voices → Packages tree.
+- Root `Directory.Build.props` enables nullable + .NET analyzers.
+
+---
+
 ## [1.7.0] - 2026-08-11
 
 ### Added

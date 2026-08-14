@@ -58,18 +58,26 @@ public sealed class WindowsTtsService : ITtsService
     {
         if (string.IsNullOrWhiteSpace(text))
             return;
+        void SpeakNow()
+        {
+            if (_disposed)
+                return;
+            Console.WriteLine($"[TTS] {text}");
+            try
+            {
+                _synth.SpeakAsyncCancelAll();
+                _synth.SpeakAsync(text);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TTS] Speak failed: {ex.Message}");
+            }
+        }
+
         if (delayMs > 0)
-            Thread.Sleep(delayMs);
-        Console.WriteLine($"[TTS] {text}");
-        try
-        {
-            _synth.SpeakAsyncCancelAll();
-            _synth.SpeakAsync(text);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[TTS] Speak failed: {ex.Message}");
-        }
+            TtsSpeakQueue.EnqueueDelayed(delayMs, SpeakNow);
+        else
+            SpeakNow();
     }
 
     public void Dispose()
@@ -89,8 +97,8 @@ public sealed class ConsoleTtsService : ITtsService
 
     public void Speak(string text, int delayMs = 0, string? commandId = null, string? responseKind = null)
     {
-        if (delayMs > 0)
-            Thread.Sleep(delayMs);
+        // Test/headless double: record immediately so inject tests stay deterministic.
+        // Do not Sleep — delay is applied by production TTS via TtsSpeakQueue.
         SpeakLog.Add((text, delayMs, commandId, responseKind, Environment.TickCount64));
         Console.WriteLine($"[TTS] {text}");
     }

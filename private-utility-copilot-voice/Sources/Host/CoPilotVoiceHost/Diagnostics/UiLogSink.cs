@@ -16,7 +16,7 @@ public readonly record struct LogEntry(DateTime Utc, LogLevel Level, string Mess
 /// Thread-safe log fan-out for console + UI. No WPF types.
 /// Bounded ring-style buffer: oldest entries drop when over capacity.
 /// </summary>
-public sealed class UiLogSink
+public sealed class UiLogSink : ILogSink
 {
     public const int DefaultMaxBuffered = 2000;
 

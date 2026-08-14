@@ -12,6 +12,7 @@ namespace CoPilotVoiceHost.SimConnect;
 public sealed class NativeSimConnectClient : ISimConnectClient
 {
     private IntPtr _h = IntPtr.Zero;
+    private readonly object _apiLock = new();
     private Thread? _dispatchThread;
     private volatile bool _run;
     private bool _disposed;
@@ -106,9 +107,15 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             var errors = new List<string>();
             foreach (var (label, index) in attempts.DistinctBy(a => a.Index))
             {
-                var hr = SimConnect_Open(out _h, appName, IntPtr.Zero, 0, IntPtr.Zero, index);
-                if (hr >= 0 && _h != IntPtr.Zero)
+                IntPtr handle;
+                int hr;
+                lock (_apiLock)
+                    hr = SimConnect_Open(out handle, appName, IntPtr.Zero, 0, IntPtr.Zero, index);
+
+                if (hr >= 0 && handle != IntPtr.Zero)
                 {
+                    lock (_apiLock)
+                        _h = handle;
                     Console.WriteLine($"[SimConnect] Open OK via {label} (index=0x{index:X8})");
                     MapAllStandardEvents();
                     RegisterStatusDefinitions();
@@ -129,10 +136,16 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                     return true;
                 }
 
+                if (handle != IntPtr.Zero)
+                {
+                    try { lock (_apiLock) SimConnect_Close(handle); } catch { /* ignore */ }
+                }
+
                 var msg = $"{label} → HRESULT=0x{unchecked((uint)hr):X8}";
                 errors.Add(msg);
                 Console.WriteLine($"[SimConnect] Open failed: {msg}");
-                _h = IntPtr.Zero;
+                lock (_apiLock)
+                    _h = IntPtr.Zero;
             }
 
             StatusMessage =
@@ -158,12 +171,15 @@ public sealed class NativeSimConnectClient : ISimConnectClient
     public void Disconnect()
     {
         _run = false;
-        try { _dispatchThread?.Join(1500); } catch { /* ignore */ }
+        try { _dispatchThread?.Join(2500); } catch { /* ignore */ }
         _dispatchThread = null;
-        if (_h != IntPtr.Zero)
+        lock (_apiLock)
         {
-            try { SimConnect_Close(_h); } catch { /* ignore */ }
-            _h = IntPtr.Zero;
+            if (_h != IntPtr.Zero)
+            {
+                try { SimConnect_Close(_h); } catch { /* ignore */ }
+                _h = IntPtr.Zero;
+            }
         }
         StatusMessage = "Native SimConnect closed";
     }
@@ -173,21 +189,27 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         if (!IsConnected)
             throw new InvalidOperationException("Native SimConnect not connected");
 
-        if (!_eventMap.TryGetValue(eventName, out var id))
+        lock (_apiLock)
         {
-            id = _nextEventId++;
-            var hrMap = SimConnect_MapClientEventToSimEvent(_h, id, eventName);
-            if (hrMap < 0)
-                throw new InvalidOperationException($"MapClientEventToSimEvent({eventName}) failed 0x{hrMap:X8}");
-            _eventMap[eventName] = id;
-        }
+            if (_h == IntPtr.Zero)
+                throw new InvalidOperationException("Native SimConnect not connected");
 
-        // Must pass GROUPID_IS_PRIORITY so GroupID is a priority (SDK example). Flags=0 treats
-        // GroupID as a notification group we never registered — events appear sent but sim ignores them.
-        var hr = SimConnect_TransmitClientEvent(
-            _h, OBJECT_USER, id, data, GroupPriorityHighest, EventFlagGroupIdIsPriority);
-        if (hr < 0)
-            throw new InvalidOperationException($"TransmitClientEvent({eventName}) failed 0x{hr:X8}");
+            if (!_eventMap.TryGetValue(eventName, out var id))
+            {
+                id = _nextEventId++;
+                var hrMap = SimConnect_MapClientEventToSimEvent(_h, id, eventName);
+                if (hrMap < 0)
+                    throw new InvalidOperationException($"MapClientEventToSimEvent({eventName}) failed 0x{hrMap:X8}");
+                _eventMap[eventName] = id;
+            }
+
+            // Must pass GROUPID_IS_PRIORITY so GroupID is a priority (SDK example). Flags=0 treats
+            // GroupID as a notification group we never registered — events appear sent but sim ignores them.
+            var hr = SimConnect_TransmitClientEvent(
+                _h, OBJECT_USER, id, data, GroupPriorityHighest, EventFlagGroupIdIsPriority);
+            if (hr < 0)
+                throw new InvalidOperationException($"TransmitClientEvent({eventName}) failed 0x{hr:X8}");
+        }
 
         Console.WriteLine($"[SimConnect] LIVE event sent: {eventName} data={data}");
         StatusMessage = $"Event sent: {eventName}";
@@ -211,37 +233,46 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         var unitName = string.IsNullOrWhiteSpace(units) ? "number" : units.Trim();
         var key = datumName + "|" + unitName;
 
-        if (!_setVarDefs.TryGetValue(key, out var defId))
+        lock (_apiLock)
         {
-            defId = _nextSetDefId++;
-            // Clear leftover definition id then register single FLOAT64 field.
-            try { SimConnect_ClearDataDefinition(_h, defId); } catch { /* first use */ }
+            if (_h == IntPtr.Zero)
+            {
+                StatusMessage = $"SetSimVar offline snapshot only: {name}={value} {units}";
+                return;
+            }
 
-            var hrDef = SimConnect_AddToDataDefinition(
-                _h, defId, datumName, unitName, DATATYPE_FLOAT64, 0f, uint.MaxValue);
-            if (hrDef < 0)
-                throw new InvalidOperationException(
-                    $"AddToDataDefinition({datumName}) failed 0x{unchecked((uint)hrDef):X8}");
+            if (!_setVarDefs.TryGetValue(key, out var defId))
+            {
+                defId = _nextSetDefId++;
+                // Clear leftover definition id then register single FLOAT64 field.
+                try { SimConnect_ClearDataDefinition(_h, defId); } catch { /* first use */ }
 
-            _setVarDefs[key] = defId;
-        }
+                var hrDef = SimConnect_AddToDataDefinition(
+                    _h, defId, datumName, unitName, DATATYPE_FLOAT64, 0f, uint.MaxValue);
+                if (hrDef < 0)
+                    throw new InvalidOperationException(
+                        $"AddToDataDefinition({datumName}) failed 0x{unchecked((uint)hrDef):X8}");
 
-        var ptr = Marshal.AllocHGlobal(sizeof(double));
-        try
-        {
-            Marshal.StructureToPtr(value, ptr, false);
-            var hr = SimConnect_SetDataOnSimObject(
-                _h, defId, OBJECT_USER, DATA_SET_FLAG_DEFAULT, 0, sizeof(double), ptr);
-            if (hr < 0)
-                throw new InvalidOperationException(
-                    $"SetDataOnSimObject({datumName}={value}) failed 0x{unchecked((uint)hr):X8}");
+                _setVarDefs[key] = defId;
+            }
 
-            Console.WriteLine($"[SimConnect] LIVE SetSimVar: {datumName}={value} {unitName}");
-            StatusMessage = $"SetSimVar: {datumName}={value} {unitName}";
-        }
-        finally
-        {
-            Marshal.FreeHGlobal(ptr);
+            var ptr = Marshal.AllocHGlobal(sizeof(double));
+            try
+            {
+                Marshal.StructureToPtr(value, ptr, false);
+                var hr = SimConnect_SetDataOnSimObject(
+                    _h, defId, OBJECT_USER, DATA_SET_FLAG_DEFAULT, 0, sizeof(double), ptr);
+                if (hr < 0)
+                    throw new InvalidOperationException(
+                        $"SetDataOnSimObject({datumName}={value}) failed 0x{unchecked((uint)hr):X8}");
+
+                Console.WriteLine($"[SimConnect] LIVE SetSimVar: {datumName}={value} {unitName}");
+                StatusMessage = $"SetSimVar: {datumName}={value} {unitName}";
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
         }
     }
 
@@ -360,6 +391,14 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             return;
         }
 
+        lock (_apiLock)
+        {
+        if (_h == IntPtr.Zero)
+        {
+            Console.WriteLine("[SimConnect] SetLearnWatchDefinitions skipped — not connected");
+            return;
+        }
+
         _learnFieldNames.Clear();
         _loggedFirstLearn = false;
         try { SimConnect_ClearDataDefinition(_h, DEFINITION_LEARN); } catch { /* first use */ }
@@ -400,27 +439,40 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             PERIOD_SECOND, 0, 0, 0, 0);
         if (reqHr < 0)
             Console.WriteLine($"[SimConnect] RequestData learn failed hr=0x{unchecked((uint)reqHr):X8}");
+        }
     }
 
     public void ClearLearnWatchDefinitions()
     {
+        lock (_apiLock)
+        {
         _learnFieldNames.Clear();
         _loggedFirstLearn = false;
-        if (!IsConnected)
+        if (_h == IntPtr.Zero)
             return;
 
         try { SimConnect_ClearDataDefinition(_h, DEFINITION_LEARN); } catch { /* ignore */ }
         // Re-request with empty def is unnecessary after clear; stop by not re-registering.
         Console.WriteLine("[SimConnect] DEF_LEARN cleared");
+        }
     }
 
     private void DispatchLoop()
     {
-        while (_run && _h != IntPtr.Zero)
+        while (_run)
         {
             try
             {
-                var hr = SimConnect_GetNextDispatch(_h, out var pData, out var cb);
+                int hr;
+                IntPtr pData;
+                uint cb;
+                lock (_apiLock)
+                {
+                    if (_h == IntPtr.Zero)
+                        break;
+                    hr = SimConnect_GetNextDispatch(_h, out pData, out cb);
+                }
+
                 if (hr == 0 && pData != IntPtr.Zero && cb > 0)
                     ProcessDispatch(pData, cb);
                 else
@@ -446,6 +498,15 @@ public sealed class NativeSimConnectClient : ISimConnectClient
         {
             StatusMessage = "SimConnect quit from sim";
             _run = false;
+            lock (_apiLock)
+            {
+                if (_h != IntPtr.Zero)
+                {
+                    try { SimConnect_Close(_h); } catch { /* ignore */ }
+                    _h = IntPtr.Zero;
+                }
+            }
+
             return;
         }
 
@@ -595,15 +656,6 @@ public sealed class NativeSimConnectClient : ISimConnectClient
 
             try
             {
-                SetDllDirectory(dir);
-                // Also put cfg next to the DLL directory if host runs from elsewhere
-                var cfgBesideDll = Path.Combine(dir, "SimConnect.cfg");
-                if (!File.Exists(cfgBesideDll) && File.Exists(Path.Combine(AppContext.BaseDirectory, "SimConnect.cfg")))
-                {
-                    try { File.Copy(Path.Combine(AppContext.BaseDirectory, "SimConnect.cfg"), cfgBesideDll, overwrite: false); }
-                    catch { /* ignore */ }
-                }
-
                 NativeLibrary.Load(candidate);
                 loadedFrom = candidate;
                 detail = "OK";
@@ -615,25 +667,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
             }
         }
 
-        // Default loader path last (only if not already rejected as FSW in app dir)
-        try
-        {
-            var appDll = Path.Combine(AppContext.BaseDirectory, "SimConnect.dll");
-            if (File.Exists(appDll) && IsCompatibleMsfsClientDll(appDll, out _))
-            {
-                NativeLibrary.Load("SimConnect.dll");
-                loadedFrom = "SimConnect.dll (system/app path)";
-                detail = "OK";
-                return true;
-            }
-        }
-        catch (Exception ex)
-        {
-            rejected.Add($"default load: {ex.Message}");
-        }
-
         detail =
-            "No compatible Microsoft SimConnect.dll found. " +
+            "No compatible Microsoft SimConnect.dll found next to the EXE. " +
             "Rejected/missing: " + (rejected.Count > 0 ? string.Join(" | ", rejected) : "none") +
             ". Place the MSFS SDK redistributable SimConnect.dll next to CoPilotVoiceHost.exe " +
             "(must NOT be Flight Sim World / Dovetail).";
@@ -673,8 +708,16 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                 // continue with content scan
             }
 
-            // Content markers
-            var bytes = File.ReadAllBytes(path);
+            // Content markers — cap read so a planted huge file cannot allocate the process
+            var scanLen = (int)Math.Min(fi.Length, 2 * 1024 * 1024);
+            var bytes = new byte[scanLen];
+            using (var fs = File.OpenRead(path))
+            {
+                var read = fs.Read(bytes, 0, bytes.Length);
+                if (read < bytes.Length)
+                    Array.Resize(ref bytes, read);
+            }
+
             var ascii = Encoding.ASCII.GetString(bytes);
             if (ascii.Contains("Dovetail", StringComparison.Ordinal)
                 || ascii.Contains("Flight Sim World", StringComparison.Ordinal))
@@ -683,7 +726,7 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                 return false;
             }
 
-            // Prefer MSFS markers when present
+            // Require MSFS markers — unmarked binaries are rejected (DLL plant)
             if (ascii.Contains("KittyHawk", StringComparison.Ordinal)
                 || ascii.Contains("Microsoft Flight Simulator", StringComparison.Ordinal)
                 || ascii.Contains("SimConnect_Port_IPv4", StringComparison.Ordinal))
@@ -692,9 +735,8 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                 return true;
             }
 
-            // Unknown but not FSW — allow attempt
-            reason = "ok (unmarked)";
-            return true;
+            reason = "unmarked (no MSFS SimConnect markers)";
+            return false;
         }
         catch (Exception ex)
         {
@@ -713,40 +755,9 @@ public sealed class NativeSimConnectClient : ISimConnectClient
                 list.Add(p);
         }
 
+        // Only the EXE directory — Community folder copies are the intended source.
+        // CWD / Steam / SDK walks were a DLL-plant and connect-latency surface.
         Add(AppContext.BaseDirectory);
-        Add(Directory.GetCurrentDirectory());
-
-        var env = Environment.GetEnvironmentVariable("MSFS_SDK");
-        if (!string.IsNullOrEmpty(env))
-        {
-            Add(Path.Combine(env, "SimConnect SDK", "lib"));
-            Add(Path.Combine(env, "SimConnect SDK", "lib", "static"));
-            Add(Path.Combine(env, "SimConnect SDK", "lib", "x64"));
-        }
-
-        Add(@"C:\MSFS 2024 SDK\SimConnect SDK\lib");
-        Add(@"C:\MSFS SDK\SimConnect SDK\lib");
-        Add(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "Microsoft Flight Simulator 2024 SDK", "SimConnect SDK", "lib"));
-
-        // Do NOT prefer Addon Manager\couatl (often FSW-era DLL).
-
-        foreach (var steamRoot in new[]
-                 {
-                     @"F:\SteamLibrary\steamapps\common",
-                     @"C:\Program Files (x86)\Steam\steamapps\common",
-                     @"D:\SteamLibrary\steamapps\common"
-                 })
-        {
-            if (!Directory.Exists(steamRoot)) continue;
-            try
-            {
-                foreach (var d in Directory.GetDirectories(steamRoot, "*MSFS*"))
-                    Add(d);
-            }
-            catch { /* ignore */ }
-        }
 
         return list;
     }

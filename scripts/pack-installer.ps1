@@ -56,6 +56,18 @@ New-Item -ItemType Directory -Force -Path (Split-Path $Payload) | Out-Null
 if (Test-Path $Payload) { Remove-Item -Recurse -Force $Payload }
 Copy-Item -Recurse -Force $PackagesTree $Payload
 
+Write-Host "==> Write payload.sha256"
+$HashFile = Join-Path $Dist "payload.sha256"
+$HashLines = @()
+Get-ChildItem -Path $Payload -Recurse -File | Sort-Object FullName | ForEach-Object {
+    $rel = $_.FullName.Substring($Payload.Length).TrimStart('\', '/').Replace('\', '/')
+    if ($rel -match '\.\.') { return }
+    $hash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLowerInvariant()
+    $HashLines += "$hash  $rel"
+}
+Set-Content -Path $HashFile -Value $HashLines -Encoding ASCII
+Copy-Item -Force $HashFile (Join-Path $Payload "payload.sha256") -ErrorAction SilentlyContinue
+
 Write-Host ""
 Write-Host "Done. Distribution folder:"
 Write-Host "  $Dist"

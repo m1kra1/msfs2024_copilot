@@ -21,7 +21,7 @@ public sealed class HostSession : IDisposable
     private const int IdentityPollEveryNTicks = 10;
 
     private readonly HostOptions _options;
-    private readonly object _gateLock = new();
+    private readonly object _pipelineSwapLock = new();
     private ISimConnectClient? _sim;
     private ActionExecutor? _executor;
     private CommandProcessor? _processor;
@@ -69,6 +69,7 @@ public sealed class HostSession : IDisposable
 
     /// <summary>Last pipeline services fingerprint (matcher/PTT/TTS/behavior).</summary>
     private string _activePipelineServicesKey = "";
+    private string? _lastPollExceptionType;
 
     /// <summary>
     /// When CLI --profile is set, auto profile switching is locked for the session.
@@ -82,7 +83,7 @@ public sealed class HostSession : IDisposable
     public CommandCatalog Catalog { get; private set; } = new();
     public AircraftDetectionConfig DetectionConfig => _detectionConfig;
     public string ApplicationVersion { get; }
-    public string PackageVersion { get; private set; } = "1.4.0";
+    public string PackageVersion { get; private set; } = "";
 
     /// <summary>How many times speech listening was (re)started — for tests and diagnostics.</summary>
     public int SpeechStartCount { get; private set; }
@@ -159,7 +160,8 @@ public sealed class HostSession : IDisposable
     public HostSession(HostOptions options)
     {
         _options = options;
-        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.4.0";
+        ApplicationVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0";
+        PackageVersion = ApplicationVersion;
     }
 
     /// <summary>Initialize config + SimConnect + speech pipeline (does not block on stdin).</summary>
@@ -558,15 +560,11 @@ public sealed class HostSession : IDisposable
     /// </summary>
     public string ExportLearnDetections(string? path = null)
     {
-        var target = string.IsNullOrWhiteSpace(path)
-            ? Path.Combine(
-                AppContext.BaseDirectory,
-                $"learn-detections-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json")
-            : path.Trim();
-
-        var dir = Path.GetDirectoryName(Path.GetFullPath(target));
-        if (!string.IsNullOrEmpty(dir))
-            Directory.CreateDirectory(dir);
+        var extras = ConfigLoader.ResolveExtrasRoot(ConfigRoot);
+        var exportRoot = Path.Combine(extras, "learn-exports");
+        var defaultName = $"learn-detections-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json";
+        var target = SafeConfigPath.ConfineFile(exportRoot, path, defaultName);
+        var dir = Path.GetDirectoryName(target);
 
         var json = _learnCapture.ExportRecentJson();
         File.WriteAllText(target, json);
@@ -741,93 +739,79 @@ public sealed class HostSession : IDisposable
     /// </summary>
     public void ProcessAircraftIdentity(string? title, string? atcModel)
     {
+        AircraftIdentityService.Decision decision;
         lock (_detectLock)
         {
-            var key = AircraftProfileMatcher.IdentityKey(title, atcModel);
-            var displayTitle = AircraftProfileMatcher.DisplayTitle(title);
-            var displayModel = (atcModel ?? string.Empty).Trim();
-
-            // Empty identity: Unknown display — notify once, not every poll.
-            if (key.Length == 0)
-            {
-                if (_lastSeenDisplayIdentityKey is not null
-                    && _lastSeenDisplayIdentityKey.Length == 0)
-                    return;
-
-                _lastSeenDisplayIdentityKey = "";
-                DetectedAircraftTitle = AircraftProfileMatcher.UnknownTitle;
-                DetectedAtcModel = "";
-                StatusChanged?.Invoke();
-                return;
-            }
-
             var canAutoSwitch = Settings.AutoDetectAircraft && !CliProfileLocked;
+            decision = AircraftIdentityService.Evaluate(
+                title,
+                atcModel,
+                _lastSeenDisplayIdentityKey,
+                _lastDetectedIdentityKey,
+                canAutoSwitch,
+                Settings.AircraftProfile,
+                _detectionConfig,
+                EnsureProfileExists);
 
-            // When auto-switch is off/locked: update display + log only if identity changed.
-            // Do NOT stamp _lastDetectedIdentityKey (false→true re-eval must still work).
-            if (!canAutoSwitch)
+            if (decision.Silent)
+                return;
+
+            DetectedAircraftTitle = decision.DisplayTitle;
+            DetectedAtcModel = decision.DisplayModel;
+            _lastSeenDisplayIdentityKey = decision.IdentityKey;
+            if (canAutoSwitch)
+                _lastDetectedIdentityKey = decision.IdentityKey;
+
+            if (decision.UpdateDisplayOnly && !decision.SwitchProfile)
             {
-                if (string.Equals(key, _lastSeenDisplayIdentityKey, StringComparison.Ordinal))
+                if (decision.IdentityKey.Length == 0)
+                {
+                    StatusChanged?.Invoke();
                     return;
+                }
 
-                _lastSeenDisplayIdentityKey = key;
-                DetectedAircraftTitle = displayTitle;
-                DetectedAtcModel = displayModel;
-
-                var matchedPreview = EnsureProfileExists(
-                    AircraftProfileMatcher.ResolveProfile(_detectionConfig, title, atcModel));
                 Log.Info(
-                    $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{matchedPreview}'" +
+                    $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{decision.MatchedProfile}'" +
                     (CliProfileLocked ? " (CLI --profile lock: no switch)" : " (auto-detect off: no switch)"));
                 StatusChanged?.Invoke();
                 return;
             }
 
-            // Auto can switch: silent if this identity was already handled for switching.
-            if (string.Equals(key, _lastDetectedIdentityKey, StringComparison.Ordinal))
-                return;
-
-            _lastDetectedIdentityKey = key;
-            _lastSeenDisplayIdentityKey = key;
-            DetectedAircraftTitle = displayTitle;
-            DetectedAtcModel = displayModel;
-
-            var matched = EnsureProfileExists(
-                AircraftProfileMatcher.ResolveProfile(_detectionConfig, title, atcModel));
-
-            Log.Info(
-                $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{matched}'");
-
-            if (string.Equals(Settings.AircraftProfile, matched, StringComparison.OrdinalIgnoreCase))
+            if (!decision.SwitchProfile)
             {
+                Log.Info(
+                    $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{decision.MatchedProfile}'");
                 StatusChanged?.Invoke();
                 return;
             }
 
-            var previous = Settings.AircraftProfile;
-            Settings.AircraftProfile = matched;
-            RebuildCatalogFromCurrentSettings();
-            RebuildPipelineServices(force: true);
-            if (_speechListening)
-                StartSpeechListening();
-
-            AutoDetectProfileSwitchCount++;
-            Log.Info($"[AircraftDetect] Profile switched: '{previous}' → '{matched}' (catalog rebuilt)");
-
-            if (Settings.AnnounceProfileSwitch && _tts is not null)
-            {
-                try
-                {
-                    _tts.Speak($"Aircraft profile {matched}.", 0);
-                }
-                catch
-                {
-                    // TTS optional
-                }
-            }
-
-            StatusChanged?.Invoke();
+            Settings.AircraftProfile = decision.MatchedProfile;
         }
+
+        // Rebuild + TTS outside the detect lock so poll/SAPI are not blocked.
+        RebuildCatalogFromCurrentSettings();
+        RebuildPipelineServices(force: true);
+        if (_speechListening)
+            StartSpeechListening();
+
+        AutoDetectProfileSwitchCount++;
+        Log.Info(
+            $"[AircraftDetect] title='{DetectedAircraftTitle}' model='{DetectedAtcModel}' → profile '{decision.MatchedProfile}'");
+        Log.Info($"[AircraftDetect] Profile switched: '{decision.PreviousProfile}' → '{decision.MatchedProfile}' (catalog rebuilt)");
+
+        if (Settings.AnnounceProfileSwitch && _tts is not null)
+        {
+            try
+            {
+                _tts.Speak($"Aircraft profile {decision.MatchedProfile}.", 0);
+            }
+            catch
+            {
+                // TTS optional
+            }
+        }
+
+        StatusChanged?.Invoke();
     }
 
     public void ReloadFromDisk()
@@ -994,7 +978,15 @@ public sealed class HostSession : IDisposable
                     }
                 }
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
+            {
+                var type = ex.GetType().FullName ?? ex.GetType().Name;
+                if (!string.Equals(type, _lastPollExceptionType, StringComparison.Ordinal))
+                {
+                    _lastPollExceptionType = type;
+                    Log.Warn($"[Host] Poll error ({type}): {ex.Message}");
+                }
+            }
         }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(PollIntervalMs));
 
         if (!_options.ForceOffline)
@@ -1404,8 +1396,10 @@ public sealed class HostSession : IDisposable
             }
         }
 
+        lock (_pipelineSwapLock)
+        {
         _matcher = new PhraseMatcher(Catalog.Commands);
-        _executor = new ActionExecutor(_sim);
+        _executor = new ActionExecutor(_sim, Log);
         _processor = new CommandProcessor(
             _matcher,
             new ConditionEngine(),
@@ -1426,6 +1420,7 @@ public sealed class HostSession : IDisposable
             ? new ConsoleTtsService()
             : CreateTts(Settings.Tts);
         _tts.ApplySettings(Settings.Tts);
+        }
 
         EnsureChecklistRunner(forceRebuild: true);
         RebuildChecklistIndex();
@@ -1500,70 +1495,13 @@ public sealed class HostSession : IDisposable
     /// <summary>
     /// Inputs that require reloading System.Speech grammar (wake prefixes + phrase set + culture).
     /// </summary>
-    private string ComputeSpeechGrammarKey()
-    {
-        var sb = new StringBuilder(256);
-        sb.Append(Settings.Speech.WakeWord ?? "").Append('\u001f');
-        sb.Append(Settings.Speech.Culture ?? "").Append('\u001f');
-        sb.Append(Settings.Speech.Engine ?? "").Append('\u001f');
-        sb.Append(ActiveProfileName()).Append('\u001f');
-        sb.Append(CatalogFingerprint()).Append('\u001f');
-        sb.Append(ChecklistFingerprint());
-        return sb.ToString();
-    }
+    private string ComputeSpeechGrammarKey() =>
+        PipelineFingerprints.SpeechGrammar(Settings, ActiveProfileName(), Catalog, _checklists);
 
-    private string ChecklistFingerprint()
-    {
-        var list = ChecklistCatalog.ForProfile(_checklists, ActiveProfileName());
-        var sb = new StringBuilder(list.Count * 24);
-        sb.Append(list.Count);
-        foreach (var c in list.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
-        {
-            sb.Append('|').Append(c.Id).Append(':').Append(c.Phrases.Count);
-            if (c.Phrases.Count > 0)
-                sb.Append(':').Append(c.Phrases[0]);
-            sb.Append('#').Append(c.Items.Count);
-        }
+    private string ComputePipelineServicesKey(string? speechKey = null) =>
+        PipelineFingerprints.PipelineServices(speechKey ?? ComputeSpeechGrammarKey(), Settings);
 
-        return sb.ToString();
-    }
-
-    /// <summary>Pipeline services fingerprint (includes speech key + PTT/TTS/behavior).</summary>
-    private string ComputePipelineServicesKey(string? speechKey = null)
-    {
-        speechKey ??= ComputeSpeechGrammarKey();
-        var sb = new StringBuilder(speechKey.Length + 128);
-        sb.Append(speechKey).Append('\u001f');
-        sb.Append(Settings.Speech.PttKey ?? "").Append('\u001f');
-        sb.Append(Settings.Speech.PttGraceMs).Append('\u001f');
-        sb.Append(Settings.Speech.ContinuousListen).Append('\u001f');
-        sb.Append(Settings.Speech.ConfidenceThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .Append('\u001f');
-        sb.Append(Settings.Tts.Engine ?? "").Append('\u001f');
-        sb.Append(Settings.Tts.Voice ?? "").Append('\u001f');
-        sb.Append(Settings.Tts.Rate).Append('\u001f');
-        sb.Append(Settings.Tts.Volume).Append('\u001f');
-        sb.Append(Settings.Tts.VoicePack ?? "").Append('\u001f');
-        sb.Append(Settings.Behavior.RequirePositiveClimbForGearUp).Append('\u001f');
-        sb.Append(Settings.Behavior.ConfirmBeforeAction).Append('\u001f');
-        sb.Append(Settings.Behavior.CalloutDelayMs);
-        return sb.ToString();
-    }
-
-    private string CatalogFingerprint()
-    {
-        var cmds = Catalog.Commands;
-        var sb = new StringBuilder(cmds.Count * 24);
-        sb.Append(cmds.Count);
-        foreach (var c in cmds.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
-        {
-            sb.Append('|').Append(c.Id).Append(':').Append(c.Phrases.Count);
-            if (c.Phrases.Count > 0)
-                sb.Append(':').Append(c.Phrases[0]);
-        }
-
-        return sb.ToString();
-    }
+    private string CatalogFingerprint() => PipelineFingerprints.Catalog(Catalog);
 
     private void ConnectSimClient()
     {
@@ -1610,9 +1548,13 @@ public sealed class HostSession : IDisposable
     {
         to.Speech.WakeWord = from.Speech.WakeWord;
         to.Speech.PttKey = from.Speech.PttKey;
+        to.Speech.Culture = from.Speech.Culture;
+        to.Speech.Engine = from.Speech.Engine;
         to.Speech.ConfidenceThreshold = from.Speech.ConfidenceThreshold;
         to.Speech.ContinuousListen = from.Speech.ContinuousListen;
         to.Speech.PttGraceMs = from.Speech.PttGraceMs;
+        to.SimConnect.AppName = from.SimConnect.AppName;
+        to.SimConnect.ConfigIndex = from.SimConnect.ConfigIndex;
         to.Tts.Engine = from.Tts.Engine;
         to.Tts.Voice = from.Tts.Voice;
         to.Tts.Rate = from.Tts.Rate;
@@ -1628,32 +1570,8 @@ public sealed class HostSession : IDisposable
 
     private void LoadPackageVersionHint()
     {
-        try
-        {
-            var dir = new DirectoryInfo(ConfigRoot);
-            for (var i = 0; i < 6 && dir != null; i++, dir = dir.Parent)
-            {
-                var manifest = Path.Combine(dir.FullName, HostConstants.ManifestFileName);
-                if (!File.Exists(manifest))
-                    manifest = Path.Combine(
-                        dir.FullName, "Packages", HostConstants.PackageName, HostConstants.ManifestFileName);
-                if (!File.Exists(manifest)) continue;
-                var text = File.ReadAllText(manifest);
-                var marker = "\"package_version\"";
-                var idx = text.IndexOf(marker, StringComparison.Ordinal);
-                if (idx < 0) continue;
-                var colon = text.IndexOf(':', idx);
-                var q1 = text.IndexOf('"', colon + 1);
-                var q2 = text.IndexOf('"', q1 + 1);
-                if (q1 > 0 && q2 > q1)
-                    PackageVersion = text.Substring(q1 + 1, q2 - q1 - 1);
-                break;
-            }
-        }
-        catch
-        {
-            PackageVersion = ApplicationVersion;
-        }
+        PackageVersion = PackageVersionReader.TryFindNearConfig(ConfigRoot, ApplicationVersion)
+                         ?? ApplicationVersion;
     }
 
     private ITtsService CreateTts(TtsSettings settings)

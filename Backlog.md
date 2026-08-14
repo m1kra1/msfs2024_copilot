@@ -5,7 +5,7 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-11 · Release **1.7.0** |
+| **Stand** | 2026-08-14 · Release **1.7.1** |
 | **Branch** | `main` / `dev` |
 | **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
@@ -20,7 +20,7 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 |------|--------|
 | **P0** | A1 Live Fenix Cockpit-Verifikation (Human) |
 | **P1** | C1 LVar-Read Conditions · C2 Dynamische Event-Map · C4 `simvar_aliases` · C5 Profile-`extends` |
-| **P2** | A4 Fenix Overhead · B5 Dynamic Info-Commands · B6 Action-Delays · B7 Command-Validierung · D1 HostSession · D2 MainWindow · D4 Config-Sync · D5 Tests |
+| **P2** | A4 Fenix Overhead · B5 Dynamic Info-Commands · B6 Action-Delays · B7 Command-Validierung · D1 HostSession (rest) · D2 MainWindow · D5 Tests (rest) |
 | **P3** | B3 Host Auto-Start · B8 SimConnect Reconnect UX · D3 Logging |
 | **Optional** | A2 iniBuilds A350 · B4 list_commands Export · C3 H/B-Event Bridge |
 | **Prozess / Policy** | E1 Docs-SSOT · D6 WASM Marker belassen |
@@ -28,6 +28,11 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 ---
 
 ## Done (recent)
+
+### Live / security hardening — **DONE** in **1.7.1**
+
+Thread-safe snapshot, native SimConnect API lock, TTS speak queue, path confine, EXE-only SimConnect.dll, installer `package_name` + `payload.sha256`, CLI parse, ILogSink, `sync-config.ps1`.  
+Details: [CHANGELOG.md](CHANGELOG.md) · [Complete_Features.md](Complete_Features.md).
 
 ### Checklist system (first-class) — **DONE** in **1.7.0**
 
@@ -211,9 +216,9 @@ Host auto-start with MSFS remains **B3** (not done).
 
 ---
 
-### D1. HostSession entflechten
+### D1. HostSession entflechten (rest)
 
-**Beschreibung:** `HostSession.cs` (~950 LOC) bündelt Config-Apply, Identity, Speech, SimConnect, Inject, Headless.
+**Beschreibung:** `HostSession.cs` (~1500 LOC) bleibt Fassade. **1.7.1** hat bereits `AircraftIdentityService`, `PipelineFingerprints`, `PackageVersionReader` extrahiert. Rest: Learn/Checklist/Speech-Lifecycle weiter auslagern.
 
 **Warum:** Weniger Regression-Risiko; klarere Unit-Tests pro Concern.
 
@@ -231,7 +236,7 @@ Host auto-start with MSFS remains **B3** (not done).
 
 ### D2. MainWindow.xaml.cs verkleinern
 
-**Beschreibung:** UI Code-Behind ~776 LOC (Tabs, Binding, Commands-Editor).
+**Beschreibung:** UI Code-Behind ~1640 LOC (Tabs, Binding, Commands-Editor). Status-Brushes sind extrahiert (`StatusBrushes`); Tab-UserControls noch offen.
 
 **Warum:** Thin-Shell-Regel: UI soll nur layout/click → session sein.
 
@@ -244,18 +249,9 @@ Host auto-start with MSFS remains **B3** (not done).
 
 ---
 
-### D4. Config-Sync PackageSources ↔ Packages
+### D4. Config-Sync PackageSources ↔ Packages — **DONE** in **1.7.1**
 
-**Beschreibung:** Zwei Config-Trees können driften (PackageSources vs Packages shipped).
-
-**Warum:** Source of Truth ist PackageSources; Community-Package kann veraltete JSON haben.
-
-**Architektur / Implementierung:**
-- Script `sync-config.ps1`: kopiert `PackageSources/extras/config` → `Packages/.../extras/config`.
-- README/AGENTS: „nach Config-Edit Script laufen lassen“.
-- Optional: Test der prüft, dass kritische Files hash-gleich sind (nur in CI/dev).
-
-**Prio:** P2
+`scripts/sync-config.ps1` (auch von `pack-installer.ps1` via extras copy). Optionaler Hash-Test bleibt offen.
 
 ---
 

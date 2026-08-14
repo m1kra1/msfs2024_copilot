@@ -11,6 +11,20 @@ public static class Program
     public static int Main(string[] args)
     {
         var options = HostOptions.Parse(args);
+        if (options.ShowHelp)
+        {
+            EnsureConsole();
+            HostOptions.PrintHelpPublic();
+            return 0;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.ParseError))
+        {
+            EnsureConsole();
+            Console.Error.WriteLine(options.ParseError);
+            HostOptions.PrintHelpPublic();
+            return 2;
+        }
 
         // One-shot CLI and explicit headless keep console pipeline (tests + automation).
         var forceHeadless = options.Headless
@@ -176,6 +190,8 @@ public sealed class HostOptions
     public bool LearnDump { get; init; }
     /// <summary>Optional path to write Learn detections JSON after run / dump.</summary>
     public string? LearnExportPath { get; init; }
+    public bool ShowHelp { get; init; }
+    public string? ParseError { get; init; }
 
     public static HostOptions Parse(string[] args)
     {
@@ -193,6 +209,21 @@ public sealed class HostOptions
         var headless = false;
         var learnDump = false;
         string? learnExport = null;
+        var showHelp = false;
+        string? parseError = null;
+
+        bool TakeValue(ref int i, string flag, out string value)
+        {
+            if (i + 1 >= args.Length)
+            {
+                parseError = $"{flag} requires a value.";
+                value = "";
+                return false;
+            }
+
+            value = args[++i];
+            return true;
+        }
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -200,13 +231,16 @@ public sealed class HostOptions
             switch (a)
             {
                 case "--config":
-                    config = args[++i];
+                    if (!TakeValue(ref i, a, out config!))
+                        break;
                     break;
                 case "--profile":
-                    profile = args[++i];
+                    if (!TakeValue(ref i, a, out profile!))
+                        break;
                     break;
                 case "--inject":
-                    inject = args[++i];
+                    if (!TakeValue(ref i, a, out inject!))
+                        break;
                     break;
                 case "--offline":
                     offline = true;
@@ -221,7 +255,14 @@ public sealed class HostOptions
                     once = true;
                     break;
                 case "--vs":
-                    vs = double.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture);
+                    if (!TakeValue(ref i, a, out var vsText))
+                        break;
+                    if (!double.TryParse(vsText, System.Globalization.CultureInfo.InvariantCulture, out var parsedVs))
+                    {
+                        parseError = "--vs requires a number.";
+                        break;
+                    }
+                    vs = parsedVs;
                     break;
                 case "--ptt":
                     simPtt = true;
@@ -239,12 +280,12 @@ public sealed class HostOptions
                     learnDump = true;
                     break;
                 case "--learn-export":
-                    learnExport = args[++i];
+                    if (!TakeValue(ref i, a, out learnExport!))
+                        break;
                     break;
                 case "--help":
                 case "-h":
-                    PrintHelp();
-                    Environment.Exit(0);
+                    showHelp = true;
                     break;
             }
         }
@@ -264,9 +305,13 @@ public sealed class HostOptions
             AllowOfflineFallback = allowOffline || offline,
             Headless = headless,
             LearnDump = learnDump,
-            LearnExportPath = learnExport
+            LearnExportPath = learnExport,
+            ShowHelp = showHelp,
+            ParseError = parseError
         };
     }
+
+    public static void PrintHelpPublic() => PrintHelp();
 
     private static void PrintHelp()
     {

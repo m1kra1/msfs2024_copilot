@@ -35,40 +35,16 @@ public static class PayloadLocator
         var manifest = Path.Combine(path, InstallerConstants.ManifestFileName);
         if (!File.Exists(manifest))
             return false;
-        try
-        {
-            var text = File.ReadAllText(manifest);
-            return text.Contains(InstallerConstants.ManifestPackageHint, StringComparison.OrdinalIgnoreCase)
-                   || text.Contains("Private Voice Co-Pilot", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
+        if (!PayloadIntegrity.TryReadPackageIdentity(manifest, out var packageName, out _))
             return false;
-        }
+        return PayloadIntegrity.HasExactPackageName(packageName);
     }
 
     public static string? ReadPackageVersion(string packageRoot)
     {
-        try
-        {
-            var manifest = Path.Combine(packageRoot, InstallerConstants.ManifestFileName);
-            if (!File.Exists(manifest))
-                return null;
-            var text = File.ReadAllText(manifest);
-            const string marker = "\"package_version\"";
-            var idx = text.IndexOf(marker, StringComparison.Ordinal);
-            if (idx < 0) return null;
-            var colon = text.IndexOf(':', idx);
-            var q1 = text.IndexOf('"', colon + 1);
-            var q2 = text.IndexOf('"', q1 + 1);
-            if (q1 > 0 && q2 > q1)
-                return text.Substring(q1 + 1, q2 - q1 - 1);
-        }
-        catch
-        {
-            // ignore
-        }
-
-        return null;
+        var manifest = Path.Combine(packageRoot, InstallerConstants.ManifestFileName);
+        return PayloadIntegrity.TryReadPackageIdentity(manifest, out _, out var version)
+            ? version
+            : null;
     }
 }

@@ -35,6 +35,20 @@ public static class InstallService
             if (payload is null || !PayloadLocator.IsValidPackageRoot(payload))
                 return Fail("Install payload not found. Run pack-installer.ps1 or place package under payload/private-utility-copilot-voice.");
 
+            var hashFile = Path.Combine(
+                Path.GetDirectoryName(payload.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                ?? payload,
+                PayloadIntegrity.HashFileName);
+            if (!File.Exists(hashFile))
+                hashFile = Path.Combine(AppContext.BaseDirectory, PayloadIntegrity.HashFileName);
+            if (File.Exists(hashFile))
+            {
+                var integrity = PayloadIntegrity.VerifyHashManifest(payload, hashFile);
+                if (integrity is not null)
+                    return Fail("Payload integrity check failed: " + integrity);
+                Report(options, "Payload integrity verified.");
+            }
+
             var dest = CommunityDetector.GetPackageInstallPath(options.CommunityPath);
             Report(options, $"Target: {dest}");
 
@@ -136,6 +150,14 @@ public static class InstallService
             packagePath = Path.GetFullPath(packagePath);
             if (!CanSafelyDeletePackage(packagePath))
                 return Fail($"Refusing to delete '{packagePath}' — not a recognized Co-Pilot package.");
+
+            if (state is not null && !string.IsNullOrWhiteSpace(state.CommunityPath)
+                && Directory.Exists(state.CommunityPath))
+            {
+                var expected = CommunityDetector.GetPackageInstallPath(state.CommunityPath);
+                if (!string.Equals(Path.GetFullPath(expected), packagePath, StringComparison.OrdinalIgnoreCase))
+                    return Fail($"Refusing to delete '{packagePath}' — does not match install state Community path.");
+            }
 
             progress?.Invoke("Removing shortcuts…");
             ShortcutService.RemoveShortcuts();

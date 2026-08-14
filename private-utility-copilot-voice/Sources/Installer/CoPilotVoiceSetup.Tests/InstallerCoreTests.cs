@@ -95,9 +95,10 @@ public class InstallerCoreTests
             Assert.False(InstallService.CanSafelyDeletePackage(pkg));
             File.WriteAllText(Path.Combine(pkg, "manifest.json"),
                 """{"package_version":"1.5.0","title":"Private Voice Co-Pilot"}""");
-            // Still false until package folder name matches - path is correct name
+            Assert.False(InstallService.CanSafelyDeletePackage(pkg));
+            File.WriteAllText(Path.Combine(pkg, "manifest.json"),
+                """{"package_name":"private-utility-copilot-voice","package_version":"1.5.0","title":"Private Voice Co-Pilot"}""");
             Assert.Equal(InstallerConstants.PackageFolderName, Path.GetFileName(pkg), ignoreCase: true);
-            // Manifest has title but not package id string - IsValidPackageRoot checks hint OR title
             Assert.True(InstallService.CanSafelyDeletePackage(pkg));
         }
         finally
@@ -153,7 +154,7 @@ public class InstallerCoreTests
         Directory.CreateDirectory(Path.Combine(payload, "extras", "config", "aircraft"));
         Directory.CreateDirectory(Path.Combine(payload, "extras"));
         File.WriteAllText(Path.Combine(payload, "manifest.json"),
-            """{"package_version":"1.5.0","title":"Private Voice Co-Pilot"}""");
+            """{"package_name":"private-utility-copilot-voice","package_version":"1.5.0","title":"Private Voice Co-Pilot"}""");
         File.WriteAllText(Path.Combine(payload, "extras", "CoPilotVoiceHost.exe"), "fake-exe");
         File.WriteAllText(Path.Combine(payload, "extras", "config", "settings.json"), """{"v":"new"}""");
         File.WriteAllText(Path.Combine(payload, "extras", "config", "base_commands.json"), """{"base":"new"}""");
@@ -163,7 +164,7 @@ public class InstallerCoreTests
         var dest = Path.Combine(community, InstallerConstants.PackageFolderName);
         Directory.CreateDirectory(Path.Combine(dest, "extras", "config", "aircraft"));
         File.WriteAllText(Path.Combine(dest, "manifest.json"),
-            """{"package_version":"1.4.0","title":"Private Voice Co-Pilot"}""");
+            """{"package_name":"private-utility-copilot-voice","package_version":"1.4.0","title":"Private Voice Co-Pilot"}""");
         File.WriteAllText(Path.Combine(dest, "extras", "config", "settings.json"), """{"v":"user"}""");
         File.WriteAllText(Path.Combine(dest, "extras", "config", "aircraft", "fenix_a320.json"), """{"p":"fenix"}""");
         File.WriteAllText(Path.Combine(dest, "extras", "config", "base_commands.json"), """{"base":"old"}""");
@@ -205,6 +206,33 @@ public class InstallerCoreTests
                     InstallStateStore.Delete();
             }
             catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void PayloadIntegrity_Requires_Exact_Package_Name()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "copilot-int-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var titleOnly = Path.Combine(root, "title.json");
+            File.WriteAllText(titleOnly, """{"title":"Private Voice Co-Pilot","package_version":"1.0"}""");
+            Assert.False(PayloadLocator.IsValidPackageRoot(root));
+
+            File.WriteAllText(Path.Combine(root, "manifest.json"),
+                """{"package_name":"private-utility-copilot-voice","package_version":"1.7.1"}""");
+            File.WriteAllText(Path.Combine(root, "dummy.bin"), "abc");
+            var hash = Path.Combine(root, "payload.sha256");
+            PayloadIntegrity.WriteHashManifest(root, hash);
+            Assert.Null(PayloadIntegrity.VerifyHashManifest(root, hash));
+
+            File.WriteAllText(Path.Combine(root, "dummy.bin"), "tampered");
+            Assert.Contains("hash mismatch", PayloadIntegrity.VerifyHashManifest(root, hash), StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { /* ignore */ }
         }
     }
 

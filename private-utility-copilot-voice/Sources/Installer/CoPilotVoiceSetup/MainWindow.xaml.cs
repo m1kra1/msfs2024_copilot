@@ -534,7 +534,11 @@ public partial class MainWindow : Window
 
         try
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
         }
         catch (Exception ex)
         {

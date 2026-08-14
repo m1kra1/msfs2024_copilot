@@ -5,11 +5,11 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.7.0 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.7.1 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
 - **Implemented features:** [Complete_Features.md](Complete_Features.md)
 - **Backlog / planned work:** [Backlog.md](Backlog.md)
-- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.7.0)*
+- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.7.1)*
 - **Learn Mode (shipped 1.4.0):** [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
 - **Feature plans:** [Plans/](Plans/) (specs for shipped and upcoming work)
 
@@ -108,6 +108,8 @@ Then run:
 ```text
 dist/CoPilotVoiceSetup/CoPilotVoiceSetup.exe
 ```
+
+The pack script also writes `payload.sha256`. Setup verifies it when present and requires `manifest.json` `package_name` = `private-utility-copilot-voice`. After editing canonical config, run `scripts/sync-config.ps1` (or just pack).
 
 The wizard:
 

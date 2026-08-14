@@ -235,7 +235,7 @@ public sealed class AircraftProfile
 /// <summary>Live or fixture snapshot of SimVars used by the condition engine.</summary>
 public sealed class SimVarSnapshot
 {
-    private readonly Dictionary<string, double> _values =
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, double> _values =
         new(StringComparer.OrdinalIgnoreCase);
 
     public void Set(string name, double value) => _values[Normalize(name)] = value;

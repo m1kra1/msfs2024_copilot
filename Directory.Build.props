@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Warnings-as-errors can be enabled per project after the analyzer baseline is clean. -->
+  </PropertyGroup>
+</Project>

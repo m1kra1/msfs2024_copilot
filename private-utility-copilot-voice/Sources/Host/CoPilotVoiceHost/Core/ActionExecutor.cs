@@ -1,3 +1,4 @@
+using CoPilotVoiceHost.Diagnostics;
 using CoPilotVoiceHost.Models;
 using CoPilotVoiceHost.SimConnect;
 
@@ -6,12 +7,14 @@ namespace CoPilotVoiceHost.Core;
 public sealed class ActionExecutor
 {
     private readonly ISimConnectClient _client;
+    private readonly ILogSink? _log;
     private readonly List<ExecutedAction> _history = new();
     private readonly List<string> _errors = new();
 
-    public ActionExecutor(ISimConnectClient client)
+    public ActionExecutor(ISimConnectClient client, ILogSink? log = null)
     {
         _client = client;
+        _log = log;
     }
 
     public IReadOnlyList<ExecutedAction> History => _history;
@@ -33,20 +36,20 @@ public sealed class ActionExecutor
                         if (!_client.IsConnected)
                         {
                             _errors.Add($"Not connected — cannot send event {action.Name}");
-                            Console.WriteLine($"[Action] FAIL event:{action.Name} — SimConnect not connected");
+                            Write($"[Action] FAIL event:{action.Name} — SimConnect not connected");
                             break;
                         }
 
                         _client.TransmitEvent(action.Name, (uint)(action.Value ?? 0));
-                        _history.Add(new ExecutedAction(HostConstants.ActionTypeEvent, action.Name, action.Value));
+                        AddHistory(new ExecutedAction(HostConstants.ActionTypeEvent, action.Name, action.Value));
                         done.Add(action);
                         if (!_client.IsLive)
-                            Console.WriteLine($"[Action] event:{action.Name} recorded but NOT live");
+                            Write($"[Action] event:{action.Name} recorded but NOT live");
                         break;
                     case HostConstants.ActionTypeSimVar:
                     case HostConstants.ActionTypeSetSimVar:
                         _client.SetSimVar(action.Name, action.Value ?? 0, action.Units ?? "number");
-                        _history.Add(new ExecutedAction(HostConstants.ActionTypeSimVar, action.Name, action.Value));
+                        AddHistory(new ExecutedAction(HostConstants.ActionTypeSimVar, action.Name, action.Value));
                         done.Add(action);
                         break;
                     default:
@@ -57,7 +60,7 @@ public sealed class ActionExecutor
             catch (Exception ex)
             {
                 _errors.Add($"{action.Type}:{action.Name} → {ex.Message}");
-                Console.WriteLine($"[Action] FAIL {action.Type}:{action.Name} — {ex.Message}");
+                Write($"[Action] FAIL {action.Type}:{action.Name} — {ex.Message}");
             }
         }
 
@@ -65,6 +68,22 @@ public sealed class ActionExecutor
     }
 
     public void ClearHistory() => _history.Clear();
+
+    private void AddHistory(ExecutedAction item)
+    {
+        _history.Add(item);
+        var overflow = _history.Count - HostConstants.ActionHistoryMax;
+        if (overflow > 0)
+            _history.RemoveRange(0, overflow);
+    }
+
+    private void Write(string message)
+    {
+        if (_log is not null)
+            _log.Info(message);
+        else
+            Console.WriteLine(message);
+    }
 }
 
 public readonly record struct ExecutedAction(string Type, string Name, double? Value);

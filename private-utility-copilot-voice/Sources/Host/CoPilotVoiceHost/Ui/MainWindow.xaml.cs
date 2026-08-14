@@ -203,9 +203,9 @@ public partial class MainWindow : Window
         Title = live ? "CoPilot Voice Host – Live" : "CoPilot Voice Host – Offline";
         HeaderMode.Text = live ? "Mode: Live" : "Mode: Offline";
 
-        ConnDot.Fill = new SolidColorBrush(connected
-            ? (live ? MediaColor.FromRgb(0x2E, 0xCC, 0x71) : MediaColor.FromRgb(0xF3, 0x9C, 0x12))
-            : MediaColor.FromRgb(0xE7, 0x4C, 0x3C));
+        ConnDot.Fill = connected
+            ? (live ? StatusBrushes.LiveGreen : StatusBrushes.OfflineAmber)
+            : StatusBrushes.DisconnectedRed;
         StatusBarText.Text = connected
             ? (live ? "Connected · Live" : "Connected · Offline recording")
             : "Disconnected · Offline";
@@ -287,9 +287,7 @@ public partial class MainWindow : Window
         TxtLastPhrase.Text = string.IsNullOrWhiteSpace(_session.LastPhrase) ? "—" : _session.LastPhrase;
         TxtConfidence.Text = _session.LastConfidence > 0 ? _session.LastConfidence.ToString("F2", CultureInfo.InvariantCulture) : "—";
         TxtLastAction.Text = string.IsNullOrWhiteSpace(_session.LastAction) ? "—" : _session.LastAction;
-        MicDot.Fill = new SolidColorBrush(_session.MicActive
-            ? MediaColor.FromRgb(0x2E, 0xCC, 0x71)
-            : MediaColor.FromRgb(0x3A, 0x42, 0x50));
+        MicDot.Fill = _session.MicActive ? StatusBrushes.LiveGreen : StatusBrushes.MicIdle;
         TxtMic.Text = _session.MicActive ? "Active (PTT/arm)" : "Idle";
         TxtVersions.Text = $"Application {_session.ApplicationVersion} · Package {_session.PackageVersion}";
 
@@ -1719,9 +1717,8 @@ public partial class MainWindow : Window
         }
 
         _session.StartChecklist(_clSelected.Id);
-        // Drive a few ticks so first challenge/execute runs without waiting for poll.
-        for (var i = 0; i < 5 && _session.ChecklistActive; i++)
-            System.Threading.Thread.Sleep(10);
+        // Drive a few ticks so first challenge/execute runs without blocking the dispatcher.
+        _session.PumpChecklist(5);
         RefreshChecklistProgressOnly();
         ClStatus.Text = $"Started '{_clSelected.Id}'.";
     }

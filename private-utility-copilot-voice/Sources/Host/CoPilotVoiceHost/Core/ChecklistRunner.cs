@@ -310,6 +310,8 @@ public sealed class ChecklistRunner
 
     private void AdvanceToNextItem(DateTime utcNow)
     {
+        string? speakId = null;
+        string? speakName = null;
         lock (_lock)
         {
             if (_active is null) return;
@@ -326,52 +328,59 @@ public sealed class ChecklistRunner
                 _currentChallenge = "";
                 _lastResult = "completed";
                 RaiseProgressUnlocked();
-                var id = _active.Id;
-                var name = _active.Name;
+                speakId = _active.Id;
+                speakName = _active.Name;
                 _active = null;
                 _state = ChecklistRunState.Idle;
-                // Speak outside lock below
-                _speak($"{name} checklist complete.", 0, id, TtsResponseKind.Success);
-                return;
             }
-
-            _state = ChecklistRunState.Speaking;
-            _statusMessage = "Next item";
-            _currentChallenge = _active.Items[_itemIndex].Challenge ?? "";
-            RaiseProgressUnlocked();
+            else
+            {
+                _state = ChecklistRunState.Speaking;
+                _statusMessage = "Next item";
+                _currentChallenge = _active.Items[_itemIndex].Challenge ?? "";
+                RaiseProgressUnlocked();
+            }
         }
+
+        if (speakId is not null)
+            _speak($"{speakName} checklist complete.", 0, speakId, TtsResponseKind.Success);
     }
 
     private void CompleteSuccess()
     {
+        string? id = null;
+        string? name = null;
         lock (_lock)
         {
             if (_active is null) return;
-            var id = _active.Id;
-            var name = _active.Name;
+            id = _active.Id;
+            name = _active.Name;
             _state = ChecklistRunState.Completed;
             _statusMessage = "Complete";
             _lastResult = "completed";
             RaiseProgressUnlocked();
             _active = null;
             _state = ChecklistRunState.Idle;
-            _speak($"{name} checklist complete.", 0, id, TtsResponseKind.Success);
         }
+
+        _speak($"{name} checklist complete.", 0, id, TtsResponseKind.Success);
     }
 
     private void Fail(string message)
     {
+        string? id;
         lock (_lock)
         {
-            var id = _active?.Id;
+            id = _active?.Id;
             _state = ChecklistRunState.Failed;
             _statusMessage = message;
             _lastResult = "failed";
             RaiseProgressUnlocked();
             _active = null;
             _state = ChecklistRunState.Idle;
-            _speak(message, 0, id, TtsResponseKind.Reject);
         }
+
+        _speak(message, 0, id, TtsResponseKind.Reject);
     }
 
     private List<ActionDefinition>? ResolveExecuteActions(ChecklistItem item)

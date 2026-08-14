@@ -5,6 +5,7 @@ namespace CoPilotVoiceHost.Core;
 public sealed class PhraseMatcher
 {
     private readonly List<(string NormalizedPhrase, string[] Tokens, CommandDefinition Command)> _index = new();
+    private readonly IReadOnlyList<string> _allPhrases;
 
     public PhraseMatcher(IEnumerable<CommandDefinition> commands)
     {
@@ -24,23 +25,35 @@ public sealed class PhraseMatcher
 
         // Longer phrases first so "positive climb gear up" beats "gear up" on equal score ties
         _index.Sort((a, b) => b.NormalizedPhrase.Length.CompareTo(a.NormalizedPhrase.Length));
+        _allPhrases = _index.Select(x => x.NormalizedPhrase).Distinct().ToList();
     }
 
-    public IReadOnlyList<string> AllPhrases =>
-        _index.Select(x => x.NormalizedPhrase).Distinct().ToList();
+    public IReadOnlyList<string> AllPhrases => _allPhrases;
 
     public static string Normalize(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
 
-        var chars = text.Trim().ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
-            .ToArray();
-        var collapsed = new string(chars);
-        while (collapsed.Contains("  ", StringComparison.Ordinal))
-            collapsed = collapsed.Replace("  ", " ", StringComparison.Ordinal);
-        return collapsed.Trim();
+        var sb = new System.Text.StringBuilder(text.Length);
+        var pendingSpace = false;
+        foreach (var raw in text)
+        {
+            var c = char.ToLowerInvariant(raw);
+            if (char.IsLetterOrDigit(c))
+            {
+                if (pendingSpace && sb.Length > 0)
+                    sb.Append(' ');
+                sb.Append(c);
+                pendingSpace = false;
+            }
+            else
+            {
+                pendingSpace = sb.Length > 0;
+            }
+        }
+
+        return sb.ToString();
     }
 
     public static string[] Tokenize(string normalized) =>

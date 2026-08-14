@@ -31,6 +31,8 @@ public static class HostConstants
     public const double DefaultOfflineVerticalSpeedFpm = 500;
 
     // ── Checklist system ──────────────────────────────────────────────────────
+    public const int ActionHistoryMax = 200;
+
     public const int ChecklistDefaultGlobalDelayMs = 400;
     public const int ChecklistMaxDelayMs = 5000;
     public const string ChecklistDefaultResponseOk = "Checked";
@@ -55,6 +57,12 @@ public static class HostConstants
     public const int LearnDebounceMs = 400;
 
     /// <summary>Whitespace / null → <see cref="DefaultProfileId"/>; otherwise trimmed name.</summary>
-    public static string NormalizeProfileId(string? profileName) =>
-        string.IsNullOrWhiteSpace(profileName) ? DefaultProfileId : profileName.Trim();
+    /// <summary>Whitespace / null → <see cref="DefaultProfileId"/>; unsafe ids (path segments) also fall back.</summary>
+    public static string NormalizeProfileId(string? profileName)
+    {
+        if (string.IsNullOrWhiteSpace(profileName))
+            return DefaultProfileId;
+        var trimmed = profileName.Trim();
+        return Config.SafeConfigPath.IsSafeId(trimmed) ? trimmed : DefaultProfileId;
+    }
 }
