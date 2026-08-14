@@ -1,11 +1,11 @@
-# Live-Testing — Private Voice Co-Pilot (1.7.1)
+# Live-Testing — Private Voice Co-Pilot (1.7.2)
 
 Menschliche Abnahme in Free Flight / am Installer.  
 **Status (Stand 2026-08-11):** Live testing aktuell **noch nicht** durchgeführt.
 
 | | |
 |--|--|
-| **Baseline** | Package/App **1.7.1** (`dev` / `main`) |
+| **Baseline** | Package/App **1.7.2** (`dev` / `main`) |
 | **Dist** | `dist/CoPilotVoiceSetup/` (nach `scripts/pack-installer.ps1`) |
 | **Unit tests** | Host 129 + Installer 9 (Release) — grün vor diesem Release |
 | **Verwandt** | Fenix P0 Backlog **A1** · [Backlog.md](Backlog.md) · Features: [Complete_Features.md](Complete_Features.md) |
@@ -18,7 +18,7 @@ Ergebnis je Block mit **Pass / Fail / N/A** und kurzer Notiz (Datum, Aircraft, B
 
 ### 0.1 Build / Distribution
 
-- [ ] Repo auf **1.7.1** (`manifest.json` / Host-Version / Setup-Version)
+- [ ] Repo auf **1.7.2** (`manifest.json` / Host-Version / Setup-Version)
 - [ ] Optional frisch packen:
 
 ```powershell
@@ -242,7 +242,7 @@ Nur mit Fenix A320 in Free Flight, Status **Live**, Profil **`fenix_a320`**.
 Nach erfolgreichem Live-Test:
 
 1. Diese Datei Status-Zeile oben auf **durchgeführt** setzen (Datum + Kurzfazit).
-2. Optional [CHANGELOG.md](CHANGELOG.md) / [Backlog.md](Backlog.md) A1 abhaken oder Notes ergänzen.
+2. Optional [CHANGELOG.md](../CHANGELOG.md) / [Backlog.md](Backlog.md) A1 abhaken oder Notes ergänzen.
 3. Profil-Fixes nur in **aircraft JSON** (PackageSources), nie Hardcode in C#.
 
 ---

@@ -13,6 +13,16 @@ Versioning follows package `package_version` where applicable.
 
 ---
 
+## [1.7.2] - 2026-08-14
+
+### Changed
+
+- **Domain language:** `docs/CONTEXT.md` — Intent, Constraints, and Ubiquitous Language for the Voice Co-Pilot (Command vs Checklist, Live vs Connected, Aircraft Profile vs Detected Aircraft).
+- **Docs layout:** project markdown other than `README.md`, `CHANGELOG.md`, and `AGENTS.md` now lives under `docs/` (`CONTEXT.md`, `Complete_Features.md`, `Backlog.md`, `Live_Testing.md`, `Plans/`).
+- **Context map:** `docs/CONTEXT-MAP.md` — Voice Co-Pilot, Setup, MSFS, Windows Speech and their DDD relationships (Shared Kernel, ACL, Conformist).
+
+---
+
 ## [1.7.1] - 2026-08-14
 
 ### Fixed
@@ -142,7 +152,7 @@ Versioning follows package `package_version` where applicable.
   - **MVP:** GUI **Learn** tab — watches (status + catalog + manual), detections, Mapped/Unmapped/Ambiguous, create/edit → **Save to active profile**, isolated SimConnect DEF_LEARN (SECOND), self-echo suppress (~750 ms).
   - **Phase G:** `config/learn_watchlist.json` (exclude + default watches), profile `learn_watch` (Fenix seed), debounce (400 ms same-signal), multi-var `GroupId` per Observe pass.
   - **Phase H:** `LearnActionHints` dual-write suggestions (event + set_simvar), **Export JSON** (GUI + `ExportLearnDetections`), headless `--learn-dump` / `--learn-export <path>`.
-  - Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints`. Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md).
+  - Core: `CommandMappingIndex`, `LearnWatchBuilder`, `LearnCaptureService`, `LearnActionHints`. Spec: [docs/Plans/Plan_LearnMode.md](docs/Plans/Plan_LearnMode.md).
 
 ### Changed
 

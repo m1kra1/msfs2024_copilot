@@ -7,7 +7,7 @@ Vollständige Übersicht aller **bereits umgesetzten** Funktionalitäten des Pro
 |--|--|
 | **Stand** | 2026-08-14 |
 | **Branch** | `main` / `dev` |
-| **Baseline** | Package/App **1.7.1** |
+| **Baseline** | Package/App **1.7.2** |
 | **Geplante Arbeit** | siehe [Backlog.md](Backlog.md) · Live-Test: [Live_Testing.md](Live_Testing.md) · Learn Mode Spec: [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) |
 
 ---
@@ -476,9 +476,10 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 
 | Datei | Rolle |
 |-------|--------|
-| [README.md](README.md) | User-facing Overview, Install, Usage |
-| [CHANGELOG.md](CHANGELOG.md) | Versionshistorie |
-| [AGENTS.md](AGENTS.md) | Agent/Developer-Konventionen |
+| [README.md](../README.md) | User-facing Overview, Install, Usage |
+| [CHANGELOG.md](../CHANGELOG.md) | Versionshistorie |
+| [AGENTS.md](../AGENTS.md) | Agent/Developer-Konventionen |
+| [CONTEXT.md](CONTEXT.md) | Intent, Constraints, Ubiquitous Language |
 | **Complete_Features.md** (diese Datei) | Feature-SSOT (umgesetzt) |
 | [Backlog.md](Backlog.md) | Offene Features & Verbesserungen |
 
@@ -502,6 +503,7 @@ dotnet test private-utility-copilot-voice/Sources/Host/CoPilotVoiceHost.Tests -c
 | **1.6.3** | Live events: native `TransmitClientEvent` + `GROUPID_IS_PRIORITY`; Settings dirty-guard (Auto-Detect abschaltbar / manuelles Profil während Live-Refresh); `Live_Testing.md` |
 | **1.7.0** | First-class Checklist system (`config/checklists/`, runner, Checklists GUI tab); legacy `checklist_*` multi-action commands removed |
 | **1.7.1** | Live stability (thread-safe snapshot, SimConnect API lock, non-blocking TTS), path/DLL/installer integrity, CLI parse hardening |
+| **1.7.2** | Domain `CONTEXT.md`, project docs under `docs/`, `CONTEXT-MAP.md` (Voice Co-Pilot / Setup / MSFS / Windows Speech) |
 
 ---
 

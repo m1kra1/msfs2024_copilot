@@ -5,9 +5,9 @@ Umgesetzte Funktionalität: [Complete_Features.md](Complete_Features.md).
 
 | | |
 |--|--|
-| **Stand** | 2026-08-14 · Release **1.7.1** |
+| **Stand** | 2026-08-14 · Release **1.7.2** |
 | **Branch** | `main` / `dev` |
-| **Architektur-Lock** | Siehe [AGENTS.md](AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
+| **Architektur-Lock** | Siehe [AGENTS.md](../AGENTS.md) — Core free of WPF, JSON-first, kein busy Poll, WASM ohne Co-Pilot-Logik |
 
 Jedes Item enthält: **Beschreibung**, **Warum**, **Architektur / Implementierung**, **Priorität**.  
 IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio**.
@@ -32,22 +32,22 @@ IDs (`A1`, `B2`, …) bleiben stabil; die **Abschnittsreihenfolge folgt der Prio
 ### Live / security hardening — **DONE** in **1.7.1**
 
 Thread-safe snapshot, native SimConnect API lock, TTS speak queue, path confine, EXE-only SimConnect.dll, installer `package_name` + `payload.sha256`, CLI parse, ILogSink, `sync-config.ps1`.  
-Details: [CHANGELOG.md](CHANGELOG.md) · [Complete_Features.md](Complete_Features.md).
+Details: [CHANGELOG.md](../CHANGELOG.md) · [Complete_Features.md](Complete_Features.md).
 
 ### Checklist system (first-class) — **DONE** in **1.7.0**
 
 `config/checklists/*.json`, `ChecklistRunner` (verify/execute, continue/stop), GUI **Checklists** tab, voice start on whole-word `checklist`. Legacy multi-action `checklist_*` commands removed.  
-Details: [Complete_Features.md](Complete_Features.md) §5c · [CHANGELOG.md](CHANGELOG.md).
+Details: [Complete_Features.md](Complete_Features.md) §5c · [CHANGELOG.md](../CHANGELOG.md).
 
 ### L0 / L0b / L0c. Learn-Modus (full) — **DONE** in **1.4.0**
 
 MVP + Phase G (watchlists, profile `learn_watch`, debounce/group) + Phase H (action hints, export, headless dump).  
-Details: [Complete_Features.md](Complete_Features.md) §5b · [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) · [CHANGELOG.md](CHANGELOG.md).
+Details: [Complete_Features.md](Complete_Features.md) §5b · [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md) · [CHANGELOG.md](../CHANGELOG.md).
 
 ### B2. WAV-Callouts — **DONE** in **1.5.0**
 
 `tts.engine` Hybrid/Wav/Windows + `tts.voice_pack`; `WavTtsService` / `HybridTtsService` / manifests; Austrian + Lufthansa sample packs under `extras/voices/`.  
-Details: [Complete_Features.md](Complete_Features.md) · [Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](CHANGELOG.md).
+Details: [Complete_Features.md](Complete_Features.md) · [Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md](Plans/Plan_B2_WavCallouts_with_samples/Plan_B2_WavCallouts.md) · [CHANGELOG.md](../CHANGELOG.md).
 
 ### Installer (WPF Setup) — **DONE** in **1.6.0** (+ UI **1.6.1** / contrast **1.6.2**)
 

@@ -2,7 +2,7 @@
 
 **Feature-ID:** B2  
 **Prio:** P1  
-**Backlog:** [Backlog.md](https://github.com/m1kra1/msfs2024_copilot/blob/dev/Backlog.md)  
+**Backlog:** [Backlog.md](https://github.com/m1kra1/msfs2024_copilot/blob/dev/docs/Backlog.md)  
 **Branch:** `dev`  
 **Status:** Spec ready — implement on explicit coding request  
 

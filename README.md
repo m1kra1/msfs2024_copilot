@@ -5,13 +5,14 @@ Private-use **utility** mod for Microsoft Flight Simulator 2024. A voice-control
 - **Package name:** `private-utility-copilot-voice`
 - **Creator:** Private  
 - **Type:** Misc (Community only — **not** Marketplace)
-- **Version:** 1.7.1 (see [CHANGELOG.md](CHANGELOG.md))
+- **Version:** 1.7.2 (see [CHANGELOG.md](CHANGELOG.md))
 - **GitHub:** https://github.com/m1kra1/msfs2024_copilot  
-- **Implemented features:** [Complete_Features.md](Complete_Features.md)
-- **Backlog / planned work:** [Backlog.md](Backlog.md)
-- **Live testing checklist:** [Live_Testing.md](Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.7.1)*
-- **Learn Mode (shipped 1.4.0):** [Plans/Plan_LearnMode.md](Plans/Plan_LearnMode.md)
-- **Feature plans:** [Plans/](Plans/) (specs for shipped and upcoming work)
+- **Domain language:** [docs/CONTEXT.md](docs/CONTEXT.md) (Intent, Constraints, Ubiquitous Language)
+- **Implemented features:** [docs/Complete_Features.md](docs/Complete_Features.md)
+- **Backlog / planned work:** [docs/Backlog.md](docs/Backlog.md)
+- **Live testing checklist:** [docs/Live_Testing.md](docs/Live_Testing.md) *(human Free Flight / installer abnahme — not yet run as of 1.7.2)*
+- **Learn Mode (shipped 1.4.0):** [docs/Plans/Plan_LearnMode.md](docs/Plans/Plan_LearnMode.md)
+- **Feature plans:** [docs/Plans/](docs/Plans/) (specs for shipped and upcoming work)
 
 **Docs workflow:** every meaningful code change updates **README.md** and **CHANGELOG.md**, then is pushed to **`dev`** (and **`main`** on releases).
 
@@ -259,9 +260,8 @@ Server-side listen ports come from
 CO_Pilot_msfs2024/
 ├── README.md
 ├── CHANGELOG.md
-├── Complete_Features.md
-├── Backlog.md
-├── Plans/                       # Feature plans (Learn Mode, WAV callouts, future)
+├── AGENTS.md
+├── docs/                        # CONTEXT, features, backlog, live testing, Plans/
 └── private-utility-copilot-voice/
     ├── PackageDefinitions/          # MSFS package definition (MISC, modules + extras)
     ├── PackageSources/
